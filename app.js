@@ -33,6 +33,10 @@ const newEmployeeNameInput = document.getElementById("new-employee-name");
 const addEmployeeButton = document.getElementById("add-employee-button");
 const hoursFields = document.getElementById("hours-fields");
 const recordDayForm = document.getElementById("record-day-form");
+const commentsText = document.getElementById("comments-text");
+const commentsPreview = document.getElementById("comments-preview");
+const voiceCommentButton = document.getElementById("voice-comment-button");
+const voiceStatus = document.getElementById("voice-status");
 const locationSelect = document.getElementById("location-select");
 const locationEmptyState = document.getElementById("location-empty-state");
 const savedEntryPanel = document.getElementById("saved-entry-panel");
@@ -75,6 +79,8 @@ const ownerEmail = allowedEmails[0];
 const authPinCode = String(appConfig.authPinCode || "2740");
 
 let currentSession = null;
+let speechRecognition = null;
+let speechSessionActive = false;
 
 function setStatusMessage(element, message, tone) {
   element.textContent = message;
@@ -294,6 +300,90 @@ function renderAttachmentList() {
   });
 }
 
+function updateCommentsPreview() {
+  const text = commentsText.value.trim();
+
+  if (!text) {
+    commentsPreview.className = "comments-preview empty-state";
+    commentsPreview.textContent = "Dictated or typed comments will appear here.";
+    return;
+  }
+
+  commentsPreview.className = "comments-preview";
+  commentsPreview.textContent = text;
+}
+
+function updateVoiceStatus(message) {
+  voiceStatus.textContent = message;
+}
+
+function setupSpeechRecognition() {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+  if (!SpeechRecognition) {
+    updateVoiceStatus("Speech-to-text is not available on this device. Use the textbox below.");
+    voiceCommentButton.disabled = true;
+    return;
+  }
+
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.continuous = true;
+  speechRecognition.interimResults = true;
+  speechRecognition.lang = "en-US";
+
+  speechRecognition.onstart = () => {
+    speechSessionActive = true;
+    voiceCommentButton.classList.add("listening");
+    updateVoiceStatus("Listening... keep holding the button and speak.");
+  };
+
+  speechRecognition.onresult = (event) => {
+    const transcript = [...event.results]
+      .map((result) => result[0].transcript)
+      .join(" ")
+      .trim();
+
+    commentsText.value = transcript;
+    updateCommentsPreview();
+  };
+
+  speechRecognition.onerror = () => {
+    voiceCommentButton.classList.remove("listening");
+    speechSessionActive = false;
+    updateVoiceStatus("Speech could not be captured. You can still type in the textbox.");
+  };
+
+  speechRecognition.onend = () => {
+    voiceCommentButton.classList.remove("listening");
+    if (speechSessionActive) {
+      speechSessionActive = false;
+      updateVoiceStatus("Speech captured. You can hold again or edit the text below.");
+    }
+  };
+}
+
+function startVoiceCapture() {
+  if (!speechRecognition || speechSessionActive) {
+    return;
+  }
+
+  try {
+    speechRecognition.start();
+  } catch (_error) {
+    updateVoiceStatus("Speech could not start. You can still type in the textbox.");
+  }
+}
+
+function stopVoiceCapture() {
+  if (!speechRecognition || !speechSessionActive) {
+    return;
+  }
+
+  speechSessionActive = false;
+  speechRecognition.stop();
+}
+
 function getSelectedEmployees() {
   return [...document.querySelectorAll('input[name="employee"]:checked')].map(
     (checkbox) => checkbox.value
@@ -328,6 +418,7 @@ function renderHoursFields() {
     input.step = "0.25";
     input.required = true;
     input.placeholder = "Enter hours";
+    input.value = "8";
 
     row.append(label, input);
     hoursFields.appendChild(row);
@@ -369,6 +460,7 @@ async function saveEntryToSupabase(payload) {
     .insert({
       work_date: payload.date,
       location: payload.location,
+      comments: payload.comments,
     })
     .select("id")
     .single();
@@ -435,6 +527,7 @@ async function saveDayEntry(event) {
       size: file.size,
       type: file.type,
     })),
+    comments: commentsText.value.trim(),
   };
 
   try {
@@ -451,6 +544,7 @@ async function saveDayEntry(event) {
     renderHoursFields();
     renderLocations();
     renderAttachmentList();
+    updateCommentsPreview();
   } catch (error) {
     console.error(error);
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
@@ -461,6 +555,7 @@ async function saveDayEntry(event) {
       "error"
     );
     renderAttachmentList();
+    updateCommentsPreview();
   }
 }
 
@@ -476,6 +571,13 @@ attachmentInput.addEventListener("change", renderAttachmentList);
 authForm.addEventListener("submit", sendMagicLink);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
+commentsText.addEventListener("input", updateCommentsPreview);
+voiceCommentButton.addEventListener("mousedown", startVoiceCapture);
+voiceCommentButton.addEventListener("mouseup", stopVoiceCapture);
+voiceCommentButton.addEventListener("mouseleave", stopVoiceCapture);
+voiceCommentButton.addEventListener("touchstart", startVoiceCapture, { passive: true });
+voiceCommentButton.addEventListener("touchend", stopVoiceCapture);
+voiceCommentButton.addEventListener("touchcancel", stopVoiceCapture);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -489,5 +591,7 @@ renderEmployees();
 renderLocations();
 renderHoursFields();
 renderAttachmentList();
+updateCommentsPreview();
 updateMagicLinkButton();
+setupSpeechRecognition();
 initializeAuth();

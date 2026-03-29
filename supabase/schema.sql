@@ -4,6 +4,7 @@ create table if not exists public.day_entries (
   id uuid primary key default gen_random_uuid(),
   work_date date not null,
   location text not null,
+  comments text not null default '',
   created_by uuid not null default auth.uid(),
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -19,6 +20,9 @@ create table if not exists public.day_entry_employees (
 
 alter table public.day_entries
 add column if not exists created_by uuid default auth.uid();
+
+alter table public.day_entries
+add column if not exists comments text default '';
 
 alter table public.day_entry_employees
 add column if not exists created_by uuid default auth.uid();

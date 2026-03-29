@@ -116,6 +116,31 @@
           </fieldset>
 
           <fieldset class="field-set">
+            <legend>Comments</legend>
+            <div class="comment-toolbar">
+              <button id="voice-comment-button" class="mini-button mic-button" type="button">
+                Hold to Dictate
+              </button>
+              <span id="voice-status" class="helper-text">Use the textbox if speech is unavailable.</span>
+            </div>
+
+            <label class="field-group">
+              <span>Comment text</span>
+              <textarea
+                id="comments-text"
+                name="comments"
+                rows="5"
+                placeholder="Add notes about the day"
+                required
+              ></textarea>
+            </label>
+
+            <div id="comments-preview" class="comments-preview empty-state">
+              Dictated or typed comments will appear here.
+            </div>
+          </fieldset>
+
+          <fieldset class="field-set">
             <legend>Location</legend>
             <label class="field-group">
               <span>Select a location</span>
@@ -137,7 +162,7 @@
             <legend>Attachments</legend>
             <label class="field-group field-group-large">
               <span>Add photos or files</span>
-              <input id="day-attachments" name="attachments" type="file" multiple />
+              <input id="day-attachments" name="attachments" type="file" multiple required />
             </label>
             <div id="attachment-list" class="attachment-list empty-state">
               No attachments selected yet.
