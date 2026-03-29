@@ -1,4 +1,8 @@
-const employees = ["Enrique", "Victor", "Martin"];
+const defaultEmployees = [
+  { id: "enrique", firstName: "Enrique", lastName: "", rate: 0 },
+  { id: "victor", firstName: "Victor", lastName: "", rate: 0 },
+  { id: "martin", firstName: "Martin", lastName: "", rate: 0 },
+];
 
 const locations = [
   "Centerville Fremont",
@@ -26,10 +30,15 @@ const screens = {
   "record-day": document.getElementById("record-day-screen"),
   "record-purchase": document.getElementById("record-purchase-screen"),
   "check-hours": document.getElementById("check-hours-screen"),
+  settings: document.getElementById("settings-screen"),
 };
 
 const employeeList = document.getElementById("employee-list");
-const newEmployeeNameInput = document.getElementById("new-employee-name");
+const toggleNewEmployeeButton = document.getElementById("toggle-new-employee-button");
+const newEmployeePanel = document.getElementById("new-employee-panel");
+const newEmployeeFirstNameInput = document.getElementById("new-employee-first-name");
+const newEmployeeLastNameInput = document.getElementById("new-employee-last-name");
+const newEmployeeRateInput = document.getElementById("new-employee-rate");
 const addEmployeeButton = document.getElementById("add-employee-button");
 const hoursFields = document.getElementById("hours-fields");
 const recordDayForm = document.getElementById("record-day-form");
@@ -38,7 +47,8 @@ const recordDayProgressBar = document.getElementById("record-day-progress-bar");
 const recordDayPrevButton = document.getElementById("record-day-prev");
 const recordDayNextButton = document.getElementById("record-day-next");
 const recordDaySaveButton = document.getElementById("record-day-save");
-const recordDaySteps = [...document.querySelectorAll(".wizard-step")];
+const recordDayScreen = document.getElementById("record-day-screen");
+const recordDaySteps = [...recordDayScreen.querySelectorAll(".wizard-step")];
 const workDateInput = document.getElementById("work-date");
 const workDateStatus = document.getElementById("work-date-status");
 const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"]')];
@@ -67,7 +77,8 @@ const recordPurchaseProgressBar = document.getElementById("record-purchase-progr
 const recordPurchasePrevButton = document.getElementById("record-purchase-prev");
 const recordPurchaseNextButton = document.getElementById("record-purchase-next");
 const recordPurchaseSaveButton = document.getElementById("record-purchase-save");
-const recordPurchaseSteps = [...document.querySelectorAll("[data-purchase-step]")];
+const recordPurchaseScreen = document.getElementById("record-purchase-screen");
+const recordPurchaseSteps = [...recordPurchaseScreen.querySelectorAll("[data-purchase-step]")];
 const purchaseRelatedInputs = [...document.querySelectorAll('input[name="purchase-related"]')];
 const purchaseReferenceField = document.getElementById("purchase-reference-field");
 const purchaseReferenceText = document.getElementById("purchase-reference-text");
@@ -87,6 +98,9 @@ const emailDaysButton = document.getElementById("email-days-button");
 const archiveDaysButton = document.getElementById("archive-days-button");
 const checkHoursStatus = document.getElementById("check-hours-status");
 const checkHoursList = document.getElementById("check-hours-list");
+const settingsStatus = document.getElementById("settings-status");
+const settingsEmployeeList = document.getElementById("settings-employee-list");
+const saveSettingsButton = document.getElementById("save-settings-button");
 const developerCreditCard = document.getElementById("developer-credit-card");
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
@@ -132,17 +146,19 @@ let receiptAnalysisText = "";
 let recordedDayDates = new Set();
 let purchaseSupabaseReady = null;
 let dayEntriesCache = [];
+let employees = [];
 
 const recordedDayDatesStorageKey = "recordedDayDates";
 const dayEntriesStorageKey = "dayEntriesHistory";
+const employeeProfilesStorageKey = "employeeProfiles";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
   { title: "Step 2 of 7: Invoice or Ticket" },
   { title: "Step 3 of 7: Employees" },
-  { title: "Step 4 of 7: Comments" },
-  { title: "Step 5 of 7: Location" },
-  { title: "Step 6 of 7: Hours" },
+  { title: "Step 4 of 7: Hours" },
+  { title: "Step 5 of 7: Comments" },
+  { title: "Step 6 of 7: Location" },
   { title: "Step 7 of 7: Attachments" },
 ];
 
@@ -175,6 +191,10 @@ function setCheckHoursStatus(message, tone) {
   setStatusMessage(checkHoursStatus, message, tone);
 }
 
+function setSettingsStatus(message, tone) {
+  setStatusMessage(settingsStatus, message, tone);
+}
+
 function showScreen(screenName) {
   Object.entries(screens).forEach(([name, element]) => {
     element.classList.toggle("hidden", name !== screenName);
@@ -193,6 +213,10 @@ function showScreen(screenName) {
 
   if (screenName === "check-hours") {
     loadCheckHoursEntries();
+  }
+
+  if (screenName === "settings") {
+    renderSettingsEmployees();
   }
 }
 
@@ -250,6 +274,70 @@ function formatDisplayDate(dateValue) {
   });
 }
 
+function slugifyEmployeeName(value) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeEmployeeProfile(employee, fallbackIndex = 0) {
+  const firstName = String(employee.firstName || employee.name || "").trim();
+  const lastName = String(employee.lastName || "").trim();
+  const id =
+    String(employee.id || "").trim() ||
+    slugifyEmployeeName(`${firstName}-${lastName}`) ||
+    `employee-${fallbackIndex}`;
+
+  return {
+    id,
+    firstName,
+    lastName,
+    rate: Number(employee.rate || 0),
+  };
+}
+
+function readStoredEmployees() {
+  try {
+    const rawValue = localStorage.getItem(employeeProfilesStorageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+
+    if (!Array.isArray(parsedValue) || !parsedValue.length) {
+      return defaultEmployees.map((employee, index) => normalizeEmployeeProfile(employee, index));
+    }
+
+    return parsedValue.map((employee, index) => normalizeEmployeeProfile(employee, index));
+  } catch (_error) {
+    return defaultEmployees.map((employee, index) => normalizeEmployeeProfile(employee, index));
+  }
+}
+
+function writeStoredEmployees(nextEmployees) {
+  localStorage.setItem(employeeProfilesStorageKey, JSON.stringify(nextEmployees));
+}
+
+function saveEmployees(nextEmployees) {
+  employees = nextEmployees.map((employee, index) => normalizeEmployeeProfile(employee, index));
+  writeStoredEmployees(employees);
+}
+
+function getEmployeeFullName(employee) {
+  return `${employee.firstName} ${employee.lastName}`.trim();
+}
+
+function getEmployeeLabel(employee) {
+  return getEmployeeFullName(employee) || employee.firstName || "Unnamed employee";
+}
+
+function getEmployeeRate(employee) {
+  return Number(employee.rate || 0);
+}
+
+function getEmployeeById(employeeId) {
+  return employees.find((employee) => employee.id === employeeId) || null;
+}
+
 function readStoredDayEntries() {
   try {
     const rawValue = localStorage.getItem(dayEntriesStorageKey);
@@ -295,6 +383,15 @@ function buildLocalDayEntry(payload, saveResult) {
 
 function getEntryTotalHours(entry) {
   return (entry.employees || []).reduce((sum, item) => sum + Number(item.hours || 0), 0);
+}
+
+function getEntryEmployeeCost(item) {
+  const rate = Number(item.rate ?? getEmployeeById(item.employeeId || "")?.rate ?? 0);
+  return Number(item.hours || 0) * rate;
+}
+
+function getEntryTotalCost(entry) {
+  return (entry.employees || []).reduce((sum, item) => sum + getEntryEmployeeCost(item), 0);
 }
 
 function readStoredRecordedDayDates() {
@@ -360,6 +457,63 @@ async function loadRecordedDayDates() {
   updateWorkDateLockState();
 }
 
+function renderSettingsEmployees() {
+  settingsEmployeeList.innerHTML = employees
+    .map(
+      (employee) => `
+        <section class="settings-card" data-employee-settings-id="${employee.id}">
+          <label class="field-group field-group-large">
+            <span>First name</span>
+            <input type="text" data-field="firstName" value="${employee.firstName}" />
+          </label>
+          <label class="field-group field-group-large">
+            <span>Last name</span>
+            <input type="text" data-field="lastName" value="${employee.lastName}" />
+          </label>
+          <label class="field-group field-group-large">
+            <span>Rate</span>
+            <input
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              data-field="rate"
+              value="${Number(employee.rate || 0).toFixed(2)}"
+            />
+          </label>
+        </section>
+      `
+    )
+    .join("");
+}
+
+function saveSettings() {
+  const nextEmployees = [...settingsEmployeeList.querySelectorAll("[data-employee-settings-id]")]
+    .map((card, index) =>
+      normalizeEmployeeProfile(
+        {
+          id: card.dataset.employeeSettingsId,
+          firstName: card.querySelector('[data-field="firstName"]').value,
+          lastName: card.querySelector('[data-field="lastName"]').value,
+          rate: card.querySelector('[data-field="rate"]').value,
+        },
+        index
+      )
+    )
+    .filter((employee) => employee.firstName);
+
+  saveEmployees(nextEmployees);
+  renderEmployees();
+  renderHoursFields();
+  renderSettingsEmployees();
+  loadCheckHoursEntries();
+  setSettingsStatus("Employee settings saved.", "success");
+}
+
+function toggleNewEmployeePanel() {
+  newEmployeePanel.classList.toggle("hidden");
+}
+
 function renderCheckHoursEntries() {
   const visibleEntries = dayEntriesCache.filter((entry) => !entry.archivedAt);
 
@@ -373,8 +527,12 @@ function renderCheckHoursEntries() {
   checkHoursList.innerHTML = visibleEntries
     .map((entry) => {
       const employees = (entry.employees || [])
-        .map((item) => `${item.employee}: ${item.hours}h`)
-        .join(" | ");
+        .map((item) => {
+          const label =
+            item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
+          return `${label}: ${item.hours}h x $${Number(item.rate || 0).toFixed(2)} = $${getEntryEmployeeCost(item).toFixed(2)}`;
+        })
+        .join("<br />");
       const attachments = (entry.attachments || [])
         .map((item) => {
           if (item.url) {
@@ -393,6 +551,7 @@ function renderCheckHoursEntries() {
               <h3>${formatDisplayDate(entry.date)}</h3>
               <p>${entry.location}</p>
               <p class="entry-pill">Total Hours: ${getEntryTotalHours(entry).toFixed(2)}</p>
+              <p class="entry-pill">Total Day: $${getEntryTotalCost(entry).toFixed(2)}</p>
               ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
               ${entry.comments ? `<p>${entry.comments}</p>` : ""}
               <div class="entry-employees"><strong>People</strong><span>${employees}</span></div>
@@ -413,7 +572,7 @@ async function loadCheckHoursEntries() {
     const { data, error } = await supabaseClient
       .from("day_entries")
       .select(
-        "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)"
+        "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)"
       )
       .is("archived_at", null)
       .order("work_date", { ascending: false });
@@ -427,8 +586,12 @@ async function loadCheckHoursEntries() {
         relatedReference: entry.related_reference || "",
         attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
         employees: (entry.day_entry_employees || []).map((item) => ({
+          employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
           employee: item.employee_name,
+          firstName: item.first_name || item.employee_name || "",
+          lastName: item.last_name || "",
           hours: Number(item.hours),
+          rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
         })),
         archivedAt: entry.archived_at,
         createdAt: entry.created_at,
@@ -457,7 +620,11 @@ function buildDaysEmailBody(entries) {
   return entries
     .map((entry) => {
       const employees = (entry.employees || [])
-        .map((item) => `- ${item.employee}: ${item.hours} hours`)
+        .map((item) => {
+          const label =
+            item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
+          return `- ${label}: ${item.hours} hours x $${Number(item.rate || 0).toFixed(2)} = $${getEntryEmployeeCost(item).toFixed(2)}`;
+        })
         .join("\n");
       const attachments = (entry.attachments || [])
         .map((item) => `- ${item.name}${item.url ? `: ${item.url}` : ""}`)
@@ -468,6 +635,7 @@ function buildDaysEmailBody(entries) {
         `Location: ${entry.location || ""}`,
         `Reference: ${entry.relatedReference || "None"}`,
         `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
+        `Total Day: $${getEntryTotalCost(entry).toFixed(2)}`,
         `Comments: ${entry.comments || ""}`,
         "People:",
         employees || "- None",
@@ -675,11 +843,11 @@ function renderEmployees() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.name = "employee";
-    checkbox.value = employee;
+    checkbox.value = employee.id;
     checkbox.addEventListener("change", renderHoursFields);
 
     const text = document.createElement("span");
-    text.textContent = employee;
+    text.textContent = `${getEmployeeLabel(employee)}${getEmployeeRate(employee) ? ` - $${getEmployeeRate(employee).toFixed(2)}/hr` : ""}`;
 
     label.append(checkbox, text);
     employeeList.appendChild(label);
@@ -831,17 +999,7 @@ function validateCurrentRecordDayStep() {
     return false;
   }
 
-  if (recordDayStepIndex === 3 && !commentsText.value.trim()) {
-    setSaveStatus("Please add comments before continuing.", "error");
-    return false;
-  }
-
-  if (recordDayStepIndex === 4 && !locationSelect.value) {
-    setSaveStatus("Please choose a location before continuing.", "error");
-    return false;
-  }
-
-  if (recordDayStepIndex === 5) {
+  if (recordDayStepIndex === 3) {
     const selectedEmployees = getSelectedEmployees();
     const hasAllHours = selectedEmployees.every((employee) =>
       document.getElementById(`hours-${employee}`)?.value
@@ -851,6 +1009,16 @@ function validateCurrentRecordDayStep() {
       setSaveStatus("Please enter hours for each selected person before continuing.", "error");
       return false;
     }
+  }
+
+  if (recordDayStepIndex === 4 && !commentsText.value.trim()) {
+    setSaveStatus("Please add comments before continuing.", "error");
+    return false;
+  }
+
+  if (recordDayStepIndex === 5 && !locationSelect.value) {
+    setSaveStatus("Please choose a location before continuing.", "error");
+    return false;
   }
 
   if (recordDayStepIndex === 6 && !attachmentInput.files.length) {
@@ -1297,11 +1465,12 @@ function renderHoursFields() {
   hoursFields.innerHTML = "";
 
   selectedEmployees.forEach((employee) => {
+    const employeeProfile = getEmployeeById(employee);
     const row = document.createElement("div");
     row.className = "hours-row";
 
     const label = document.createElement("label");
-    label.textContent = employee;
+    label.textContent = getEmployeeLabel(employeeProfile || { firstName: employee });
     label.setAttribute("for", `hours-${employee}`);
 
     const input = document.createElement("input");
@@ -1320,25 +1489,40 @@ function renderHoursFields() {
 }
 
 function addEmployee() {
-  const newEmployee = newEmployeeNameInput.value.trim();
+  const firstName = newEmployeeFirstNameInput.value.trim();
+  const lastName = newEmployeeLastNameInput.value.trim();
+  const rate = Number(newEmployeeRateInput.value || 0);
 
-  if (!newEmployee) {
+  if (!firstName) {
     return;
   }
 
+  const nextEmployee = normalizeEmployeeProfile(
+    {
+      firstName,
+      lastName,
+      rate,
+    },
+    employees.length
+  );
+
   const alreadyExists = employees.some(
-    (employee) => employee.toLowerCase() === newEmployee.toLowerCase()
+    (employee) =>
+      getEmployeeLabel(employee).toLowerCase() === getEmployeeLabel(nextEmployee).toLowerCase()
   );
 
   if (alreadyExists) {
-    newEmployeeNameInput.value = "";
     return;
   }
 
-  employees.push(newEmployee);
-  newEmployeeNameInput.value = "";
+  saveEmployees([...employees, nextEmployee]);
+  newEmployeeFirstNameInput.value = "";
+  newEmployeeLastNameInput.value = "";
+  newEmployeeRateInput.value = "";
+  newEmployeePanel.classList.add("hidden");
   renderEmployees();
   renderHoursFields();
+  renderSettingsEmployees();
 }
 
 async function saveEntryToSupabase(payload) {
@@ -1395,13 +1579,44 @@ async function saveEntryToSupabase(payload) {
 
   const employeeRows = payload.employees.map((item) => ({
     day_entry_id: dayEntry.id,
+    employee_id: item.employeeId,
     employee_name: item.employee,
+    first_name: item.firstName,
+    last_name: item.lastName,
     hours: item.hours,
+    hourly_rate: item.rate,
+    total_pay: item.totalPay,
   }));
+  const employeeInsertVariants = [
+    employeeRows,
+    payload.employees.map((item) => ({
+      day_entry_id: dayEntry.id,
+      employee_name: item.employee,
+      first_name: item.firstName,
+      last_name: item.lastName,
+      hours: item.hours,
+      hourly_rate: item.rate,
+      total_pay: item.totalPay,
+    })),
+    payload.employees.map((item) => ({
+      day_entry_id: dayEntry.id,
+      employee_name: item.employee,
+      hours: item.hours,
+    })),
+  ];
 
-  const { error: employeesError } = await supabaseClient
-    .from("day_entry_employees")
-    .insert(employeeRows);
+  let employeesError = null;
+
+  for (const employeeInsertPayload of employeeInsertVariants) {
+    const result = await supabaseClient.from("day_entry_employees").insert(employeeInsertPayload);
+
+    if (!result.error) {
+      employeesError = null;
+      break;
+    }
+
+    employeesError = result.error;
+  }
 
   if (employeesError) {
     throw employeesError;
@@ -1584,7 +1799,8 @@ async function saveDayEntry(event) {
   }
 
   const hoursByEmployee = selectedEmployees.map((employee) => ({
-    employee,
+    employeeId: employee,
+    profile: getEmployeeById(employee),
     hours: document.getElementById(`hours-${employee}`).value,
   }));
 
@@ -1592,8 +1808,13 @@ async function saveDayEntry(event) {
     date: workDateInput.value,
     location: locationSelect.value,
     employees: hoursByEmployee.map((item) => ({
-      employee: item.employee,
+      employeeId: item.employeeId,
+      employee: getEmployeeLabel(item.profile || { firstName: item.employeeId }),
+      firstName: item.profile?.firstName || "",
+      lastName: item.profile?.lastName || "",
       hours: Number(item.hours),
+      rate: getEmployeeRate(item.profile || { rate: 0 }),
+      totalPay: Number(item.hours) * getEmployeeRate(item.profile || { rate: 0 }),
     })),
     attachments: [...attachmentInput.files].map((file) => ({
       name: file.name,
@@ -1712,6 +1933,7 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 });
 
 addEmployeeButton.addEventListener("click", addEmployee);
+toggleNewEmployeeButton.addEventListener("click", toggleNewEmployeePanel);
 attachmentInput.addEventListener("change", renderAttachmentList);
 workDateInput.addEventListener("input", updateWorkDateLockState);
 workDateInput.addEventListener("change", updateWorkDateLockState);
@@ -1754,6 +1976,7 @@ voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
 emailDaysButton.addEventListener("click", emailSelectedDays);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
+saveSettingsButton.addEventListener("click", saveSettings);
 savedEntryHomeButton.addEventListener("click", () => {
   resetRecordDayForm();
   showScreen("home");
@@ -1764,18 +1987,20 @@ purchaseSavedHomeButton.addEventListener("click", () => {
   showScreen("home");
 });
 purchaseSavedAnotherButton.addEventListener("click", startAnotherPurchase);
-newEmployeeNameInput.addEventListener("keydown", (event) => {
+newEmployeeFirstNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     addEmployee();
   }
 });
 
+employees = readStoredEmployees();
 renderEmployees();
 renderLocations();
 renderHoursFields();
 renderAttachmentList();
 renderPurchaseReceiptList();
+renderSettingsEmployees();
 updateCommentsPreview();
 updateMagicLinkButton();
 updateDayReferenceField();

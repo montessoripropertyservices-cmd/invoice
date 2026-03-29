@@ -15,8 +15,13 @@ create table if not exists public.day_entries (
 create table if not exists public.day_entry_employees (
   id uuid primary key default gen_random_uuid(),
   day_entry_id uuid not null references public.day_entries(id) on delete cascade,
+  employee_id text,
   employee_name text not null,
+  first_name text not null default '',
+  last_name text not null default '',
   hours numeric(6,2) not null check (hours >= 0),
+  hourly_rate numeric(10,2) not null default 0 check (hourly_rate >= 0),
+  total_pay numeric(10,2) not null default 0 check (total_pay >= 0),
   created_by uuid not null default auth.uid(),
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -49,6 +54,21 @@ add column if not exists archived_at timestamptz;
 
 alter table public.day_entry_employees
 add column if not exists created_by uuid default auth.uid();
+
+alter table public.day_entry_employees
+add column if not exists employee_id text;
+
+alter table public.day_entry_employees
+add column if not exists first_name text default '';
+
+alter table public.day_entry_employees
+add column if not exists last_name text default '';
+
+alter table public.day_entry_employees
+add column if not exists hourly_rate numeric(10,2) default 0;
+
+alter table public.day_entry_employees
+add column if not exists total_pay numeric(10,2) default 0;
 
 alter table public.purchase_entries
 add column if not exists created_by uuid default auth.uid();

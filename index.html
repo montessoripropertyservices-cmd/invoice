@@ -71,6 +71,9 @@
           <button class="action-button" type="button" data-screen="check-hours">
             Check Hours
           </button>
+          <button class="action-button" type="button" data-screen="settings">
+            Settings
+          </button>
         </div>
 
         <div class="home-footer">
@@ -133,23 +136,46 @@
             <h3 class="step-heading">Who worked that day?</h3>
             <div id="employee-list" class="checkbox-list checkbox-list-large"></div>
 
-            <label class="field-group inline-field">
-              <span>Add a new employee</span>
-              <div class="inline-input-row">
+            <button id="toggle-new-employee-button" class="mini-button subtle-button" type="button">
+              New Employee?
+            </button>
+
+            <div id="new-employee-panel" class="field-set hidden">
+              <label class="field-group field-group-large">
+                <span>First name</span>
+                <input id="new-employee-first-name" type="text" placeholder="First name" />
+              </label>
+              <label class="field-group field-group-large">
+                <span>Last name</span>
+                <input id="new-employee-last-name" type="text" placeholder="Last name" />
+              </label>
+              <label class="field-group field-group-large">
+                <span>Rate</span>
                 <input
-                  id="new-employee-name"
-                  type="text"
-                  placeholder="Enter employee name"
+                  id="new-employee-rate"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
                 />
-                <button id="add-employee-button" class="mini-button" type="button">
-                  Add
-                </button>
-              </div>
-            </label>
+              </label>
+              <button id="add-employee-button" class="submit-button" type="button">
+                Add Employee
+              </button>
+            </div>
           </section>
 
-          <section class="wizard-step section-card section-comments hidden" data-step="3">
+          <section class="wizard-step section-card section-hours hidden" data-step="3">
             <p class="step-kicker">Step 4</p>
+            <h3 class="step-heading">How many hours did each person work?</h3>
+            <div id="hours-fields" class="hours-grid empty-state">
+              Select at least one employee to enter hours.
+            </div>
+          </section>
+
+          <section class="wizard-step section-card section-comments hidden" data-step="4">
+            <p class="step-kicker">Step 5</p>
             <h3 class="step-heading">Add comments for the day</h3>
             <div class="comment-toolbar">
               <div class="comment-actions">
@@ -177,8 +203,8 @@
             <div id="comments-preview" class="comments-preview"></div>
           </section>
 
-          <section class="wizard-step section-card section-location hidden" data-step="4">
-            <p class="step-kicker">Step 5</p>
+          <section class="wizard-step section-card section-location hidden" data-step="5">
+            <p class="step-kicker">Step 6</p>
             <h3 class="step-heading">Which location was it?</h3>
             <label class="field-group">
               <span>Select a location</span>
@@ -187,14 +213,6 @@
             <p id="location-empty-state" class="helper-text hidden">
               Add your locations in <code>app.js</code> once you send them over.
             </p>
-          </section>
-
-          <section class="wizard-step section-card section-hours hidden" data-step="5">
-            <p class="step-kicker">Step 6</p>
-            <h3 class="step-heading">How many hours did each person work?</h3>
-            <div id="hours-fields" class="hours-grid empty-state">
-              Select at least one employee to enter hours.
-            </div>
           </section>
 
           <section class="wizard-step section-card section-attachments hidden" data-step="6">
@@ -377,6 +395,26 @@ No analysis yet.
 
         <div id="check-hours-list" class="entry-list empty-state">
           No recorded days yet.
+        </div>
+      </section>
+
+      <section class="form-card hidden" id="settings-screen">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2>Employees and Rates</h2>
+          </div>
+          <div class="section-actions">
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
+        </div>
+
+        <p id="settings-status" class="save-status hidden" aria-live="polite"></p>
+
+        <div id="settings-employee-list" class="settings-list"></div>
+
+        <div class="settings-actions">
+          <button id="save-settings-button" class="submit-button" type="button">Save Settings</button>
         </div>
       </section>
 
