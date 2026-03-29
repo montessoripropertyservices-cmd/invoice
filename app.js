@@ -30,6 +30,7 @@ const screens = {
   "record-day": document.getElementById("record-day-screen"),
   "record-purchase": document.getElementById("record-purchase-screen"),
   "check-hours": document.getElementById("check-hours-screen"),
+  "selected-days": document.getElementById("selected-days-screen"),
   "check-receipts": document.getElementById("check-receipts-screen"),
   settings: document.getElementById("settings-screen"),
 };
@@ -96,11 +97,12 @@ const purchaseSavedTitle = document.getElementById("purchase-saved-title");
 const purchaseSavedOutput = document.getElementById("purchase-saved-output");
 const purchaseSavedHomeButton = document.getElementById("purchase-saved-home");
 const purchaseSavedAnotherButton = document.getElementById("purchase-saved-another");
-const emailDaysButton = document.getElementById("email-days-button");
+const showDaysButton = document.getElementById("show-days-button");
 const archiveDaysButton = document.getElementById("archive-days-button");
 const selectAllDaysButton = document.getElementById("select-all-days-button");
 const checkHoursStatus = document.getElementById("check-hours-status");
 const checkHoursList = document.getElementById("check-hours-list");
+const selectedDaysOutput = document.getElementById("selected-days-output");
 const emailReceiptsButton = document.getElementById("email-receipts-button");
 const archiveReceiptsButton = document.getElementById("archive-receipts-button");
 const checkReceiptsStatus = document.getElementById("check-receipts-status");
@@ -962,7 +964,7 @@ function toggleSelectAllDays() {
   updateSelectAllDaysButton();
 }
 
-function buildDaysEmailBody(entries) {
+function buildSelectedDaysReport(entries) {
   return entries
     .map((entry) => {
       const employees = (entry.employees || [])
@@ -977,7 +979,7 @@ function buildDaysEmailBody(entries) {
         .join("\n");
 
       return [
-        `Day: ${formatDisplayDate(entry.date)}`,
+        `------------------------- ${formatDisplayDate(entry.date)} -------------------------`,
         `Location: ${entry.location || ""}`,
         `Reference: ${entry.relatedReference || "None"}`,
         `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
@@ -989,22 +991,20 @@ function buildDaysEmailBody(entries) {
         attachments || "- None",
       ].join("\n");
     })
-    .join("\n\n--------------------\n\n");
+    .join("\n\n");
 }
 
-function emailSelectedDays() {
+function showSelectedDays() {
   const selectedEntries = getSelectedCheckHoursEntries();
 
   if (!selectedEntries.length) {
-    setCheckHoursStatus("Please select at least one recorded day to email.", "error");
+    setCheckHoursStatus("Please select at least one recorded day to show.", "error");
     return;
   }
 
-  const totalHours = selectedEntries.reduce((sum, entry) => sum + getEntryTotalHours(entry), 0);
-  const subject = encodeURIComponent(`Recorded Day Details (${totalHours.toFixed(2)} hours)`);
-  const body = encodeURIComponent(`${buildDaysEmailBody(selectedEntries)}\n\nTotal Hours: ${totalHours.toFixed(2)}`);
-  window.location.href = `mailto:${ownerEmail}?subject=${subject}&body=${body}`;
-  setCheckHoursStatus("Opening your email app with the selected day details.", "success");
+  selectedDaysOutput.textContent = buildSelectedDaysReport(selectedEntries);
+  setCheckHoursStatus("Showing the selected day details.", "success");
+  showScreen("selected-days");
 }
 
 async function archiveSelectedDays() {
@@ -2419,7 +2419,7 @@ clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
-emailDaysButton.addEventListener("click", emailSelectedDays);
+showDaysButton.addEventListener("click", showSelectedDays);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
 selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);

@@ -391,7 +391,7 @@ No analysis yet.
 
         <div class="hours-toolbar">
           <button id="select-all-days-button" class="back-button" type="button">Select All</button>
-          <button id="email-days-button" class="submit-button" type="button">Email Details</button>
+          <button id="show-days-button" class="submit-button" type="button">Show Selected Days</button>
           <button id="archive-days-button" class="back-button archive-button" type="button">
             Archive Selected
           </button>
@@ -402,6 +402,22 @@ No analysis yet.
         <div id="check-hours-list" class="entry-list empty-state">
           No recorded days yet.
         </div>
+      </section>
+
+      <section class="form-card hidden" id="selected-days-screen">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Check Hours</p>
+            <h2>Selected Days</h2>
+          </div>
+          <div class="section-actions">
+            <button class="back-button" type="button" data-screen="check-hours">Back</button>
+          </div>
+        </div>
+
+        <section class="saved-panel selected-days-panel">
+          <pre id="selected-days-output">No selected days yet.</pre>
+        </section>
       </section>
 
       <section class="form-card hidden" id="check-receipts-screen">

@@ -775,6 +775,19 @@ input[type="file"]::file-selector-button {
   line-height: 1.6;
 }
 
+.selected-days-panel {
+  min-height: auto;
+  align-content: start;
+  justify-items: stretch;
+  text-align: left;
+}
+
+.selected-days-panel pre {
+  width: 100%;
+  max-width: none;
+  font-size: 1.18rem;
+}
+
 .hours-toolbar {
   display: flex;
   gap: 14px;
