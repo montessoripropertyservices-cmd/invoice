@@ -18,7 +18,9 @@
 }
 
 html {
+  height: 100%;
   min-height: 100%;
+  background-color: var(--bg);
   background:
     radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
     radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
@@ -27,15 +29,19 @@ html {
 
 body {
   margin: 0;
+  min-height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   font-family: "Space Grotesk", sans-serif;
   color: var(--ink);
+  background-color: var(--bg);
   background:
     radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
     radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
     linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
   overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
 }
 
@@ -54,6 +60,7 @@ body::before {
 .app-shell {
   width: min(100%, 1080px);
   margin: 0 auto;
+  min-height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   padding: 32px 20px 48px;
@@ -916,7 +923,8 @@ input[type="file"]::file-selector-button {
   }
 
   .app-shell {
-    padding: 16px;
+    min-height: auto;
+    padding: 16px 16px calc(28px + env(safe-area-inset-bottom));
   }
 
   .form-card {
@@ -931,6 +939,10 @@ input[type="file"]::file-selector-button {
   .auth-card {
     min-height: auto;
     padding: 26px 20px;
+  }
+
+  .saved-panel {
+    min-height: auto;
   }
 
   .hero-copy h1 {
@@ -1024,5 +1036,26 @@ input[type="file"]::file-selector-button {
   textarea,
   .receipt-analysis-output {
     font-size: 1rem;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  body::before {
+    display: none;
+  }
+
+  html,
+  body {
+    background-attachment: scroll;
+  }
+
+  .app-shell,
+  .hero-card,
+  .auth-card,
+  .form-card,
+  .saved-panel,
+  .entry-card,
+  .settings-card {
+    transform: translateZ(0);
   }
 }
