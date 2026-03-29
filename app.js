@@ -67,6 +67,9 @@ const supabaseClient = hasSupabaseConfig
   : null;
 const magicLinkRedirectTo =
   appConfig.magicLinkRedirectTo || `${window.location.origin}${window.location.pathname}`;
+const allowedEmails = (appConfig.allowedEmails || ["montessoripropertyservices@gmail.com"]).map(
+  (email) => email.toLowerCase().trim()
+);
 
 let currentSession = null;
 
@@ -98,10 +101,25 @@ function setSignedInEmail(email) {
   });
 }
 
+function isAllowedEmail(email) {
+  return allowedEmails.includes((email || "").toLowerCase().trim());
+}
+
 function applyAuthState(session) {
   currentSession = session;
 
   if (session?.user?.email) {
+    if (!isAllowedEmail(session.user.email)) {
+      if (supabaseClient) {
+        supabaseClient.auth.signOut();
+      }
+      authScreen.classList.remove("hidden");
+      Object.values(screens).forEach((element) => element.classList.add("hidden"));
+      setSignedInEmail("Not signed in");
+      setAuthStatus("That email is not allowed to use this app.", "error");
+      return;
+    }
+
     authScreen.classList.add("hidden");
     setSignedInEmail(session.user.email);
     showScreen("home");
@@ -154,6 +172,11 @@ async function sendMagicLink(event) {
 
   if (!email) {
     setAuthStatus("Enter an email address first.", "error");
+    return;
+  }
+
+  if (!isAllowedEmail(email)) {
+    setAuthStatus("Only montessoripropertyservices@gmail.com can sign in.", "error");
     return;
   }
 

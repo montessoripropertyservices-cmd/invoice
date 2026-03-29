@@ -51,3 +51,4 @@ This app now uses Supabase magic-link login.
 4. Open the email and tap the sign-in link.
 
 Only signed-in users can open the app and save or read their own rows.
+The app can also be restricted to a specific email address with `allowedEmails` in `config.js`.
