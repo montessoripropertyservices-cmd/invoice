@@ -47,6 +47,8 @@ const commentsPreview = document.getElementById("comments-preview");
 const voiceCommentButton = document.getElementById("voice-comment-button");
 const clearCommentsButton = document.getElementById("clear-comments-button");
 const voiceStatus = document.getElementById("voice-status");
+const voiceModal = document.getElementById("voice-modal");
+const voiceStopButton = document.getElementById("voice-stop-button");
 const locationSelect = document.getElementById("location-select");
 const locationEmptyState = document.getElementById("location-empty-state");
 const savedEntryPanel = document.getElementById("saved-entry-panel");
@@ -450,6 +452,10 @@ function updateVoiceStatus(message) {
   voiceStatus.textContent = message;
 }
 
+function setVoiceModalVisible(isVisible) {
+  voiceModal.classList.toggle("hidden", !isVisible);
+}
+
 function setupSpeechRecognition() {
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -469,7 +475,8 @@ function setupSpeechRecognition() {
     speechSessionActive = true;
     speechBaseText = commentsText.value.trim();
     voiceCommentButton.classList.add("listening");
-    updateVoiceStatus("Listening... keep holding the button and speak.");
+    setVoiceModalVisible(true);
+    updateVoiceStatus("Listening...");
   };
 
   speechRecognition.onresult = (event) => {
@@ -486,14 +493,16 @@ function setupSpeechRecognition() {
   speechRecognition.onerror = () => {
     voiceCommentButton.classList.remove("listening");
     speechSessionActive = false;
+    setVoiceModalVisible(false);
     updateVoiceStatus("Speech could not be captured. You can still type in the textbox.");
   };
 
   speechRecognition.onend = () => {
     voiceCommentButton.classList.remove("listening");
+    setVoiceModalVisible(false);
     if (speechSessionActive) {
       speechSessionActive = false;
-      updateVoiceStatus("Speech captured. You can hold again or edit the text below.");
+      updateVoiceStatus("Speech captured.");
     }
   };
 }
@@ -760,12 +769,8 @@ recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
 recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
 dayRelatedInputs.forEach((input) => input.addEventListener("change", updateDayReferenceField));
 clearCommentsButton.addEventListener("click", clearComments);
-voiceCommentButton.addEventListener("mousedown", startVoiceCapture);
-voiceCommentButton.addEventListener("mouseup", stopVoiceCapture);
-voiceCommentButton.addEventListener("mouseleave", stopVoiceCapture);
-voiceCommentButton.addEventListener("touchstart", startVoiceCapture, { passive: true });
-voiceCommentButton.addEventListener("touchend", stopVoiceCapture);
-voiceCommentButton.addEventListener("touchcancel", stopVoiceCapture);
+voiceCommentButton.addEventListener("click", startVoiceCapture);
+voiceStopButton.addEventListener("click", stopVoiceCapture);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();

@@ -149,7 +149,7 @@
             <div class="comment-toolbar">
               <div class="comment-actions">
                 <button id="voice-comment-button" class="mini-button mic-button" type="button">
-                  Hold to Dictate
+                  Dictate
                 </button>
                 <button id="clear-comments-button" class="mini-button clear-button" type="button">
                   Clear Text
@@ -269,6 +269,16 @@
           />
           <span>WeBrandCA</span>
         </a>
+      </div>
+
+      <div id="voice-modal" class="voice-modal hidden" role="dialog" aria-modal="true" aria-labelledby="voice-modal-title">
+        <div class="voice-modal-card">
+          <p id="voice-modal-title" class="step-kicker">Listening</p>
+          <h3 class="step-heading">Speak now</h3>
+          <button id="voice-stop-button" class="submit-button voice-stop-button" type="button">
+            Stop
+          </button>
+        </div>
       </div>
     </main>
 
