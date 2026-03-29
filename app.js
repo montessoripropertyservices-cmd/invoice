@@ -1449,7 +1449,7 @@ function buildSelectedDaysReport(entries) {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
 
-  return entries
+  const dayBlocks = entries
     .map((entry) => {
       const employees = (entry.employees || [])
         .map((item) => {
@@ -1487,6 +1487,17 @@ function buildSelectedDaysReport(entries) {
       ].join("<br>");
     })
     .join("<br><br>");
+
+  const overallHours = entries.reduce((sum, entry) => sum + getEntryTotalHours(entry), 0);
+  const overallTotal = entries.reduce((sum, entry) => sum + getEntryTotalCost(entry), 0);
+
+  return [
+    dayBlocks,
+    escapeHtml("------------------------- Overall Total -------------------------"),
+    escapeHtml(`Days Selected: ${entries.length}`),
+    escapeHtml(`Overall Hours: ${overallHours.toFixed(2)}`),
+    escapeHtml(`Overall Day Total: $${overallTotal.toFixed(2)}`),
+  ].join("<br><br>");
 }
 
 function showSelectedDays() {
