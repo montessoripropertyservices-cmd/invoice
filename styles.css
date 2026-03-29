@@ -388,8 +388,18 @@ input[type="file"]::file-selector-button {
   flex-wrap: wrap;
 }
 
+.comment-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .mic-button {
   min-width: 180px;
+}
+
+.clear-button {
+  min-width: 140px;
 }
 
 .mic-button.listening {

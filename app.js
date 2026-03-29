@@ -36,6 +36,7 @@ const recordDayForm = document.getElementById("record-day-form");
 const commentsText = document.getElementById("comments-text");
 const commentsPreview = document.getElementById("comments-preview");
 const voiceCommentButton = document.getElementById("voice-comment-button");
+const clearCommentsButton = document.getElementById("clear-comments-button");
 const voiceStatus = document.getElementById("voice-status");
 const locationSelect = document.getElementById("location-select");
 const locationEmptyState = document.getElementById("location-empty-state");
@@ -81,6 +82,7 @@ const authPinCode = String(appConfig.authPinCode || "2740");
 let currentSession = null;
 let speechRecognition = null;
 let speechSessionActive = false;
+let speechBaseText = "";
 
 function setStatusMessage(element, message, tone) {
   element.textContent = message;
@@ -334,6 +336,7 @@ function setupSpeechRecognition() {
 
   speechRecognition.onstart = () => {
     speechSessionActive = true;
+    speechBaseText = commentsText.value.trim();
     voiceCommentButton.classList.add("listening");
     updateVoiceStatus("Listening... keep holding the button and speak.");
   };
@@ -344,7 +347,8 @@ function setupSpeechRecognition() {
       .join(" ")
       .trim();
 
-    commentsText.value = transcript;
+    const mergedText = [speechBaseText, transcript].filter(Boolean).join(" ").trim();
+    commentsText.value = mergedText;
     updateCommentsPreview();
   };
 
@@ -382,6 +386,22 @@ function stopVoiceCapture() {
 
   speechSessionActive = false;
   speechRecognition.stop();
+}
+
+function clearComments() {
+  if (!commentsText.value.trim()) {
+    return;
+  }
+
+  const confirmed = window.confirm("Clear all comment text?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  commentsText.value = "";
+  updateCommentsPreview();
+  updateVoiceStatus("Comments cleared.");
 }
 
 function getSelectedEmployees() {
@@ -572,6 +592,7 @@ authForm.addEventListener("submit", sendMagicLink);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
 commentsText.addEventListener("input", updateCommentsPreview);
+clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("mousedown", startVoiceCapture);
 voiceCommentButton.addEventListener("mouseup", stopVoiceCapture);
 voiceCommentButton.addEventListener("mouseleave", stopVoiceCapture);
