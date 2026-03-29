@@ -565,8 +565,8 @@ function formatDaySummary(entry) {
     `Employees: ${employeeLine || "None"}`,
     `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
     `Total Day: ${formatCurrency(getEntryTotalCost(entry))}`,
-    `Ticket / Invoice: ${entry.relatedReference || "None"}`,
-    `Comments: ${entry.comments || "None"}`,
+    `Ticket #: ${entry.relatedReference || "None"}`,
+    `Comment: ${entry.comments || "None"}`,
     `Attachment Links: ${attachmentLinks || "None"}`,
   ].join("\n");
 }
@@ -754,7 +754,7 @@ function renderCheckHoursEntries() {
       const attachments = (entry.attachments || [])
         .map((item) => {
           if (item.url) {
-            return `<a href="${item.url}" target="_blank" rel="noreferrer">${item.name}</a>`;
+            return `<a href="${item.url}" target="_blank" rel="noreferrer">${item.url}</a>`;
           }
 
           return item.name;
@@ -770,8 +770,8 @@ function renderCheckHoursEntries() {
               <p>${entry.location}</p>
               <p class="entry-pill">Total Hours: ${getEntryTotalHours(entry).toFixed(2)}</p>
               <p class="entry-pill">Total Day: $${getEntryTotalCost(entry).toFixed(2)}</p>
-              ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
-              ${entry.comments ? `<p>${entry.comments}</p>` : ""}
+              ${entry.relatedReference ? `<p>Ticket #: ${entry.relatedReference}</p>` : ""}
+              ${entry.comments ? `<p>Comment: ${entry.comments}</p>` : ""}
               <div class="entry-employees"><strong>People</strong><span>${employees}</span></div>
               <div class="entry-attachments"><strong>Attachments</strong><span>${attachments || "None"}</span></div>
             </div>
@@ -884,7 +884,7 @@ function renderArchivedItems() {
         const attachments = (item.attachments || [])
           .map((attachment) =>
             attachment.url
-              ? `<a href="${attachment.url}" target="_blank" rel="noreferrer">${attachment.name}</a>`
+              ? `<a href="${attachment.url}" target="_blank" rel="noreferrer">${attachment.url}</a>`
               : attachment.name
           )
           .join("<br />");
@@ -897,8 +897,8 @@ function renderArchivedItems() {
                 <h3>${formatDisplayDate(item.date)}</h3>
                 <p class="entry-pill">Archived Day</p>
                 <p>${item.location || ""}</p>
-                ${item.relatedReference ? `<p>Ticket / Invoice: ${item.relatedReference}</p>` : ""}
-                ${item.comments ? `<p>${item.comments}</p>` : ""}
+                ${item.relatedReference ? `<p>Ticket #: ${item.relatedReference}</p>` : ""}
+                ${item.comments ? `<p>Comment: ${item.comments}</p>` : ""}
                 <p class="entry-pill">Total Hours: ${getEntryTotalHours(item).toFixed(2)}</p>
                 <p class="entry-pill">Total Day: ${formatCurrency(getEntryTotalCost(item))}</p>
                 <div class="entry-employees"><strong>People</strong><span>${employees || "None"}</span></div>
@@ -1342,10 +1342,10 @@ function buildSelectedDaysReport(entries) {
       return [
         `------------------------- ${formatDisplayDate(entry.date)} -------------------------`,
         `Location: ${entry.location || ""}`,
-        `Ticket / Invoice: ${entry.relatedReference || "None"}`,
+        `Ticket #: ${entry.relatedReference || "None"}`,
         `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
         `Total Day: $${getEntryTotalCost(entry).toFixed(2)}`,
-        `Comments: ${entry.comments || ""}`,
+        `Comment: ${entry.comments || ""}`,
         "Attachments:",
         attachments || "- None",
         "People:",
