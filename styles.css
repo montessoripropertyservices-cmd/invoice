@@ -597,6 +597,27 @@ input[type="file"]::file-selector-button {
   color: #eef6f3;
 }
 
+.saved-entry-title {
+  margin: 10px 0 0;
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  line-height: 1.1;
+}
+
+.saved-entry-actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.saved-entry-actions .back-button,
+.saved-entry-actions .submit-button {
+  min-width: 220px;
+  min-height: 68px;
+  font-size: 1.2rem;
+}
+
 .save-status {
   margin: 18px 0 0;
   padding: 14px 16px;

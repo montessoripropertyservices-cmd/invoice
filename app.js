@@ -52,7 +52,10 @@ const voiceStopButton = document.getElementById("voice-stop-button");
 const locationSelect = document.getElementById("location-select");
 const locationEmptyState = document.getElementById("location-empty-state");
 const savedEntryPanel = document.getElementById("saved-entry-panel");
+const savedEntryTitle = document.getElementById("saved-entry-title");
 const savedEntryOutput = document.getElementById("saved-entry-output");
+const savedEntryHomeButton = document.getElementById("saved-entry-home");
+const savedEntryAnotherButton = document.getElementById("saved-entry-another");
 const saveStatus = document.getElementById("save-status");
 const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
@@ -131,6 +134,24 @@ function showScreen(screenName) {
   if (screenName === "record-day") {
     updateRecordDayStep();
   }
+}
+
+function formatSavedDayTitle(dateValue) {
+  if (!dateValue) {
+    return "Day Recorded";
+  }
+
+  const parsedDate = new Date(`${dateValue}T12:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return `Day ${dateValue} Recorded`;
+  }
+
+  return `Day ${parsedDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })} Recorded`;
 }
 
 function setSignedInEmail(email) {
@@ -448,6 +469,27 @@ function updateCommentsPreview() {
   commentsPreview.textContent = text;
 }
 
+function resetRecordDayForm() {
+  recordDayForm.reset();
+  savedEntryPanel.classList.add("hidden");
+  saveStatus.classList.add("hidden");
+  updateVoiceStatus("");
+  renderEmployees();
+  renderHoursFields();
+  renderLocations();
+  renderAttachmentList();
+  updateCommentsPreview();
+  updateDayReferenceField();
+  recordDayStepIndex = 0;
+  updateRecordDayStep();
+}
+
+function startAnotherDay() {
+  resetRecordDayForm();
+  showScreen("record-day");
+  focusCurrentRecordDayStep();
+}
+
 function updateVoiceStatus(message) {
   voiceStatus.textContent = message;
 }
@@ -724,23 +766,17 @@ async function saveDayEntry(event) {
   try {
     const saveResult = await saveEntryToSupabase(payload);
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
+    savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
       saveResult.message,
       saveResult.mode === "supabase" ? "success" : "warning"
     );
-    recordDayForm.reset();
-    renderEmployees();
-    renderHoursFields();
-    renderLocations();
-    renderAttachmentList();
-    updateCommentsPreview();
-    recordDayStepIndex = 0;
-    updateRecordDayStep();
   } catch (error) {
     console.error(error);
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
+    savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
@@ -771,6 +807,11 @@ dayRelatedInputs.forEach((input) => input.addEventListener("change", updateDayRe
 clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
+savedEntryHomeButton.addEventListener("click", () => {
+  resetRecordDayForm();
+  showScreen("home");
+});
+savedEntryAnotherButton.addEventListener("click", startAnotherDay);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
