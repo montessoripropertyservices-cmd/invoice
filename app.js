@@ -147,6 +147,7 @@ let receiptAnalysisText = "";
 let recordedDayDates = new Set();
 let purchaseSupabaseReady = null;
 let dayEntriesCache = [];
+let recordDayCompleted = false;
 let employees = [];
 
 const recordedDayDatesStorageKey = "recordedDayDates";
@@ -218,6 +219,12 @@ function showScreen(screenName) {
 
   if (screenName === "settings") {
     renderSettingsEmployees();
+  }
+}
+
+function maybeStartFreshRecordDay() {
+  if (recordDayCompleted || !savedEntryPanel.classList.contains("hidden")) {
+    resetRecordDayForm();
   }
 }
 
@@ -1208,6 +1215,8 @@ function resetRecordDayForm() {
   recordDayForm.reset();
   savedEntryPanel.classList.add("hidden");
   saveStatus.classList.add("hidden");
+  recordDaySaveButton.classList.remove("hidden");
+  recordDayCompleted = false;
   updateVoiceStatus("");
   renderEmployees();
   renderHoursFields();
@@ -1405,6 +1414,7 @@ function resetRecordPurchaseForm() {
   receiptAnalysisText = "";
   purchaseSavedPanel.classList.add("hidden");
   purchaseSaveStatus.classList.add("hidden");
+  recordPurchaseSaveButton.classList.remove("hidden");
   receiptAnalysisOutput.className = "receipt-analysis-output empty-state";
   receiptAnalysisOutput.textContent = "No analysis yet.";
   updateReceiptAnalysisStatus("");
@@ -1915,6 +1925,8 @@ async function saveDayEntry(event) {
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = formatDaySummary(savedEntry);
     savedEntryPanel.classList.remove("hidden");
+    recordDaySaveButton.classList.add("hidden");
+    recordDayCompleted = true;
     setSaveStatus(
       saveResult.message,
       saveResult.mode === "supabase" ? "success" : "warning"
@@ -1936,6 +1948,8 @@ async function saveDayEntry(event) {
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = formatDaySummary(savedEntry);
     savedEntryPanel.classList.remove("hidden");
+    recordDaySaveButton.classList.add("hidden");
+    recordDayCompleted = true;
     setSaveStatus(
       "Supabase save failed, but the entry was saved in this browser. Check your login and Supabase setup.",
       "error"
@@ -1980,6 +1994,7 @@ async function savePurchaseEntry(event) {
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
     purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
     purchaseSavedPanel.classList.remove("hidden");
+    recordPurchaseSaveButton.classList.add("hidden");
     setPurchaseSaveStatus(
       saveResult.message,
       saveResult.mode === "supabase" ? "success" : "warning"
@@ -1990,6 +2005,7 @@ async function savePurchaseEntry(event) {
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
     purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
     purchaseSavedPanel.classList.remove("hidden");
+    recordPurchaseSaveButton.classList.add("hidden");
     setPurchaseSaveStatus(getPurchaseSaveErrorMessage(error), "error");
   }
 }
@@ -1997,6 +2013,11 @@ async function savePurchaseEntry(event) {
 document.querySelectorAll("[data-screen]").forEach((button) => {
   button.addEventListener("click", () => {
     const screenName = button.dataset.screen;
+
+    if (screenName === "record-day") {
+      maybeStartFreshRecordDay();
+    }
+
     showScreen(screenName);
   });
 });
