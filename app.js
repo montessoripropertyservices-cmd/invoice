@@ -456,6 +456,12 @@ function buildLocalPurchaseEntry(payload, saveResult) {
   };
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
 function getEntryTotalHours(entry) {
   return (entry.employees || []).reduce((sum, item) => sum + Number(item.hours || 0), 0);
 }
@@ -899,12 +905,14 @@ async function archiveSelectedReceipts() {
   }
 
   const selectedIds = selectedEntries.map((entry) => entry.id);
+  const onlineIds = selectedIds.filter(isUuid);
+  const archivedAt = new Date().toISOString();
 
-  if (supabaseClient && currentSession?.user) {
+  if (supabaseClient && currentSession?.user && onlineIds.length) {
     const { error } = await supabaseClient
       .from("purchase_entries")
-      .update({ archived_at: new Date().toISOString() })
-      .in("id", selectedIds);
+      .update({ archived_at: archivedAt })
+      .in("id", onlineIds);
 
     if (error) {
       setCheckReceiptsStatus(
@@ -917,7 +925,7 @@ async function archiveSelectedReceipts() {
 
   archiveStoredPurchaseEntries(selectedIds);
   purchaseEntriesCache = purchaseEntriesCache.map((entry) =>
-    selectedIds.includes(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+    selectedIds.includes(entry.id) ? { ...entry, archivedAt } : entry
   );
   renderCheckReceiptsEntries();
   setCheckReceiptsStatus("Selected receipt entries were archived.", "success");
@@ -1016,12 +1024,14 @@ async function archiveSelectedDays() {
   }
 
   const selectedIds = selectedEntries.map((entry) => entry.id);
+  const onlineIds = selectedIds.filter(isUuid);
+  const archivedAt = new Date().toISOString();
 
-  if (supabaseClient && currentSession?.user) {
+  if (supabaseClient && currentSession?.user && onlineIds.length) {
     const { error } = await supabaseClient
       .from("day_entries")
-      .update({ archived_at: new Date().toISOString() })
-      .in("id", selectedIds);
+      .update({ archived_at: archivedAt })
+      .in("id", onlineIds);
 
     if (error) {
       setCheckHoursStatus(
@@ -1034,7 +1044,7 @@ async function archiveSelectedDays() {
 
   archiveStoredDayEntries(selectedIds);
   dayEntriesCache = dayEntriesCache.map((entry) =>
-    selectedIds.includes(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+    selectedIds.includes(entry.id) ? { ...entry, archivedAt } : entry
   );
   renderCheckHoursEntries();
   setCheckHoursStatus("Selected day entries were archived.", "success");
