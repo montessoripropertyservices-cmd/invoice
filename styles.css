@@ -177,14 +177,23 @@ body {
   width: min(100%, 760px);
   margin-top: auto;
   display: grid;
-  gap: 16px;
+  gap: 12px;
   justify-items: center;
+}
+
+.home-footer .back-button {
+  min-width: 180px;
 }
 
 .developer-credit {
   margin: 0;
   font-size: 0.98rem;
   color: var(--muted);
+  text-align: center;
+}
+
+.home-credit {
+  margin-top: 18px;
 }
 
 .developer-credit a {
