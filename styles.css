@@ -707,6 +707,68 @@ input[type="file"]::file-selector-button {
   font-family: inherit;
 }
 
+.hours-toolbar {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.archive-button {
+  background: linear-gradient(135deg, #f2f3f5, #dfe5ea);
+}
+
+.entry-list {
+  display: grid;
+  gap: 14px;
+}
+
+.entry-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(77, 155, 102, 0.16);
+}
+
+.entry-select-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.entry-select-row input {
+  width: 28px;
+  height: 28px;
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.entry-card h3,
+.entry-card p {
+  margin: 0;
+}
+
+.entry-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.entry-employees,
+.entry-attachments {
+  display: grid;
+  gap: 8px;
+}
+
+.entry-pill {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #edf8f0;
+  font-weight: 700;
+}
+
 .hidden {
   display: none;
 }
@@ -760,6 +822,10 @@ input[type="file"]::file-selector-button {
   .wizard-step {
     min-height: auto;
     padding: 22px 16px;
+  }
+
+  .hours-toolbar {
+    display: grid;
   }
 
   .step-heading {

@@ -83,6 +83,10 @@ const purchaseSavedTitle = document.getElementById("purchase-saved-title");
 const purchaseSavedOutput = document.getElementById("purchase-saved-output");
 const purchaseSavedHomeButton = document.getElementById("purchase-saved-home");
 const purchaseSavedAnotherButton = document.getElementById("purchase-saved-another");
+const emailDaysButton = document.getElementById("email-days-button");
+const archiveDaysButton = document.getElementById("archive-days-button");
+const checkHoursStatus = document.getElementById("check-hours-status");
+const checkHoursList = document.getElementById("check-hours-list");
 const developerCreditCard = document.getElementById("developer-credit-card");
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
@@ -127,8 +131,10 @@ let recordPurchaseStepIndex = 0;
 let receiptAnalysisText = "";
 let recordedDayDates = new Set();
 let purchaseSupabaseReady = null;
+let dayEntriesCache = [];
 
 const recordedDayDatesStorageKey = "recordedDayDates";
+const dayEntriesStorageKey = "dayEntriesHistory";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -165,6 +171,10 @@ function setAuthStatus(message, tone) {
   setStatusMessage(authStatus, message, tone);
 }
 
+function setCheckHoursStatus(message, tone) {
+  setStatusMessage(checkHoursStatus, message, tone);
+}
+
 function showScreen(screenName) {
   Object.entries(screens).forEach(([name, element]) => {
     element.classList.toggle("hidden", name !== screenName);
@@ -179,6 +189,10 @@ function showScreen(screenName) {
   if (screenName === "record-purchase") {
     updateRecordPurchaseStep();
     checkPurchaseSupabaseReady();
+  }
+
+  if (screenName === "check-hours") {
+    loadCheckHoursEntries();
   }
 }
 
@@ -216,6 +230,71 @@ function formatSavedPurchaseTitle(dateValue) {
     day: "numeric",
     year: "numeric",
   })} Recorded`;
+}
+
+function formatDisplayDate(dateValue) {
+  if (!dateValue) {
+    return "Unknown date";
+  }
+
+  const parsedDate = new Date(`${dateValue}T12:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+
+  return parsedDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function readStoredDayEntries() {
+  try {
+    const rawValue = localStorage.getItem(dayEntriesStorageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeStoredDayEntries(entries) {
+  localStorage.setItem(dayEntriesStorageKey, JSON.stringify(entries));
+}
+
+function upsertStoredDayEntry(entry) {
+  const entries = readStoredDayEntries();
+  const nextEntries = entries.filter((item) => item.id !== entry.id);
+  nextEntries.unshift(entry);
+  writeStoredDayEntries(nextEntries);
+}
+
+function archiveStoredDayEntries(entryIds) {
+  const entryIdSet = new Set(entryIds);
+  const nextEntries = readStoredDayEntries().map((entry) =>
+    entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+  );
+  writeStoredDayEntries(nextEntries);
+}
+
+function buildLocalDayEntry(payload, saveResult) {
+  return {
+    id: saveResult.id || `local-${payload.date}-${Date.now()}`,
+    date: payload.date,
+    location: payload.location,
+    comments: payload.comments,
+    relatedReference: payload.relatedReference,
+    employees: payload.employees,
+    attachments: payload.attachments,
+    createdAt: new Date().toISOString(),
+    archivedAt: null,
+  };
+}
+
+function getEntryTotalHours(entry) {
+  return (entry.employees || []).reduce((sum, item) => sum + Number(item.hours || 0), 0);
 }
 
 function readStoredRecordedDayDates() {
@@ -279,6 +358,172 @@ async function loadRecordedDayDates() {
 
   recordedDayDates = nextDates;
   updateWorkDateLockState();
+}
+
+function renderCheckHoursEntries() {
+  const visibleEntries = dayEntriesCache.filter((entry) => !entry.archivedAt);
+
+  if (!visibleEntries.length) {
+    checkHoursList.className = "entry-list empty-state";
+    checkHoursList.textContent = "No recorded days yet.";
+    return;
+  }
+
+  checkHoursList.className = "entry-list";
+  checkHoursList.innerHTML = visibleEntries
+    .map((entry) => {
+      const employees = (entry.employees || [])
+        .map((item) => `${item.employee}: ${item.hours}h`)
+        .join(" | ");
+      const attachments = (entry.attachments || [])
+        .map((item) => {
+          if (item.url) {
+            return `<a href="${item.url}" target="_blank" rel="noreferrer">${item.name}</a>`;
+          }
+
+          return item.name;
+        })
+        .join("<br />");
+
+      return `
+        <label class="entry-card">
+          <div class="entry-select-row">
+            <input type="checkbox" data-entry-id="${entry.id}" />
+            <div class="entry-meta">
+              <h3>${formatDisplayDate(entry.date)}</h3>
+              <p>${entry.location}</p>
+              <p class="entry-pill">Total Hours: ${getEntryTotalHours(entry).toFixed(2)}</p>
+              ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
+              ${entry.comments ? `<p>${entry.comments}</p>` : ""}
+              <div class="entry-employees"><strong>People</strong><span>${employees}</span></div>
+              <div class="entry-attachments"><strong>Attachments</strong><span>${attachments || "None"}</span></div>
+            </div>
+          </div>
+        </label>
+      `;
+    })
+    .join("");
+}
+
+async function loadCheckHoursEntries() {
+  const localEntries = readStoredDayEntries().filter((entry) => !entry.archivedAt);
+  let nextEntries = [...localEntries];
+
+  if (supabaseClient && currentSession?.user) {
+    const { data, error } = await supabaseClient
+      .from("day_entries")
+      .select(
+        "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)"
+      )
+      .is("archived_at", null)
+      .order("work_date", { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      nextEntries = data.map((entry) => ({
+        id: entry.id,
+        date: entry.work_date,
+        location: entry.location,
+        comments: entry.comments || "",
+        relatedReference: entry.related_reference || "",
+        attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
+        employees: (entry.day_entry_employees || []).map((item) => ({
+          employee: item.employee_name,
+          hours: Number(item.hours),
+        })),
+        archivedAt: entry.archived_at,
+        createdAt: entry.created_at,
+      }));
+    } else if (error) {
+      setCheckHoursStatus(
+        "Could not load online day entries. Showing browser-saved entries instead.",
+        "warning"
+      );
+    }
+  }
+
+  dayEntriesCache = nextEntries.sort((left, right) => right.date.localeCompare(left.date));
+  renderCheckHoursEntries();
+}
+
+function getSelectedCheckHoursEntries() {
+  const selectedIds = [...checkHoursList.querySelectorAll('input[type="checkbox"]:checked')].map(
+    (input) => input.dataset.entryId
+  );
+
+  return dayEntriesCache.filter((entry) => selectedIds.includes(entry.id));
+}
+
+function buildDaysEmailBody(entries) {
+  return entries
+    .map((entry) => {
+      const employees = (entry.employees || [])
+        .map((item) => `- ${item.employee}: ${item.hours} hours`)
+        .join("\n");
+      const attachments = (entry.attachments || [])
+        .map((item) => `- ${item.name}${item.url ? `: ${item.url}` : ""}`)
+        .join("\n");
+
+      return [
+        `Day: ${formatDisplayDate(entry.date)}`,
+        `Location: ${entry.location || ""}`,
+        `Reference: ${entry.relatedReference || "None"}`,
+        `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
+        `Comments: ${entry.comments || ""}`,
+        "People:",
+        employees || "- None",
+        "Attachments:",
+        attachments || "- None",
+      ].join("\n");
+    })
+    .join("\n\n--------------------\n\n");
+}
+
+function emailSelectedDays() {
+  const selectedEntries = getSelectedCheckHoursEntries();
+
+  if (!selectedEntries.length) {
+    setCheckHoursStatus("Please select at least one recorded day to email.", "error");
+    return;
+  }
+
+  const totalHours = selectedEntries.reduce((sum, entry) => sum + getEntryTotalHours(entry), 0);
+  const subject = encodeURIComponent(`Recorded Day Details (${totalHours.toFixed(2)} hours)`);
+  const body = encodeURIComponent(`${buildDaysEmailBody(selectedEntries)}\n\nTotal Hours: ${totalHours.toFixed(2)}`);
+  window.location.href = `mailto:${ownerEmail}?subject=${subject}&body=${body}`;
+  setCheckHoursStatus("Opening your email app with the selected day details.", "success");
+}
+
+async function archiveSelectedDays() {
+  const selectedEntries = getSelectedCheckHoursEntries();
+
+  if (!selectedEntries.length) {
+    setCheckHoursStatus("Please select at least one recorded day to archive.", "error");
+    return;
+  }
+
+  const selectedIds = selectedEntries.map((entry) => entry.id);
+
+  if (supabaseClient && currentSession?.user) {
+    const { error } = await supabaseClient
+      .from("day_entries")
+      .update({ archived_at: new Date().toISOString() })
+      .in("id", selectedIds);
+
+    if (error) {
+      setCheckHoursStatus(
+        "Could not archive the selected days online. They were kept active.",
+        "error"
+      );
+      return;
+    }
+  }
+
+  archiveStoredDayEntries(selectedIds);
+  dayEntriesCache = dayEntriesCache.map((entry) =>
+    selectedIds.includes(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+  );
+  renderCheckHoursEntries();
+  setCheckHoursStatus("Selected day entries were archived.", "success");
 }
 
 function setSignedInEmail(email) {
@@ -1099,6 +1344,8 @@ function addEmployee() {
 async function saveEntryToSupabase(payload) {
   if (!supabaseClient) {
     return {
+      id: null,
+      attachments: payload.attachments,
       mode: "local-only",
       message: "Saved in this browser. Add Supabase in config.js to save online.",
     };
@@ -1110,6 +1357,7 @@ async function saveEntryToSupabase(payload) {
       location: payload.location,
       comments: payload.comments,
       related_reference: payload.relatedReference,
+      attachments: payload.attachments,
     },
     {
       work_date: payload.date,
@@ -1159,7 +1407,49 @@ async function saveEntryToSupabase(payload) {
     throw employeesError;
   }
 
+  let uploadedAttachments = payload.attachments;
+  const attachmentFiles = [...attachmentInput.files];
+
+  if (attachmentFiles.length) {
+    const nextAttachments = [];
+
+    for (const file of attachmentFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const path = `${currentSession.user.id}/${dayEntry.id}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from("day-attachments")
+        .upload(path, file, { upsert: false });
+
+      if (uploadError) {
+        nextAttachments.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        });
+        continue;
+      }
+
+      const { data: publicData } = supabaseClient.storage.from("day-attachments").getPublicUrl(path);
+      nextAttachments.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: publicData.publicUrl,
+      });
+    }
+
+    uploadedAttachments = nextAttachments;
+
+    await supabaseClient
+      .from("day_entries")
+      .update({ attachments: uploadedAttachments })
+      .eq("id", dayEntry.id);
+  }
+
   return {
+    id: dayEntry.id,
+    attachments: uploadedAttachments,
     mode: "supabase",
     message: "Saved to Supabase and to this browser.",
   };
@@ -1325,15 +1615,21 @@ async function saveDayEntry(event) {
 
   try {
     const saveResult = await saveEntryToSupabase(payload);
-    localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
+    const savedEntry = buildLocalDayEntry(
+      { ...payload, attachments: saveResult.attachments || payload.attachments },
+      saveResult
+    );
+    localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
+    upsertStoredDayEntry(savedEntry);
     addRecordedDayDate(payload.date);
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
-    savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
+    savedEntryOutput.textContent = JSON.stringify(savedEntry, null, 2);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
       saveResult.message,
       saveResult.mode === "supabase" ? "success" : "warning"
     );
+    loadCheckHoursEntries();
   } catch (error) {
     console.error(error);
 
@@ -1343,10 +1639,12 @@ async function saveDayEntry(event) {
       return;
     }
 
-    localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
+    const savedEntry = buildLocalDayEntry(payload, { id: null });
+    localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
+    upsertStoredDayEntry(savedEntry);
     addRecordedDayDate(payload.date);
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
-    savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
+    savedEntryOutput.textContent = JSON.stringify(savedEntry, null, 2);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
       "Supabase save failed, but the entry was saved in this browser. Check your login and Supabase setup.",
@@ -1354,6 +1652,7 @@ async function saveDayEntry(event) {
     );
     renderAttachmentList();
     updateCommentsPreview();
+    loadCheckHoursEntries();
   }
 }
 
@@ -1439,6 +1738,8 @@ clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
+emailDaysButton.addEventListener("click", emailSelectedDays);
+archiveDaysButton.addEventListener("click", archiveSelectedDays);
 savedEntryHomeButton.addEventListener("click", () => {
   resetRecordDayForm();
   showScreen("home");
@@ -1471,4 +1772,5 @@ updatePurchaseReferenceField();
 setupSpeechRecognition();
 updateRecordDayStep();
 updateRecordPurchaseStep();
+renderCheckHoursEntries();
 initializeAuth();

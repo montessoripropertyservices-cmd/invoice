@@ -6,6 +6,8 @@ create table if not exists public.day_entries (
   location text not null,
   comments text not null default '',
   related_reference text not null default '',
+  attachments jsonb not null default '[]'::jsonb,
+  archived_at timestamptz,
   created_by uuid not null default auth.uid(),
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -38,6 +40,12 @@ add column if not exists comments text default '';
 
 alter table public.day_entries
 add column if not exists related_reference text default '';
+
+alter table public.day_entries
+add column if not exists attachments jsonb default '[]'::jsonb;
+
+alter table public.day_entries
+add column if not exists archived_at timestamptz;
 
 alter table public.day_entry_employees
 add column if not exists created_by uuid default auth.uid();
@@ -83,6 +91,13 @@ for select
 to authenticated
 using (auth.uid() = created_by);
 
+create policy "Allow authenticated update own day_entries"
+on public.day_entries
+for update
+to authenticated
+using (auth.uid() = created_by)
+with check (auth.uid() = created_by);
+
 create policy "Allow authenticated insert day_entry_employees"
 on public.day_entry_employees
 for insert
@@ -106,3 +121,22 @@ on public.purchase_entries
 for select
 to authenticated
 using (auth.uid() = created_by);
+
+insert into storage.buckets (id, name, public)
+values ('day-attachments', 'day-attachments', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Allow authenticated upload day attachments" on storage.objects;
+drop policy if exists "Allow public read day attachments" on storage.objects;
+
+create policy "Allow authenticated upload day attachments"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'day-attachments');
+
+create policy "Allow public read day attachments"
+on storage.objects
+for select
+to public
+using (bucket_id = 'day-attachments');
