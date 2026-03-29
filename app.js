@@ -483,7 +483,9 @@ function formatDaySummary(entry) {
   const employeeLine = (entry.employees || [])
     .map((item) => `${item.employee}: ${item.hours} hours`)
     .join(", ");
-  const attachmentCount = entry.attachments?.length || 0;
+  const attachmentLinks = (entry.attachments || [])
+    .map((item) => (item.url ? `${item.name}: ${item.url}` : item.name))
+    .join("\n");
 
   return [
     `Date: ${formatDisplayDate(entry.date)}`,
@@ -491,9 +493,9 @@ function formatDaySummary(entry) {
     `Employees: ${employeeLine || "None"}`,
     `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
     `Total Day: ${formatCurrency(getEntryTotalCost(entry))}`,
-    `Reference: ${entry.relatedReference || "None"}`,
+    `Ticket / Invoice: ${entry.relatedReference || "None"}`,
     `Comments: ${entry.comments || "None"}`,
-    `Attachments: ${attachmentCount}`,
+    `Attachment Links: ${attachmentLinks || "None"}`,
   ].join("\n");
 }
 
@@ -1010,7 +1012,7 @@ function buildSelectedDaysReport(entries) {
       return [
         `------------------------- ${formatDisplayDate(entry.date)} -------------------------`,
         `Location: ${entry.location || ""}`,
-        `Reference: ${entry.relatedReference || "None"}`,
+        `Ticket / Invoice: ${entry.relatedReference || "None"}`,
         `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
         `Total Day: $${getEntryTotalCost(entry).toFixed(2)}`,
         `Comments: ${entry.comments || ""}`,
