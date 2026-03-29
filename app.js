@@ -993,10 +993,10 @@ function buildSelectedDaysReport(entries) {
         `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
         `Total Day: $${getEntryTotalCost(entry).toFixed(2)}`,
         `Comments: ${entry.comments || ""}`,
-        "People:",
-        employees || "- None",
         "Attachments:",
         attachments || "- None",
+        "People:",
+        employees || "- None",
       ].join("\n");
     })
     .join("\n\n");
