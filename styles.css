@@ -205,24 +205,24 @@ body {
   text-align: center;
   background: #05070a;
   border-radius: var(--radius-xl);
-  padding: 10px 16px;
+  padding: 8px 14px;
   width: 100%;
   box-shadow: 0 18px 34px rgba(5, 7, 10, 0.26);
 }
 
 .home-credit {
-  margin-top: 18px;
+  margin-top: 52px;
 }
 
 .developer-label {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: #d8e2ff;
 }
 
 .developer-link {
   display: inline-grid;
   justify-items: center;
-  gap: 4px;
+  gap: 2px;
   color: #4f8cff;
   font-weight: 700;
   text-decoration: none;
@@ -233,7 +233,7 @@ body {
 }
 
 .developer-logo {
-  height: 60px;
+  height: 44px;
   width: auto;
   object-fit: contain;
 }
