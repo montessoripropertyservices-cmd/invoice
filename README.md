@@ -52,3 +52,4 @@ This app now uses Supabase magic-link login.
 
 Only signed-in users can open the app and save or read their own rows.
 The app can also be restricted to a specific email address with `allowedEmails` in `config.js`.
+The extra PIN gate is controlled by `authPinCode` in `config.js`.

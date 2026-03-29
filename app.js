@@ -42,9 +42,11 @@ const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
-const authEmailInput = document.getElementById("auth-email");
+const authPinInput = document.getElementById("auth-pin");
 const authStatus = document.getElementById("auth-status");
 const signOutButton = document.getElementById("sign-out-button");
+const magicLinkButton = document.getElementById("magic-link-button");
+const authEmailTarget = document.getElementById("auth-email-target");
 const sessionEmailTargets = [
   document.getElementById("session-email"),
   document.getElementById("record-day-session-email"),
@@ -70,6 +72,8 @@ const magicLinkRedirectTo =
 const allowedEmails = (appConfig.allowedEmails || ["montessoripropertyservices@gmail.com"]).map(
   (email) => email.toLowerCase().trim()
 );
+const ownerEmail = allowedEmails[0];
+const authPinCode = String(appConfig.authPinCode || "2740");
 
 let currentSession = null;
 
@@ -132,6 +136,8 @@ function applyAuthState(session) {
 }
 
 async function initializeAuth() {
+  authEmailTarget.textContent = `Approved email: ${ownerEmail}`;
+
   if (!supabaseClient) {
     authScreen.classList.remove("hidden");
     authForm.classList.add("hidden");
@@ -168,20 +174,20 @@ async function sendMagicLink(event) {
     return;
   }
 
-  const email = authEmailInput.value.trim();
+  const pin = authPinInput.value.trim();
 
-  if (!email) {
-    setAuthStatus("Enter an email address first.", "error");
+  if (!pin) {
+    setAuthStatus("Enter the PIN first.", "error");
     return;
   }
 
-  if (!isAllowedEmail(email)) {
-    setAuthStatus("Only montessoripropertyservices@gmail.com can sign in.", "error");
+  if (pin !== authPinCode) {
+    setAuthStatus("That PIN is not correct.", "error");
     return;
   }
 
   const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
+    email: ownerEmail,
     options: {
       emailRedirectTo: magicLinkRedirectTo,
     },
@@ -197,7 +203,12 @@ async function sendMagicLink(event) {
   }
 
   authForm.reset();
+  updateMagicLinkButton();
   setAuthStatus("Magic link sent. Open your email and tap the link to enter the app.", "success");
+}
+
+function updateMagicLinkButton() {
+  magicLinkButton.disabled = authPinInput.value.trim() !== authPinCode;
 }
 
 async function signOut() {
@@ -467,6 +478,7 @@ addEmployeeButton.addEventListener("click", addEmployee);
 attachmentInput.addEventListener("change", renderAttachmentList);
 authForm.addEventListener("submit", sendMagicLink);
 signOutButton.addEventListener("click", signOut);
+authPinInput.addEventListener("input", updateMagicLinkButton);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -480,4 +492,5 @@ renderEmployees();
 renderLocations();
 renderHoursFields();
 renderAttachmentList();
+updateMagicLinkButton();
 initializeAuth();

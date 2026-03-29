@@ -184,6 +184,22 @@ form {
   max-width: 640px;
 }
 
+.auth-brand {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.auth-logo {
+  width: min(320px, 70vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 24px rgba(30, 36, 48, 0.12));
+}
+
+.auth-helper {
+  margin: 0;
+}
+
 .field-group,
 .field-set {
   display: grid;
@@ -304,6 +320,12 @@ input[type="file"]::file-selector-button {
   background: linear-gradient(135deg, #2e6d5d, #3d9079);
   color: white;
   font-weight: 700;
+}
+
+.submit-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .saved-panel {

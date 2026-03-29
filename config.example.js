@@ -3,4 +3,5 @@ window.APP_CONFIG = {
   supabaseAnonKey: "YOUR_SUPABASE_ANON_KEY",
   magicLinkRedirectTo: "https://YOUR-VERCEL-URL.vercel.app",
   allowedEmails: ["montessoripropertyservices@gmail.com"],
+  authPinCode: "2740",
 };

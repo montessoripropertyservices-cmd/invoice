@@ -15,22 +15,41 @@
   <body>
     <main class="app-shell">
       <section class="hero-card auth-card" id="auth-screen">
+        <div class="auth-brand">
+          <img class="auth-logo" src="mps-logo.png" alt="Montessori Property Services logo" />
+        </div>
+
         <div class="hero-copy">
           <p class="eyebrow">Secure Access</p>
           <h1>Sign in to open the work tracker</h1>
           <p class="subtitle">
-            Enter your email and we will send a magic link so only approved users can get in.
+            Enter the PIN to unlock secure access. Then we will send a magic link to the approved email.
           </p>
         </div>
 
         <form id="auth-form" class="auth-form">
           <label class="field-group field-group-large">
-            <span>Email address</span>
-            <input id="auth-email" name="email" type="email" placeholder="name@company.com" required />
+            <span>PIN code</span>
+            <input
+              id="auth-pin"
+              name="pin"
+              type="password"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="4"
+              placeholder="Enter 4-digit PIN"
+              required
+            />
           </label>
 
+          <p class="helper-text auth-helper" id="auth-email-target">
+            Approved email: montessoripropertyservices@gmail.com
+          </p>
+
           <div class="form-actions">
-            <button class="submit-button" type="submit">Send Magic Link</button>
+            <button id="magic-link-button" class="submit-button" type="submit" disabled>
+              Send Me a Magic Link
+            </button>
           </div>
         </form>
 

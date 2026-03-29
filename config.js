@@ -4,4 +4,5 @@ window.APP_CONFIG = {
   magicLinkRedirectTo:
     "https://villa-invoice.vercel.app",
   allowedEmails: ["montessoripropertyservices@gmail.com"],
+  authPinCode: "2740",
 };
