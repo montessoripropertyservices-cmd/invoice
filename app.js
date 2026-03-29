@@ -34,6 +34,7 @@ const screens = {
 };
 
 const employeeList = document.getElementById("employee-list");
+const newEmployeeDrawer = document.getElementById("new-employee-drawer");
 const toggleNewEmployeeButton = document.getElementById("toggle-new-employee-button");
 const newEmployeePanel = document.getElementById("new-employee-panel");
 const newEmployeeFirstNameInput = document.getElementById("new-employee-first-name");
@@ -274,6 +275,13 @@ function formatDisplayDate(dateValue) {
   });
 }
 
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
+}
+
 function slugifyEmployeeName(value) {
   return value
     .toLowerCase()
@@ -392,6 +400,35 @@ function getEntryEmployeeCost(item) {
 
 function getEntryTotalCost(entry) {
   return (entry.employees || []).reduce((sum, item) => sum + getEntryEmployeeCost(item), 0);
+}
+
+function formatDaySummary(entry) {
+  const employeeLine = (entry.employees || [])
+    .map((item) => `${item.employee}: ${item.hours} hours`)
+    .join(", ");
+  const attachmentCount = entry.attachments?.length || 0;
+
+  return [
+    `Date: ${formatDisplayDate(entry.date)}`,
+    `Location: ${entry.location || "None"}`,
+    `Employees: ${employeeLine || "None"}`,
+    `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
+    `Total Day: ${formatCurrency(getEntryTotalCost(entry))}`,
+    `Reference: ${entry.relatedReference || "None"}`,
+    `Comments: ${entry.comments || "None"}`,
+    `Attachments: ${attachmentCount}`,
+  ].join("\n");
+}
+
+function formatPurchaseSummary(entry) {
+  const attachmentCount = entry.receipts?.length || 0;
+
+  return [
+    `Date: ${formatDisplayDate(entry.date)}`,
+    `Reference: ${entry.relatedReference || "None"}`,
+    `Total: ${formatCurrency(entry.total)}`,
+    `Receipt images: ${attachmentCount}`,
+  ].join("\n");
 }
 
 function readStoredRecordedDayDates() {
@@ -569,33 +606,59 @@ async function loadCheckHoursEntries() {
   let nextEntries = [...localEntries];
 
   if (supabaseClient && currentSession?.user) {
-    const { data, error } = await supabaseClient
-      .from("day_entries")
-      .select(
-        "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)"
-      )
-      .is("archived_at", null)
-      .order("work_date", { ascending: false });
+    const queryVariants = [
+      "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
+      "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)",
+      "id, work_date, location, comments, related_reference, attachments, created_at, day_entry_employees(employee_name, hours)",
+      "id, work_date, location, comments, related_reference, created_at, day_entry_employees(employee_name, hours)",
+      "id, work_date, location, created_at, day_entry_employees(employee_name, hours)",
+    ];
+
+    let data = null;
+    let error = null;
+
+    for (const selectClause of queryVariants) {
+      let query = supabaseClient
+        .from("day_entries")
+        .select(selectClause)
+        .order("work_date", { ascending: false });
+
+      if (selectClause.includes("archived_at")) {
+        query = query.is("archived_at", null);
+      }
+
+      const result = await query;
+
+      if (!result.error) {
+        data = result.data;
+        error = null;
+        break;
+      }
+
+      error = result.error;
+    }
 
     if (!error && Array.isArray(data)) {
-      nextEntries = data.map((entry) => ({
-        id: entry.id,
-        date: entry.work_date,
-        location: entry.location,
-        comments: entry.comments || "",
-        relatedReference: entry.related_reference || "",
-        attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
-        employees: (entry.day_entry_employees || []).map((item) => ({
-          employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
-          employee: item.employee_name,
-          firstName: item.first_name || item.employee_name || "",
-          lastName: item.last_name || "",
-          hours: Number(item.hours),
-          rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
-        })),
-        archivedAt: entry.archived_at,
-        createdAt: entry.created_at,
-      }));
+      nextEntries = data
+        .map((entry) => ({
+          id: entry.id,
+          date: entry.work_date,
+          location: entry.location,
+          comments: entry.comments || "",
+          relatedReference: entry.related_reference || "",
+          attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
+          employees: (entry.day_entry_employees || []).map((item) => ({
+            employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
+            employee: item.employee_name,
+            firstName: item.first_name || item.employee_name || "",
+            lastName: item.last_name || "",
+            hours: Number(item.hours),
+            rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
+          })),
+          archivedAt: entry.archived_at || null,
+          createdAt: entry.created_at,
+        }))
+        .filter((entry) => !entry.archivedAt);
     } else if (error) {
       setCheckHoursStatus(
         "Could not load online day entries. Showing browser-saved entries instead.",
@@ -944,6 +1007,8 @@ function updateRecordDayStep() {
     step.classList.toggle("hidden", index !== recordDayStepIndex);
   });
 
+  newEmployeeDrawer.classList.toggle("hidden", recordDayStepIndex !== 2);
+
   const progress = ((recordDayStepIndex + 1) / recordDaySteps.length) * 100;
   recordDayStepTitle.textContent = recordDayStepMeta[recordDayStepIndex].title;
   recordDayProgressBar.style.width = `${progress}%`;
@@ -1022,8 +1087,12 @@ function validateCurrentRecordDayStep() {
   }
 
   if (recordDayStepIndex === 6 && !attachmentInput.files.length) {
-    setSaveStatus("Please add at least one file before saving.", "error");
-    return false;
+    const confirmed = window.confirm("No attachments?");
+
+    if (!confirmed) {
+      setSaveStatus("Add attachments if you want them included before saving.", "warning");
+      return false;
+    }
   }
 
   saveStatus.classList.add("hidden");
@@ -1844,7 +1913,7 @@ async function saveDayEntry(event) {
     upsertStoredDayEntry(savedEntry);
     addRecordedDayDate(payload.date);
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
-    savedEntryOutput.textContent = JSON.stringify(savedEntry, null, 2);
+    savedEntryOutput.textContent = formatDaySummary(savedEntry);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
       saveResult.message,
@@ -1865,7 +1934,7 @@ async function saveDayEntry(event) {
     upsertStoredDayEntry(savedEntry);
     addRecordedDayDate(payload.date);
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
-    savedEntryOutput.textContent = JSON.stringify(savedEntry, null, 2);
+    savedEntryOutput.textContent = formatDaySummary(savedEntry);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
       "Supabase save failed, but the entry was saved in this browser. Check your login and Supabase setup.",
@@ -1909,7 +1978,7 @@ async function savePurchaseEntry(event) {
     const saveResult = await savePurchaseToSupabase(payload);
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
-    purchaseSavedOutput.textContent = JSON.stringify(payload, null, 2);
+    purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
     purchaseSavedPanel.classList.remove("hidden");
     setPurchaseSaveStatus(
       saveResult.message,
@@ -1919,7 +1988,7 @@ async function savePurchaseEntry(event) {
     console.error(error);
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
-    purchaseSavedOutput.textContent = JSON.stringify(payload, null, 2);
+    purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
     purchaseSavedPanel.classList.remove("hidden");
     setPurchaseSaveStatus(getPurchaseSaveErrorMessage(error), "error");
   }
