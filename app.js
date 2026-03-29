@@ -2236,8 +2236,8 @@ function setupSpeechRecognition() {
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
   if (isIosDevice) {
-    updateVoiceStatus("On iPhone, use the keyboard microphone instead of this button.");
-    voiceCommentButton.disabled = true;
+    updateVoiceStatus("Tap Dictate, then use the iPhone keyboard microphone.");
+    voiceCommentButton.disabled = false;
     return;
   }
 
@@ -2289,6 +2289,15 @@ function setupSpeechRecognition() {
 }
 
 function startVoiceCapture() {
+  const isIosDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent || "");
+
+  if (isIosDevice) {
+    commentsText.focus();
+    commentsText.setSelectionRange(commentsText.value.length, commentsText.value.length);
+    updateVoiceStatus("Use the iPhone keyboard microphone to dictate.");
+    return;
+  }
+
   if (!speechRecognition || speechSessionActive) {
     return;
   }
