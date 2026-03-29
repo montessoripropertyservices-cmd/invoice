@@ -486,12 +486,16 @@ function formatDaySummary(entry) {
 
 function formatPurchaseSummary(entry) {
   const attachmentCount = entry.receipts?.length || 0;
+  const receiptLinks = (entry.receipts || [])
+    .map((item) => (item.url ? `${item.name}: ${item.url}` : item.name))
+    .join("\n");
 
   return [
     `Date: ${formatDisplayDate(entry.date)}`,
     `Reference: ${entry.relatedReference || "None"}`,
     `Total: ${formatCurrency(entry.total)}`,
     `Receipt images: ${attachmentCount}`,
+    `Receipt links: ${receiptLinks || "None"}`,
   ].join("\n");
 }
 
@@ -678,7 +682,13 @@ function renderCheckReceiptsEntries() {
   checkReceiptsList.innerHTML = visibleEntries
     .map((entry) => {
       const receipts = (entry.receipts || [])
-        .map((item) => `- ${item.name}${item.url ? `: ${item.url}` : ""}`)
+        .map((item) => {
+          if (item.url) {
+            return `<a href="${item.url}" target="_blank" rel="noreferrer">${item.name}</a>`;
+          }
+
+          return item.name;
+        })
         .join("<br />");
 
       return `
@@ -1983,6 +1993,7 @@ async function savePurchaseToSupabase(payload) {
   if (!supabaseClient) {
     return {
       id: null,
+      receipts: payload.receipts,
       mode: "local-only",
       message: "Saved in this browser. Add the purchase table in Supabase to save online.",
     };
@@ -2008,23 +2019,78 @@ async function savePurchaseToSupabase(payload) {
     },
   ];
 
+  let purchaseEntry = null;
   let purchaseEntryError = null;
 
   for (const insertPayload of insertVariants) {
-    const result = await supabaseClient.from("purchase_entries").insert(insertPayload).select("id").single();
+    const result = await supabaseClient
+      .from("purchase_entries")
+      .insert(insertPayload)
+      .select("id")
+      .single();
 
     if (!result.error) {
-      return {
-        id: result.data?.id || null,
-        mode: "supabase",
-        message: "Saved to Supabase and to this browser.",
-      };
+      purchaseEntry = result.data;
+      purchaseEntryError = null;
+      break;
     }
 
     purchaseEntryError = result.error;
   }
 
-  throw purchaseEntryError;
+  if (purchaseEntryError) {
+    throw purchaseEntryError;
+  }
+
+  let uploadedReceipts = payload.receipts;
+  const receiptFiles = [...purchaseReceiptInput.files];
+
+  if (receiptFiles.length) {
+    const nextReceipts = [];
+
+    for (const file of receiptFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const path = `${currentSession.user.id}/${purchaseEntry.id}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from("purchase-receipts")
+        .upload(path, file, { upsert: false });
+
+      if (uploadError) {
+        nextReceipts.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        });
+        continue;
+      }
+
+      const { data: publicData } = supabaseClient.storage
+        .from("purchase-receipts")
+        .getPublicUrl(path);
+
+      nextReceipts.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: publicData.publicUrl,
+      });
+    }
+
+    uploadedReceipts = nextReceipts;
+
+    await supabaseClient
+      .from("purchase_entries")
+      .update({ receipt_files: uploadedReceipts })
+      .eq("id", purchaseEntry.id);
+  }
+
+  return {
+    id: purchaseEntry.id,
+    receipts: uploadedReceipts,
+    mode: "supabase",
+    message: "Saved to Supabase and to this browser.",
+  };
 }
 
 function getPurchaseSaveErrorMessage(error) {
@@ -2054,6 +2120,14 @@ function getPurchaseSaveErrorMessage(error) {
     message.includes("jwt")
   ) {
     return "Supabase blocked the purchase save. Please sign out, sign back in, and make sure the latest SQL policies were run.";
+  }
+
+  if (
+    message.includes("storage") ||
+    message.includes("bucket") ||
+    message.includes("purchase-receipts")
+  ) {
+    return "Supabase saved the purchase, but receipt uploads need the latest storage bucket setup from supabase/schema.sql.";
   }
 
   return "Supabase save failed, but the purchase was saved in this browser. Run the updated SQL in supabase/schema.sql and check your Supabase setup.";
@@ -2218,7 +2292,10 @@ async function savePurchaseEntry(event) {
 
   try {
     const saveResult = await savePurchaseToSupabase(payload);
-    const savedPurchase = buildLocalPurchaseEntry(payload, saveResult);
+    const savedPurchase = buildLocalPurchaseEntry(
+      { ...payload, receipts: saveResult.receipts || payload.receipts },
+      saveResult
+    );
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
     upsertStoredPurchaseEntry(savedPurchase);
     recordPurchaseForm.classList.add("hidden");

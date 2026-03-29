@@ -165,8 +165,14 @@ insert into storage.buckets (id, name, public)
 values ('day-attachments', 'day-attachments', true)
 on conflict (id) do nothing;
 
+insert into storage.buckets (id, name, public)
+values ('purchase-receipts', 'purchase-receipts', true)
+on conflict (id) do nothing;
+
 drop policy if exists "Allow authenticated upload day attachments" on storage.objects;
 drop policy if exists "Allow public read day attachments" on storage.objects;
+drop policy if exists "Allow authenticated upload purchase receipts" on storage.objects;
+drop policy if exists "Allow public read purchase receipts" on storage.objects;
 
 create policy "Allow authenticated upload day attachments"
 on storage.objects
@@ -179,3 +185,15 @@ on storage.objects
 for select
 to public
 using (bucket_id = 'day-attachments');
+
+create policy "Allow authenticated upload purchase receipts"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'purchase-receipts');
+
+create policy "Allow public read purchase receipts"
+on storage.objects
+for select
+to public
+using (bucket_id = 'purchase-receipts');
