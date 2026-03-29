@@ -14,7 +14,38 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="hero-card" id="home-screen">
+      <section class="hero-card auth-card" id="auth-screen">
+        <div class="hero-copy">
+          <p class="eyebrow">Secure Access</p>
+          <h1>Sign in to open the work tracker</h1>
+          <p class="subtitle">
+            Enter your email and we will send a magic link so only approved users can get in.
+          </p>
+        </div>
+
+        <form id="auth-form" class="auth-form">
+          <label class="field-group field-group-large">
+            <span>Email address</span>
+            <input id="auth-email" name="email" type="email" placeholder="name@company.com" required />
+          </label>
+
+          <div class="form-actions">
+            <button class="submit-button" type="submit">Send Magic Link</button>
+          </div>
+        </form>
+
+        <p id="auth-status" class="save-status hidden" aria-live="polite"></p>
+      </section>
+
+      <section class="hero-card hidden" id="home-screen">
+        <div class="top-bar">
+          <div class="session-pill">
+            <span class="session-label">Signed in as</span>
+            <strong id="session-email">Loading...</strong>
+          </div>
+          <button id="sign-out-button" class="back-button" type="button">Sign Out</button>
+        </div>
+
         <div class="hero-copy">
           <p class="eyebrow">Daily Work Tracker</p>
           <h1>Choose what you want to record</h1>
@@ -42,7 +73,13 @@
             <p class="eyebrow">Record a Day</p>
             <h2>Fill out the work log</h2>
           </div>
-          <button class="back-button" type="button" data-screen="home">Back</button>
+          <div class="section-actions">
+            <div class="session-pill compact">
+              <span class="session-label">Signed in as</span>
+              <strong id="record-day-session-email">Loading...</strong>
+            </div>
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
         </div>
 
         <form id="record-day-form">
@@ -118,7 +155,13 @@
             <p class="eyebrow">Record a Purchase</p>
             <h2>Coming next</h2>
           </div>
-          <button class="back-button" type="button" data-screen="home">Back</button>
+          <div class="section-actions">
+            <div class="session-pill compact">
+              <span class="session-label">Signed in as</span>
+              <strong id="record-purchase-session-email">Loading...</strong>
+            </div>
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
         </div>
         <p class="placeholder-copy">
           This button is ready and the purchase form can be added after we finish the day flow.
@@ -131,7 +174,13 @@
             <p class="eyebrow">Check Hours</p>
             <h2>Coming next</h2>
           </div>
-          <button class="back-button" type="button" data-screen="home">Back</button>
+          <div class="section-actions">
+            <div class="session-pill compact">
+              <span class="session-label">Signed in as</span>
+              <strong id="check-hours-session-email">Loading...</strong>
+            </div>
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
         </div>
         <p class="placeholder-copy">
           This section is ready for the hours summary screen once you want to build it.

@@ -43,12 +43,30 @@ body {
   backdrop-filter: blur(14px);
 }
 
-.hero-card {
+.hero-card,
+.auth-card {
   min-height: calc(100vh - 80px);
   display: grid;
   align-content: center;
   gap: 36px;
   padding: 40px;
+}
+
+.form-card {
+  padding: 28px;
+}
+
+.top-bar,
+.section-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.top-bar {
+  margin-bottom: 8px;
 }
 
 .hero-copy h1,
@@ -122,10 +140,6 @@ body {
   transform: translateY(-2px);
 }
 
-.form-card {
-  padding: 28px;
-}
-
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -141,9 +155,33 @@ body {
   color: var(--ink);
 }
 
+.session-pill {
+  display: inline-grid;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(30, 36, 48, 0.1);
+}
+
+.session-pill.compact {
+  padding: 10px 14px;
+}
+
+.session-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
 form {
   display: grid;
   gap: 22px;
+}
+
+.auth-form {
+  max-width: 640px;
 }
 
 .field-group,
@@ -326,7 +364,8 @@ input[type="file"]::file-selector-button {
     padding: 16px;
   }
 
-  .hero-card {
+  .hero-card,
+  .auth-card {
     min-height: auto;
     padding: 26px 20px;
   }
@@ -341,7 +380,9 @@ input[type="file"]::file-selector-button {
     grid-template-columns: 1fr;
   }
 
-  .section-head {
+  .section-head,
+  .top-bar,
+  .section-actions {
     align-items: flex-start;
   }
 }

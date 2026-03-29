@@ -4,9 +4,10 @@ This is a lightweight static app for recording day entries.
 
 ## Local setup
 
-1. Copy `config.example.js` to `config.js`.
+1. Copy `config.example.js` to `config.js` if the file does not already exist.
 2. Paste your Supabase project URL and anon key into `config.js`.
-3. Open `index.html` in a browser.
+3. Optionally add your deployed Vercel URL as `magicLinkRedirectTo` in `config.js`.
+4. Open `index.html` in a browser.
 
 ## Supabase setup
 
@@ -15,7 +16,9 @@ This is a lightweight static app for recording day entries.
 3. In `Project Settings` -> `API`, copy:
    - `Project URL`
    - `anon public` key
-4. Paste those values into `config.js`.
+4. In `Authentication` -> `URL Configuration`, add your deployed site URL as the `Site URL`.
+5. In the same Auth section, add that same deployed URL to `Redirect URLs`.
+6. Paste the API values into `config.js`.
 
 ## GitHub setup
 
@@ -36,8 +39,15 @@ git push -u origin main
 1. In Vercel, click `Add New...` -> `Project`.
 2. Import your GitHub repo.
 3. Deploy with the default static settings.
-4. In Vercel, add the same `config.js` file approach by either:
-   - keeping `config.js` out of Git and adding it after deploy, or
-   - moving to build-time env vars later when you want a stronger production setup.
+4. Because this app is browser-side only, `config.js` can be committed with the Supabase project URL and anon key. The anon key is meant for client use.
 
-For this first version, the app stores data in Supabase when configured and falls back to browser storage when it is not.
+## Secure login
+
+This app now uses Supabase magic-link login.
+
+1. Open the site.
+2. Enter an email address.
+3. Click `Send Magic Link`.
+4. Open the email and tap the sign-in link.
+
+Only signed-in users can open the app and save or read their own rows.

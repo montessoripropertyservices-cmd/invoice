@@ -40,19 +40,159 @@ const savedEntryOutput = document.getElementById("saved-entry-output");
 const saveStatus = document.getElementById("save-status");
 const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
+const authScreen = document.getElementById("auth-screen");
+const authForm = document.getElementById("auth-form");
+const authEmailInput = document.getElementById("auth-email");
+const authStatus = document.getElementById("auth-status");
+const signOutButton = document.getElementById("sign-out-button");
+const sessionEmailTargets = [
+  document.getElementById("session-email"),
+  document.getElementById("record-day-session-email"),
+  document.getElementById("record-purchase-session-email"),
+  document.getElementById("check-hours-session-email"),
+];
 
 const appConfig = window.APP_CONFIG || {};
 const hasSupabaseConfig = Boolean(
   appConfig.supabaseUrl && appConfig.supabaseAnonKey && window.supabase
 );
 const supabaseClient = hasSupabaseConfig
-  ? window.supabase.createClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey)
+  ? window.supabase.createClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
   : null;
+const magicLinkRedirectTo =
+  appConfig.magicLinkRedirectTo || `${window.location.origin}${window.location.pathname}`;
+
+let currentSession = null;
+
+function setStatusMessage(element, message, tone) {
+  element.textContent = message;
+  element.className = `save-status ${tone}`;
+  element.classList.remove("hidden");
+}
+
+function setSaveStatus(message, tone) {
+  setStatusMessage(saveStatus, message, tone);
+}
+
+function setAuthStatus(message, tone) {
+  setStatusMessage(authStatus, message, tone);
+}
 
 function showScreen(screenName) {
   Object.entries(screens).forEach(([name, element]) => {
     element.classList.toggle("hidden", name !== screenName);
   });
+}
+
+function setSignedInEmail(email) {
+  sessionEmailTargets.forEach((target) => {
+    if (target) {
+      target.textContent = email || "Unknown user";
+    }
+  });
+}
+
+function applyAuthState(session) {
+  currentSession = session;
+
+  if (session?.user?.email) {
+    authScreen.classList.add("hidden");
+    setSignedInEmail(session.user.email);
+    showScreen("home");
+    return;
+  }
+
+  authScreen.classList.remove("hidden");
+  Object.values(screens).forEach((element) => element.classList.add("hidden"));
+  setSignedInEmail("Not signed in");
+}
+
+async function initializeAuth() {
+  if (!supabaseClient) {
+    authScreen.classList.remove("hidden");
+    authForm.classList.add("hidden");
+    Object.values(screens).forEach((element) => element.classList.add("hidden"));
+    setAuthStatus(
+      "Supabase is not configured yet. Add your project values in config.js before using secure login.",
+      "warning"
+    );
+    return;
+  }
+
+  const {
+    data: { session },
+    error,
+  } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    console.error(error);
+    setAuthStatus("We could not load the login session. Please refresh and try again.", "error");
+  }
+
+  applyAuthState(session);
+
+  supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
+    applyAuthState(nextSession);
+  });
+}
+
+async function sendMagicLink(event) {
+  event.preventDefault();
+
+  if (!supabaseClient) {
+    setAuthStatus("Supabase is not configured yet.", "error");
+    return;
+  }
+
+  const email = authEmailInput.value.trim();
+
+  if (!email) {
+    setAuthStatus("Enter an email address first.", "error");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: magicLinkRedirectTo,
+    },
+  });
+
+  if (error) {
+    console.error(error);
+    setAuthStatus(
+      "We could not send the magic link. Check the email address and Supabase auth settings.",
+      "error"
+    );
+    return;
+  }
+
+  authForm.reset();
+  setAuthStatus("Magic link sent. Open your email and tap the link to enter the app.", "success");
+}
+
+async function signOut() {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.signOut();
+
+  if (error) {
+    console.error(error);
+    setSaveStatus("Sign-out failed. Please try again.", "error");
+    return;
+  }
+
+  saveStatus.classList.add("hidden");
+  savedEntryPanel.classList.add("hidden");
+  setAuthStatus("You have been signed out.", "warning");
 }
 
 function renderEmployees() {
@@ -74,12 +214,6 @@ function renderEmployees() {
     label.append(checkbox, text);
     employeeList.appendChild(label);
   });
-}
-
-function setSaveStatus(message, tone) {
-  saveStatus.textContent = message;
-  saveStatus.className = `save-status ${tone}`;
-  saveStatus.classList.remove("hidden");
 }
 
 function renderLocations() {
@@ -235,6 +369,12 @@ async function saveEntryToSupabase(payload) {
 async function saveDayEntry(event) {
   event.preventDefault();
 
+  if (!currentSession?.user) {
+    setSaveStatus("Please sign in before saving entries.", "error");
+    applyAuthState(null);
+    return;
+  }
+
   const selectedEmployees = getSelectedEmployees();
 
   if (!selectedEmployees.length) {
@@ -286,7 +426,7 @@ async function saveDayEntry(event) {
     savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
     savedEntryPanel.classList.remove("hidden");
     setSaveStatus(
-      "Supabase save failed, but the entry was saved in this browser. Check your config.js and Supabase table setup.",
+      "Supabase save failed, but the entry was saved in this browser. Check your login and Supabase setup.",
       "error"
     );
     renderAttachmentList();
@@ -302,6 +442,8 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 
 addEmployeeButton.addEventListener("click", addEmployee);
 attachmentInput.addEventListener("change", renderAttachmentList);
+authForm.addEventListener("submit", sendMagicLink);
+signOutButton.addEventListener("click", signOut);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -315,3 +457,4 @@ renderEmployees();
 renderLocations();
 renderHoursFields();
 renderAttachmentList();
+initializeAuth();
