@@ -822,12 +822,15 @@ input[type="file"]::file-selector-button {
   font-size: 1.18rem;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
   line-height: 1.7;
 }
 
 .selected-days-output a {
   color: #8fd0ff;
   text-decoration: underline;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hours-toolbar {
@@ -853,12 +856,14 @@ input[type="file"]::file-selector-button {
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(77, 155, 102, 0.16);
+  min-width: 0;
 }
 
 .entry-select-row {
   display: flex;
   align-items: flex-start;
   gap: 14px;
+  min-width: 0;
 }
 
 .entry-select-row input {
@@ -883,23 +888,37 @@ input[type="file"]::file-selector-button {
 .entry-card strong {
   font-size: 1.1rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .entry-meta {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .entry-inline-actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+  min-width: 0;
 }
 
 .entry-employees,
 .entry-attachments {
   display: grid;
   gap: 8px;
+  min-width: 0;
+}
+
+.entry-employees span,
+.entry-attachments span,
+.entry-meta p,
+.entry-meta h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .entry-pill {
@@ -979,6 +998,19 @@ input[type="file"]::file-selector-button {
 
   .hours-toolbar {
     display: grid;
+  }
+
+  .entry-select-row,
+  .entry-inline-actions {
+    display: grid;
+  }
+
+  .entry-inline-actions {
+    justify-content: stretch;
+  }
+
+  .entry-inline-actions .back-button {
+    width: 100%;
   }
 
   .settings-actions {
