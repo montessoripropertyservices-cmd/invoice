@@ -1174,6 +1174,36 @@ async function savePurchaseToSupabase(payload) {
   throw purchaseEntryError;
 }
 
+function getPurchaseSaveErrorMessage(error) {
+  const message = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+
+  if (
+    message.includes("purchase_entries") &&
+    (message.includes("does not exist") || message.includes("schema cache"))
+  ) {
+    return "Supabase is missing the purchase table. Run the updated SQL in supabase/schema.sql, then try again.";
+  }
+
+  if (
+    message.includes("receipt_total") ||
+    message.includes("receipt_files") ||
+    message.includes("receipt_text") ||
+    message.includes("related_reference")
+  ) {
+    return "Supabase is missing the latest purchase columns. Run the updated SQL in supabase/schema.sql, then try again.";
+  }
+
+  if (
+    message.includes("row-level security") ||
+    message.includes("permission denied") ||
+    message.includes("jwt")
+  ) {
+    return "Supabase blocked the purchase save. Please sign out, sign back in, and make sure the latest SQL policies were run.";
+  }
+
+  return "Supabase save failed, but the purchase was saved in this browser. Run the updated SQL in supabase/schema.sql and check your Supabase setup.";
+}
+
 async function saveDayEntry(event) {
   event.preventDefault();
 
@@ -1303,10 +1333,7 @@ async function savePurchaseEntry(event) {
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
     purchaseSavedOutput.textContent = JSON.stringify(payload, null, 2);
     purchaseSavedPanel.classList.remove("hidden");
-    setPurchaseSaveStatus(
-      "Supabase save failed, but the purchase was saved in this browser. Check your Supabase setup.",
-      "error"
-    );
+    setPurchaseSaveStatus(getPurchaseSaveErrorMessage(error), "error");
   }
 }
 
