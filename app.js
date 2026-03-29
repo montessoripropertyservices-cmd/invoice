@@ -39,6 +39,8 @@ const recordDayPrevButton = document.getElementById("record-day-prev");
 const recordDayNextButton = document.getElementById("record-day-next");
 const recordDaySaveButton = document.getElementById("record-day-save");
 const recordDaySteps = [...document.querySelectorAll(".wizard-step")];
+const workDateInput = document.getElementById("work-date");
+const workDateStatus = document.getElementById("work-date-status");
 const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"]')];
 const dayReferenceField = document.getElementById("day-reference-field");
 const dayReferenceText = document.getElementById("day-reference-text");
@@ -123,6 +125,9 @@ let speechBaseText = "";
 let recordDayStepIndex = 0;
 let recordPurchaseStepIndex = 0;
 let receiptAnalysisText = "";
+let recordedDayDates = new Set();
+
+const recordedDayDatesStorageKey = "recordedDayDates";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -211,6 +216,69 @@ function formatSavedPurchaseTitle(dateValue) {
   })} Recorded`;
 }
 
+function readStoredRecordedDayDates() {
+  try {
+    const rawValue = localStorage.getItem(recordedDayDatesStorageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue.filter(Boolean) : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeStoredRecordedDayDates(dates) {
+  localStorage.setItem(recordedDayDatesStorageKey, JSON.stringify([...dates].sort()));
+}
+
+function addRecordedDayDate(dateValue) {
+  if (!dateValue) {
+    return;
+  }
+
+  recordedDayDates.add(dateValue);
+  writeStoredRecordedDayDates(recordedDayDates);
+  updateWorkDateLockState();
+}
+
+function isRecordedDay(dateValue) {
+  return Boolean(dateValue) && recordedDayDates.has(dateValue);
+}
+
+function updateWorkDateLockState() {
+  const selectedDate = workDateInput.value;
+
+  if (selectedDate && isRecordedDay(selectedDate)) {
+    const message = "That day has already been recorded and is locked.";
+    workDateInput.setCustomValidity(message);
+    workDateStatus.textContent = message;
+    workDateStatus.classList.remove("hidden");
+    return;
+  }
+
+  workDateInput.setCustomValidity("");
+  workDateStatus.textContent = "";
+  workDateStatus.classList.add("hidden");
+}
+
+async function loadRecordedDayDates() {
+  const nextDates = new Set(readStoredRecordedDayDates());
+
+  if (currentSession?.user && supabaseClient) {
+    const { data, error } = await supabaseClient.from("day_entries").select("work_date");
+
+    if (!error && Array.isArray(data)) {
+      data.forEach((entry) => {
+        if (entry.work_date) {
+          nextDates.add(entry.work_date);
+        }
+      });
+    }
+  }
+
+  recordedDayDates = nextDates;
+  updateWorkDateLockState();
+}
+
 function setSignedInEmail(email) {
   sessionEmailTargets.forEach((target) => {
     if (target) {
@@ -255,6 +323,7 @@ async function initializeAuth() {
     authScreen.classList.remove("hidden");
     authForm.classList.add("hidden");
     Object.values(screens).forEach((element) => element.classList.add("hidden"));
+    await loadRecordedDayDates();
     setAuthStatus(
       "Supabase is not configured yet. Add your project values in config.js before using secure login.",
       "warning"
@@ -273,9 +342,11 @@ async function initializeAuth() {
   }
 
   applyAuthState(session);
+  await loadRecordedDayDates();
 
   supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
     applyAuthState(nextSession);
+    loadRecordedDayDates();
   });
 }
 
@@ -337,6 +408,8 @@ async function signOut() {
     return;
   }
 
+  recordedDayDates = new Set(readStoredRecordedDayDates());
+  updateWorkDateLockState();
   saveStatus.classList.add("hidden");
   savedEntryPanel.classList.add("hidden");
   setAuthStatus("You have been signed out.", "warning");
@@ -481,9 +554,17 @@ function updateRecordPurchaseStep() {
 }
 
 function validateCurrentRecordDayStep() {
-  if (recordDayStepIndex === 0 && !document.getElementById("work-date").value) {
-    setSaveStatus("Please choose the day before continuing.", "error");
-    return false;
+  if (recordDayStepIndex === 0) {
+    if (!workDateInput.value) {
+      setSaveStatus("Please choose the day before continuing.", "error");
+      return false;
+    }
+
+    if (isRecordedDay(workDateInput.value)) {
+      updateWorkDateLockState();
+      setSaveStatus("That day has already been recorded. Please choose a different day.", "error");
+      return false;
+    }
   }
 
   if (recordDayStepIndex === 1) {
@@ -647,6 +728,7 @@ function resetRecordDayForm() {
   renderAttachmentList();
   updateCommentsPreview();
   updateDayReferenceField();
+  updateWorkDateLockState();
   recordDayStepIndex = 0;
   updateRecordDayStep();
 }
@@ -1073,7 +1155,7 @@ async function saveDayEntry(event) {
   }));
 
   const payload = {
-    date: document.getElementById("work-date").value,
+    date: workDateInput.value,
     location: locationSelect.value,
     employees: hoursByEmployee.map((item) => ({
       employee: item.employee,
@@ -1091,9 +1173,16 @@ async function saveDayEntry(event) {
         : "",
   };
 
+  if (isRecordedDay(payload.date)) {
+    updateWorkDateLockState();
+    setSaveStatus("That day has already been recorded. Please choose a different day.", "error");
+    return;
+  }
+
   try {
     const saveResult = await saveEntryToSupabase(payload);
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
+    addRecordedDayDate(payload.date);
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
     savedEntryPanel.classList.remove("hidden");
@@ -1103,7 +1192,15 @@ async function saveDayEntry(event) {
     );
   } catch (error) {
     console.error(error);
+
+    if (error?.code === "23505") {
+      addRecordedDayDate(payload.date);
+      setSaveStatus("That day has already been recorded and is locked.", "error");
+      return;
+    }
+
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
+    addRecordedDayDate(payload.date);
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = JSON.stringify(payload, null, 2);
     savedEntryPanel.classList.remove("hidden");
@@ -1176,6 +1273,8 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 
 addEmployeeButton.addEventListener("click", addEmployee);
 attachmentInput.addEventListener("change", renderAttachmentList);
+workDateInput.addEventListener("input", updateWorkDateLockState);
+workDateInput.addEventListener("change", updateWorkDateLockState);
 purchaseReceiptInput.addEventListener("change", () => {
   renderPurchaseReceiptList();
   receiptAnalysisText = "";

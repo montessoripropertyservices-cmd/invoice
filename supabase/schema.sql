@@ -57,6 +57,9 @@ add column if not exists receipt_files jsonb default '[]'::jsonb;
 alter table public.purchase_entries
 add column if not exists receipt_text text default '';
 
+create unique index if not exists day_entries_created_by_work_date_idx
+on public.day_entries (created_by, work_date);
+
 alter table public.day_entries enable row level security;
 alter table public.day_entry_employees enable row level security;
 alter table public.purchase_entries enable row level security;
