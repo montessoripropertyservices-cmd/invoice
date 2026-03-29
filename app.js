@@ -1213,6 +1213,7 @@ function updateCommentsPreview() {
 
 function resetRecordDayForm() {
   recordDayForm.reset();
+  recordDayForm.classList.remove("hidden");
   savedEntryPanel.classList.add("hidden");
   saveStatus.classList.add("hidden");
   recordDaySaveButton.classList.remove("hidden");
@@ -1227,6 +1228,7 @@ function resetRecordDayForm() {
   updateWorkDateLockState();
   recordDayStepIndex = 0;
   updateRecordDayStep();
+  recordDayStepTitle.textContent = recordDayStepMeta[recordDayStepIndex].title;
 }
 
 function startAnotherDay() {
@@ -1410,6 +1412,7 @@ async function analyzeReceipt() {
 
 function resetRecordPurchaseForm() {
   recordPurchaseForm.reset();
+  recordPurchaseForm.classList.remove("hidden");
   recordPurchaseStepIndex = 0;
   receiptAnalysisText = "";
   purchaseSavedPanel.classList.add("hidden");
@@ -1421,6 +1424,7 @@ function resetRecordPurchaseForm() {
   renderPurchaseReceiptList();
   updatePurchaseReferenceField();
   updateRecordPurchaseStep();
+  recordPurchaseStepTitle.textContent = recordPurchaseStepMeta[recordPurchaseStepIndex].title;
 }
 
 function startAnotherPurchase() {
@@ -1922,6 +1926,8 @@ async function saveDayEntry(event) {
     localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
     upsertStoredDayEntry(savedEntry);
     addRecordedDayDate(payload.date);
+    recordDayForm.classList.add("hidden");
+    recordDayStepTitle.textContent = "Day Recorded";
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = formatDaySummary(savedEntry);
     savedEntryPanel.classList.remove("hidden");
@@ -1945,6 +1951,8 @@ async function saveDayEntry(event) {
     localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
     upsertStoredDayEntry(savedEntry);
     addRecordedDayDate(payload.date);
+    recordDayForm.classList.add("hidden");
+    recordDayStepTitle.textContent = "Day Recorded";
     savedEntryTitle.textContent = formatSavedDayTitle(payload.date);
     savedEntryOutput.textContent = formatDaySummary(savedEntry);
     savedEntryPanel.classList.remove("hidden");
@@ -1991,6 +1999,8 @@ async function savePurchaseEntry(event) {
   try {
     const saveResult = await savePurchaseToSupabase(payload);
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
+    recordPurchaseForm.classList.add("hidden");
+    recordPurchaseStepTitle.textContent = "Purchase Recorded";
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
     purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
     purchaseSavedPanel.classList.remove("hidden");
@@ -2002,6 +2012,8 @@ async function savePurchaseEntry(event) {
   } catch (error) {
     console.error(error);
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
+    recordPurchaseForm.classList.add("hidden");
+    recordPurchaseStepTitle.textContent = "Purchase Recorded";
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
     purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
     purchaseSavedPanel.classList.remove("hidden");

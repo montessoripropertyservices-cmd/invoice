@@ -696,11 +696,17 @@ input[type="file"]::file-selector-button {
 }
 
 .saved-panel {
-  margin-top: 24px;
-  padding: 20px;
+  margin-top: 16px;
+  padding: clamp(24px, 5vw, 40px);
   border-radius: var(--radius-lg);
   background: rgba(22, 35, 33, 0.92);
   color: #eef6f3;
+  min-height: 58vh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 16px;
 }
 
 .saved-entry-title {
@@ -763,6 +769,10 @@ input[type="file"]::file-selector-button {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
+  width: min(100%, 720px);
+  text-align: left;
+  font-size: 1.1rem;
+  line-height: 1.6;
 }
 
 .hours-toolbar {
