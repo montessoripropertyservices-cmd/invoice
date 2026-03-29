@@ -154,8 +154,13 @@ const ownerEmail = allowedEmails[0];
 const authPinCode = String(appConfig.authPinCode || "2740");
 const staticAuthSessionStorageKey = "staticAuthSession";
 const staticUsers = {
-  erik: { username: "erik", password: "E1976", email: ownerEmail, displayName: "Erik" },
-  martin: { username: "martin", password: "M2026", email: ownerEmail, displayName: "Martin" },
+  erik: { username: "erik", password: "E1976", email: "erik.nuno@gmail.com", displayName: "Erik" },
+  martin: {
+    username: "martin",
+    password: "M2026",
+    email: "montessoripropertysirvices@gmail.com",
+    displayName: "Martin",
+  },
 };
 
 let currentSession = null;
@@ -1581,6 +1586,46 @@ function signInWithStaticCredentials() {
 
   if (!matchedUser || matchedUser.password !== password) {
     setAuthStatus("That username or password is not correct.", "error");
+    return;
+  }
+
+  if (supabaseClient) {
+    supabaseClient.auth
+      .signInWithPassword({
+        email: matchedUser.email,
+        password,
+      })
+      .then(async ({ data, error }) => {
+        if (!error && data.session) {
+          clearStaticAuthSession();
+          authForm.reset();
+          updateMagicLinkButton();
+          applyAuthState(data.session);
+          await loadRecordedDayDates();
+          await checkPurchaseSupabaseReady();
+          setAuthStatus("Signed in and connected to Supabase.", "success");
+          return;
+        }
+
+        const staticSession = {
+          isStatic: true,
+          user: {
+            email: matchedUser.email,
+            username: matchedUser.username,
+            displayName: matchedUser.displayName,
+          },
+        };
+
+        writeStaticAuthSession(staticSession);
+        authForm.reset();
+        updateMagicLinkButton();
+        applyAuthState(staticSession);
+        loadRecordedDayDates();
+        setAuthStatus(
+          "Signed in in local-only mode. To save online, this username must also exist in Supabase Auth.",
+          "warning"
+        );
+      });
     return;
   }
 
