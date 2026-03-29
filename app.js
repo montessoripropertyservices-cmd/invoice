@@ -916,8 +916,51 @@ function renderCheckHoursDashboard(entries) {
     )
     .join("");
 
-  const locationCards = [...locationTotals.entries()]
-    .sort((left, right) => right[1].totalHours - left[1].totalHours)
+  const locationPalette = [
+    "#73c98b",
+    "#4f8cff",
+    "#f2a64b",
+    "#d96c8c",
+    "#7d6cff",
+    "#40bfb4",
+    "#f07f4f",
+    "#96b94f",
+  ];
+  const locationEntries = [...locationTotals.entries()].sort(
+    (left, right) => right[1].totalHours - left[1].totalHours
+  );
+  const locationColors = new Map();
+  locationEntries.forEach(([locationName], index) => {
+    locationColors.set(locationName, locationPalette[index % locationPalette.length]);
+  });
+
+  const pieSegments = [];
+  let pieOffset = 0;
+  locationEntries.forEach(([locationName, stats]) => {
+    const color = locationColors.get(locationName) || locationPalette[0];
+    const slice = totalHours ? (stats.totalHours / totalHours) * 100 : 0;
+    const end = pieOffset + slice;
+    pieSegments.push(`${color} ${pieOffset.toFixed(2)}% ${end.toFixed(2)}%`);
+    pieOffset = end;
+  });
+
+  const locationPieStyle = `background: conic-gradient(${pieSegments.join(", ")});`;
+  const locationLegend = locationEntries
+    .map(([locationName, stats]) => {
+      const color = locationColors.get(locationName) || locationPalette[0];
+      const percentage = totalHours ? (stats.totalHours / totalHours) * 100 : 0;
+
+      return `
+        <div class="hours-location-legend-item">
+          <span class="hours-location-swatch" style="background:${color};"></span>
+          <span>${locationName}</span>
+          <strong>${stats.totalHours.toFixed(2)}h (${percentage.toFixed(1)}%)</strong>
+        </div>
+      `;
+    })
+    .join("");
+
+  const locationCards = locationEntries
     .map(([locationName, stats]) => {
       const segments = [...stats.employees.entries()]
         .sort((left, right) => right[1] - left[1])
@@ -982,6 +1025,25 @@ function renderCheckHoursDashboard(entries) {
       </div>
       <div class="hours-dashboard-mini-grid">
         ${topEmployees || '<div class="empty-state">No people totals yet.</div>'}
+      </div>
+    </section>
+    <section class="hours-dashboard-section">
+      <div class="hours-dashboard-heading">
+        <h3>Combined Location Hours</h3>
+        <p>All active hours grouped by location</p>
+      </div>
+      <div class="hours-pie-layout">
+        <div class="hours-location-pie-card">
+          <div class="hours-location-pie" style="${locationPieStyle}">
+            <div class="hours-location-pie-center">
+              <strong>${totalHours.toFixed(2)}</strong>
+              <span>Total Hours</span>
+            </div>
+          </div>
+        </div>
+        <div class="hours-location-legend">
+          ${locationLegend}
+        </div>
       </div>
     </section>
     <section class="hours-dashboard-section">
