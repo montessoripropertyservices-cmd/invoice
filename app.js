@@ -757,6 +757,9 @@ function extractLikelyReceiptTotal(rawText) {
 
   const isBadContext = (line) =>
     /subtotal|sales\s*tax|tax|change|cash|debit|credit|auth|survey|policy|expires/i.test(line);
+  const isTaxLikeLine = (line) => /sales\s*tax|\btax\b/i.test(line);
+  const isSubtotalLikeLine = (line) => /\bsubtotal\b/i.test(line);
+  const isTotalLikeLine = (line) => /\bgrand\s*total\b|\btotal\b|\bamount\s*due\b|\bbalance\s*due\b/i.test(line);
 
   const candidates = [];
 
@@ -770,17 +773,28 @@ function extractLikelyReceiptTotal(rawText) {
     const previousLine = lines[index - 1] || "";
     const nextLine = lines[index + 1] || "";
     const combinedLine = `${previousLine} ${line} ${nextLine}`;
+    const lineLooksLikeTax = isTaxLikeLine(line);
+    const lineLooksLikeSubtotal = isSubtotalLikeLine(line);
+    const lineLooksLikeTotal = isTotalLikeLine(line);
+    const previousLooksLikeTotal = isTotalLikeLine(previousLine);
+    const nextLooksLikeTotal = isTotalLikeLine(nextLine);
     let score = 0;
 
-    if (/grand\s*total/i.test(combinedLine)) {
+    if (/grand\s*total/i.test(line)) {
+      score += 180;
+    } else if (/grand\s*total/i.test(combinedLine)) {
       score += 120;
     }
 
-    if (/amount\s*due|balance\s*due/i.test(combinedLine)) {
+    if (/amount\s*due|balance\s*due/i.test(line)) {
+      score += 170;
+    } else if (/amount\s*due|balance\s*due/i.test(combinedLine)) {
       score += 110;
     }
 
-    if (/\btotal\b/i.test(combinedLine)) {
+    if (/\btotal\b/i.test(line) && !lineLooksLikeTax && !lineLooksLikeSubtotal) {
+      score += 160;
+    } else if (/\btotal\b/i.test(combinedLine)) {
       score += 90;
     }
 
@@ -792,8 +806,12 @@ function extractLikelyReceiptTotal(rawText) {
       score += 12;
     }
 
-    if (/subtotal|sales\s*tax|tax/i.test(line)) {
-      score -= 80;
+    if (lineLooksLikeTax) {
+      score -= 240;
+    }
+
+    if (lineLooksLikeSubtotal) {
+      score -= 180;
     }
 
     if (isBadContext(previousLine) || isBadContext(nextLine)) {
@@ -801,9 +819,23 @@ function extractLikelyReceiptTotal(rawText) {
     }
 
     amounts.forEach((amount, amountIndex) => {
+      let amountScore = score + amountIndex;
+
+      if (lineLooksLikeTax || lineLooksLikeSubtotal) {
+        amountScore -= 1000;
+      }
+
+      if (!lineLooksLikeTotal && previousLooksLikeTotal && !isTaxLikeLine(previousLine)) {
+        amountScore += 140;
+      }
+
+      if (!lineLooksLikeTotal && nextLooksLikeTotal && !isTaxLikeLine(nextLine)) {
+        amountScore += 40;
+      }
+
       candidates.push({
         amount,
-        score: score + amountIndex,
+        score: amountScore,
         index,
       });
     });
