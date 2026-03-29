@@ -86,6 +86,7 @@ const recordPurchaseSteps = [...recordPurchaseScreen.querySelectorAll("[data-pur
 const purchaseRelatedInputs = [...document.querySelectorAll('input[name="purchase-related"]')];
 const purchaseReferenceField = document.getElementById("purchase-reference-field");
 const purchaseReferenceText = document.getElementById("purchase-reference-text");
+const purchaseLocationSelect = document.getElementById("purchase-location-select");
 const purchaseReceiptInput = document.getElementById("purchase-receipts");
 const purchaseReceiptList = document.getElementById("purchase-receipt-list");
 const analyzeReceiptButton = document.getElementById("analyze-receipt-button");
@@ -108,6 +109,7 @@ const selectedDaysOutput = document.getElementById("selected-days-output");
 const emailReceiptsButton = document.getElementById("email-receipts-button");
 const archiveReceiptsButton = document.getElementById("archive-receipts-button");
 const checkReceiptsStatus = document.getElementById("check-receipts-status");
+const checkReceiptsDashboard = document.getElementById("check-receipts-dashboard");
 const checkReceiptsList = document.getElementById("check-receipts-list");
 const archivedSearchInput = document.getElementById("archived-search-input");
 const retrieveArchivedButton = document.getElementById("retrieve-archived-button");
@@ -206,10 +208,11 @@ const recordDayStepMeta = [
 ];
 
 const recordPurchaseStepMeta = [
-  { title: "Step 1 of 4: Purchase Date" },
-  { title: "Step 2 of 4: Invoice or Ticket" },
-  { title: "Step 3 of 4: Receipt Photos" },
-  { title: "Step 4 of 4: Confirm Total" },
+  { title: "Step 1 of 5: Purchase Date" },
+  { title: "Step 2 of 5: Invoice or Ticket" },
+  { title: "Step 3 of 5: Location" },
+  { title: "Step 4 of 5: Receipt Photos" },
+  { title: "Step 5 of 5: Confirm Total" },
 ];
 
 function setStatusMessage(element, message, tone) {
@@ -562,6 +565,7 @@ function buildLocalPurchaseEntry(payload, saveResult) {
   return {
     id: saveResult.id || `purchase-${payload.date}-${Date.now()}`,
     date: payload.date,
+    location: payload.location || "",
     relatedReference: payload.relatedReference,
     receipts: payload.receipts,
     total: Number(payload.total || 0),
@@ -618,6 +622,7 @@ function formatPurchaseSummary(entry) {
 
   return [
     `Date: ${formatDisplayDate(entry.date)}`,
+    `Location: ${entry.location || "None"}`,
     `Reference: ${entry.relatedReference || "None"}`,
     `Total: ${formatCurrency(entry.total)}`,
     `Receipt images: ${attachmentCount}`,
@@ -1058,6 +1063,107 @@ function renderCheckHoursDashboard(entries) {
   `;
 }
 
+function renderCheckReceiptsDashboard(entries) {
+  if (!checkReceiptsDashboard) {
+    return;
+  }
+
+  if (!entries.length) {
+    checkReceiptsDashboard.innerHTML = '<div class="empty-state">No active receipt stats yet.</div>';
+    return;
+  }
+
+  const locationTotals = new Map();
+  let totalAmount = 0;
+
+  entries.forEach((entry) => {
+    const amount = Number(entry.total || 0);
+    const locationName = entry.location || "No location";
+    totalAmount += amount;
+    locationTotals.set(locationName, (locationTotals.get(locationName) || 0) + amount);
+  });
+
+  const locationEntries = [...locationTotals.entries()].sort((left, right) => right[1] - left[1]);
+  const averageReceipt = entries.length ? totalAmount / entries.length : 0;
+  const largestReceipt = [...entries].sort((left, right) => Number(right.total || 0) - Number(left.total || 0))[0];
+  const palette = ["#73c98b", "#4f8cff", "#f2a64b", "#d96c8c", "#7d6cff", "#40bfb4", "#f07f4f", "#96b94f"];
+
+  const pieSegments = [];
+  let pieOffset = 0;
+  locationEntries.forEach(([locationName, amount], index) => {
+    const color = palette[index % palette.length];
+    const slice = totalAmount ? (amount / totalAmount) * 100 : 0;
+    const end = pieOffset + slice;
+    pieSegments.push(`${color} ${pieOffset.toFixed(2)}% ${end.toFixed(2)}%`);
+    pieOffset = end;
+  });
+
+  const summaryCards = [
+    { label: "Active Receipts", value: String(entries.length) },
+    { label: "Total Receipt Value", value: formatCurrency(totalAmount) },
+    { label: "Locations", value: String(locationEntries.length) },
+    { label: "Average Receipt", value: formatCurrency(averageReceipt) },
+    {
+      label: "Largest Receipt",
+      value: largestReceipt ? formatCurrency(largestReceipt.total) : formatCurrency(0),
+    },
+    {
+      label: "Top Location",
+      value: locationEntries[0]
+        ? `${locationEntries[0][0]} (${formatCurrency(locationEntries[0][1])})`
+        : "None",
+    },
+  ];
+
+  const legend = locationEntries
+    .map(([locationName, amount], index) => {
+      const color = palette[index % palette.length];
+      const percentage = totalAmount ? (amount / totalAmount) * 100 : 0;
+      return `
+        <div class="hours-location-legend-item">
+          <span class="hours-location-swatch" style="background:${color};"></span>
+          <span>${locationName}</span>
+          <strong>${formatCurrency(amount)} (${percentage.toFixed(1)}%)</strong>
+        </div>
+      `;
+    })
+    .join("");
+
+  checkReceiptsDashboard.innerHTML = `
+    <div class="hours-dashboard-grid">
+      ${summaryCards
+        .map(
+          (card) => `
+            <article class="hours-dashboard-card">
+              <p>${card.label}</p>
+              <strong>${card.value}</strong>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+    <section class="hours-dashboard-section">
+      <div class="hours-dashboard-heading">
+        <h3>Receipt Value by Location</h3>
+        <p>Active receipt totals grouped by location</p>
+      </div>
+      <div class="hours-pie-layout">
+        <div class="hours-location-pie-card">
+          <div class="hours-location-pie" style="background: conic-gradient(${pieSegments.join(", ")});">
+            <div class="hours-location-pie-center">
+              <strong>${formatCurrency(totalAmount)}</strong>
+              <span>Total Value</span>
+            </div>
+          </div>
+        </div>
+        <div class="hours-location-legend">
+          ${legend}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function renderCheckHoursEntries() {
   const visibleEntries = dayEntriesCache.filter((entry) => !entry.archivedAt);
 
@@ -1122,6 +1228,8 @@ function renderCheckHoursEntries() {
 function renderCheckReceiptsEntries() {
   const visibleEntries = purchaseEntriesCache.filter((entry) => !entry.archivedAt);
 
+  renderCheckReceiptsDashboard(visibleEntries);
+
   if (!visibleEntries.length) {
     checkReceiptsList.className = "entry-list empty-state";
     checkReceiptsList.textContent = "No recorded receipts yet.";
@@ -1147,6 +1255,7 @@ function renderCheckReceiptsEntries() {
             <input type="checkbox" data-receipt-id="${entry.id}" />
             <div class="entry-meta">
               <h3>${formatDisplayDate(entry.date)}</h3>
+              <p>${entry.location || "No location"}</p>
               <p class="entry-pill">Total Receipt: ${formatCurrency(entry.total)}</p>
               ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
               <div class="entry-attachments"><strong>Receipts</strong><span>${receipts || "None"}</span></div>
@@ -1179,7 +1288,7 @@ function buildArchivedSearchText(item) {
   }
 
   const receipts = (item.receipts || []).map((receipt) => receipt.name || "").join(" ");
-  return [item.date, item.relatedReference, item.analysisText, receipts, "receipt"]
+  return [item.date, item.location, item.relatedReference, item.analysisText, receipts, "receipt"]
     .join(" ")
     .toLowerCase();
 }
@@ -1311,7 +1420,7 @@ async function loadArchivedItems() {
 
     const receiptResult = await supabaseClient
       .from("purchase_entries")
-      .select("id, purchase_date, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at")
+      .select("id, purchase_date, location, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at")
       .not("archived_at", "is", null)
       .order("purchase_date", { ascending: false });
 
@@ -1320,6 +1429,7 @@ async function loadArchivedItems() {
         kind: "receipt",
         id: entry.id,
         date: entry.purchase_date,
+        location: entry.location || "",
         relatedReference: entry.related_reference || "",
         receipts: Array.isArray(entry.receipt_files) ? entry.receipt_files : [],
         total: Number(entry.receipt_total || 0),
@@ -1484,7 +1594,8 @@ async function loadCheckReceiptsEntries() {
 
   if (supabaseClient && currentSession?.user) {
     const queryVariants = [
-      "id, purchase_date, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at",
+      "id, purchase_date, location, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at",
+      "id, purchase_date, location, related_reference, receipt_total, receipt_files, created_at",
       "id, purchase_date, related_reference, receipt_total, receipt_files, created_at",
       "id, purchase_date, receipt_total, created_at",
     ];
@@ -1515,16 +1626,23 @@ async function loadCheckReceiptsEntries() {
 
     if (!error && Array.isArray(data)) {
       nextEntries = data
-        .map((entry) => ({
-          id: entry.id,
-          date: entry.purchase_date,
-          relatedReference: entry.related_reference || "",
-          receipts: Array.isArray(entry.receipt_files) ? entry.receipt_files : [],
-          total: Number(entry.receipt_total || 0),
-          analysisText: entry.receipt_text || "",
-          archivedAt: entry.archived_at || null,
-          createdAt: entry.created_at,
-        }))
+        .map((entry) => {
+          const localEntry = localEntries.find((item) => item.id === entry.id);
+          return {
+            id: entry.id,
+            date: entry.purchase_date,
+            location: entry.location || localEntry?.location || "",
+            relatedReference: entry.related_reference || localEntry?.relatedReference || "",
+            receipts:
+              (Array.isArray(entry.receipt_files) && entry.receipt_files.length
+                ? entry.receipt_files
+                : localEntry?.receipts) || [],
+            total: Number(entry.receipt_total || localEntry?.total || 0),
+            analysisText: entry.receipt_text || localEntry?.analysisText || "",
+            archivedAt: entry.archived_at || localEntry?.archivedAt || null,
+            createdAt: entry.created_at || localEntry?.createdAt,
+          };
+        })
         .filter((entry) => !entry.archivedAt && !archivedReceiptIds.has(entry.id));
     } else if (error) {
       setCheckReceiptsStatus(
@@ -1555,6 +1673,7 @@ function buildReceiptsEmailBody(entries) {
 
       return [
         `Date: ${formatDisplayDate(entry.date)}`,
+        `Location: ${entry.location || "None"}`,
         `Reference: ${entry.relatedReference || "None"}`,
         `Total Receipt: ${formatCurrency(entry.total)}`,
         "Receipts:",
@@ -1977,6 +2096,9 @@ function renderEmployees() {
 
 function renderLocations() {
   locationSelect.innerHTML = "";
+  if (purchaseLocationSelect) {
+    purchaseLocationSelect.innerHTML = "";
+  }
 
   const placeholderOption = document.createElement("option");
   placeholderOption.value = "";
@@ -1984,14 +2106,23 @@ function renderLocations() {
     ? "Choose a location"
     : "No locations added yet";
   locationSelect.appendChild(placeholderOption);
+  if (purchaseLocationSelect) {
+    purchaseLocationSelect.appendChild(placeholderOption.cloneNode(true));
+  }
 
   if (!locations.length) {
     locationSelect.disabled = true;
+    if (purchaseLocationSelect) {
+      purchaseLocationSelect.disabled = true;
+    }
     locationEmptyState.classList.remove("hidden");
     return;
   }
 
   locationSelect.disabled = false;
+  if (purchaseLocationSelect) {
+    purchaseLocationSelect.disabled = false;
+  }
   locationEmptyState.classList.add("hidden");
 
   locations.forEach((location) => {
@@ -1999,6 +2130,12 @@ function renderLocations() {
     option.value = location;
     option.textContent = location;
     locationSelect.appendChild(option);
+    if (purchaseLocationSelect) {
+      const purchaseOption = document.createElement("option");
+      purchaseOption.value = location;
+      purchaseOption.textContent = location;
+      purchaseLocationSelect.appendChild(purchaseOption);
+    }
   });
 }
 
@@ -2211,12 +2348,17 @@ function validateCurrentRecordPurchaseStep() {
     }
   }
 
-  if (recordPurchaseStepIndex === 2 && !purchaseReceiptInput.files.length) {
+  if (recordPurchaseStepIndex === 2 && !purchaseLocationSelect.value) {
+    setPurchaseSaveStatus("Please choose the location before continuing.", "error");
+    return false;
+  }
+
+  if (recordPurchaseStepIndex === 3 && !purchaseReceiptInput.files.length) {
     setPurchaseSaveStatus("Please add at least one receipt image before continuing.", "error");
     return false;
   }
 
-  if (recordPurchaseStepIndex === 3 && !receiptTotalInput.value) {
+  if (recordPurchaseStepIndex === 4 && !receiptTotalInput.value) {
     setPurchaseSaveStatus("Please confirm the total before saving.", "error");
     return false;
   }
@@ -3042,6 +3184,7 @@ async function savePurchaseToSupabase(payload) {
   const insertVariants = [
     {
       purchase_date: payload.date,
+      location: payload.location,
       related_reference: payload.relatedReference,
       receipt_total: payload.total,
       receipt_files: payload.receipts,
@@ -3049,6 +3192,7 @@ async function savePurchaseToSupabase(payload) {
     },
     {
       purchase_date: payload.date,
+      location: payload.location,
       related_reference: payload.relatedReference,
       receipt_total: payload.total,
       receipt_text: payload.analysisText,
@@ -3146,6 +3290,7 @@ function getPurchaseSaveErrorMessage(error) {
   }
 
   if (
+    message.includes("location") ||
     message.includes("receipt_total") ||
     message.includes("receipt_files") ||
     message.includes("receipt_text") ||
@@ -3330,6 +3475,7 @@ async function savePurchaseEntry(event) {
 
   const payload = {
     date: document.getElementById("purchase-date").value,
+    location: purchaseLocationSelect.value,
     relatedReference:
       purchaseRelatedInputs.find((input) => input.checked)?.value === "yes"
         ? purchaseReferenceText.value.trim()

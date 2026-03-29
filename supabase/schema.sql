@@ -29,6 +29,7 @@ create table if not exists public.day_entry_employees (
 create table if not exists public.purchase_entries (
   id uuid primary key default gen_random_uuid(),
   purchase_date date not null,
+  location text not null default '',
   related_reference text not null default '',
   receipt_total numeric(10,2) not null check (receipt_total >= 0),
   receipt_files jsonb not null default '[]'::jsonb,
@@ -85,6 +86,9 @@ add column if not exists created_by uuid default auth.uid();
 
 alter table public.purchase_entries
 add column if not exists related_reference text default '';
+
+alter table public.purchase_entries
+add column if not exists location text default '';
 
 alter table public.purchase_entries
 add column if not exists receipt_total numeric(10,2) default 0;

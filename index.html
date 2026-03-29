@@ -294,7 +294,7 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Record a Purchase</p>
-            <h2 id="record-purchase-step-title">Step 1 of 4</h2>
+            <h2 id="record-purchase-step-title">Step 1 of 5</h2>
           </div>
           <div class="section-actions">
             <button class="back-button" type="button" data-screen="home">Back</button>
@@ -339,8 +339,17 @@
             </label>
           </section>
 
-          <section class="wizard-step section-card section-attachments hidden" data-purchase-step="2">
+          <section class="wizard-step section-card section-location hidden" data-purchase-step="2">
             <p class="step-kicker">Step 3</p>
+            <h3 class="step-heading">Where was this purchase for?</h3>
+            <label class="field-group field-group-large">
+              <span>Location</span>
+              <select id="purchase-location-select" required></select>
+            </label>
+          </section>
+
+          <section class="wizard-step section-card section-attachments hidden" data-purchase-step="3">
+            <p class="step-kicker">Step 4</p>
             <h3 class="step-heading">Attach pictures of the receipt</h3>
             <label class="field-group field-group-large">
               <span>Receipt photos</span>
@@ -358,8 +367,8 @@
             </div>
           </section>
 
-          <section class="wizard-step section-card section-hours hidden" data-purchase-step="3">
-            <p class="step-kicker">Step 4</p>
+          <section class="wizard-step section-card section-hours hidden" data-purchase-step="4">
+            <p class="step-kicker">Step 5</p>
             <h3 class="step-heading">Review the total from the receipt</h3>
             <button id="analyze-receipt-button" class="submit-button analysis-button" type="button">
               Analyze Receipt
@@ -479,6 +488,10 @@ No analysis yet.
         </div>
 
         <p id="check-receipts-status" class="save-status hidden" aria-live="polite"></p>
+
+        <section id="check-receipts-dashboard" class="hours-dashboard">
+          <div class="empty-state">No active receipt stats yet.</div>
+        </section>
 
         <div id="check-receipts-list" class="entry-list empty-state">
           No recorded receipts yet.
