@@ -71,6 +71,9 @@
           <button class="action-button" type="button" data-screen="check-hours">
             Check Hours
           </button>
+          <button class="action-button" type="button" data-screen="check-receipts">
+            Check Receipts
+          </button>
           <button class="action-button" type="button" data-screen="settings">
             Settings
           </button>
@@ -397,6 +400,33 @@ No analysis yet.
 
         <div id="check-hours-list" class="entry-list empty-state">
           No recorded days yet.
+        </div>
+      </section>
+
+      <section class="form-card hidden" id="check-receipts-screen">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Check Receipts</p>
+            <h2>Recorded Receipts</h2>
+          </div>
+          <div class="section-actions">
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
+        </div>
+
+        <div class="hours-toolbar">
+          <button id="email-receipts-button" class="submit-button" type="button">
+            Email Details
+          </button>
+          <button id="archive-receipts-button" class="back-button archive-button" type="button">
+            Archive Selected
+          </button>
+        </div>
+
+        <p id="check-receipts-status" class="save-status hidden" aria-live="polite"></p>
+
+        <div id="check-receipts-list" class="entry-list empty-state">
+          No recorded receipts yet.
         </div>
       </section>
 

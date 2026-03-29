@@ -33,6 +33,7 @@ create table if not exists public.purchase_entries (
   receipt_total numeric(10,2) not null check (receipt_total >= 0),
   receipt_files jsonb not null default '[]'::jsonb,
   receipt_text text not null default '',
+  archived_at timestamptz,
   created_by uuid not null default auth.uid(),
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -85,6 +86,9 @@ add column if not exists receipt_files jsonb default '[]'::jsonb;
 alter table public.purchase_entries
 add column if not exists receipt_text text default '';
 
+alter table public.purchase_entries
+add column if not exists archived_at timestamptz;
+
 create unique index if not exists day_entries_created_by_work_date_idx
 on public.day_entries (created_by, work_date);
 
@@ -98,6 +102,14 @@ drop policy if exists "Allow public insert day_entry_employees" on public.day_en
 drop policy if exists "Allow public select day_entry_employees" on public.day_entry_employees;
 drop policy if exists "Allow public insert purchase_entries" on public.purchase_entries;
 drop policy if exists "Allow public select purchase_entries" on public.purchase_entries;
+drop policy if exists "Allow authenticated insert day_entries" on public.day_entries;
+drop policy if exists "Allow authenticated select own day_entries" on public.day_entries;
+drop policy if exists "Allow authenticated update own day_entries" on public.day_entries;
+drop policy if exists "Allow authenticated insert day_entry_employees" on public.day_entry_employees;
+drop policy if exists "Allow authenticated select own day_entry_employees" on public.day_entry_employees;
+drop policy if exists "Allow authenticated insert purchase_entries" on public.purchase_entries;
+drop policy if exists "Allow authenticated select own purchase_entries" on public.purchase_entries;
+drop policy if exists "Allow authenticated update own purchase_entries" on public.purchase_entries;
 
 create policy "Allow authenticated insert day_entries"
 on public.day_entries
@@ -141,6 +153,13 @@ on public.purchase_entries
 for select
 to authenticated
 using (auth.uid() = created_by);
+
+create policy "Allow authenticated update own purchase_entries"
+on public.purchase_entries
+for update
+to authenticated
+using (auth.uid() = created_by)
+with check (auth.uid() = created_by);
 
 insert into storage.buckets (id, name, public)
 values ('day-attachments', 'day-attachments', true)

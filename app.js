@@ -30,6 +30,7 @@ const screens = {
   "record-day": document.getElementById("record-day-screen"),
   "record-purchase": document.getElementById("record-purchase-screen"),
   "check-hours": document.getElementById("check-hours-screen"),
+  "check-receipts": document.getElementById("check-receipts-screen"),
   settings: document.getElementById("settings-screen"),
 };
 
@@ -99,6 +100,10 @@ const emailDaysButton = document.getElementById("email-days-button");
 const archiveDaysButton = document.getElementById("archive-days-button");
 const checkHoursStatus = document.getElementById("check-hours-status");
 const checkHoursList = document.getElementById("check-hours-list");
+const emailReceiptsButton = document.getElementById("email-receipts-button");
+const archiveReceiptsButton = document.getElementById("archive-receipts-button");
+const checkReceiptsStatus = document.getElementById("check-receipts-status");
+const checkReceiptsList = document.getElementById("check-receipts-list");
 const settingsStatus = document.getElementById("settings-status");
 const settingsEmployeeList = document.getElementById("settings-employee-list");
 const saveSettingsButton = document.getElementById("save-settings-button");
@@ -147,11 +152,13 @@ let receiptAnalysisText = "";
 let recordedDayDates = new Set();
 let purchaseSupabaseReady = null;
 let dayEntriesCache = [];
+let purchaseEntriesCache = [];
 let recordDayCompleted = false;
 let employees = [];
 
 const recordedDayDatesStorageKey = "recordedDayDates";
 const dayEntriesStorageKey = "dayEntriesHistory";
+const purchaseEntriesStorageKey = "purchaseEntriesHistory";
 const employeeProfilesStorageKey = "employeeProfiles";
 
 const recordDayStepMeta = [
@@ -193,6 +200,10 @@ function setCheckHoursStatus(message, tone) {
   setStatusMessage(checkHoursStatus, message, tone);
 }
 
+function setCheckReceiptsStatus(message, tone) {
+  setStatusMessage(checkReceiptsStatus, message, tone);
+}
+
 function setSettingsStatus(message, tone) {
   setStatusMessage(settingsStatus, message, tone);
 }
@@ -215,6 +226,10 @@ function showScreen(screenName) {
 
   if (screenName === "check-hours") {
     loadCheckHoursEntries();
+  }
+
+  if (screenName === "check-receipts") {
+    loadCheckReceiptsEntries();
   }
 
   if (screenName === "settings") {
@@ -367,11 +382,32 @@ function writeStoredDayEntries(entries) {
   localStorage.setItem(dayEntriesStorageKey, JSON.stringify(entries));
 }
 
+function readStoredPurchaseEntries() {
+  try {
+    const rawValue = localStorage.getItem(purchaseEntriesStorageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeStoredPurchaseEntries(entries) {
+  localStorage.setItem(purchaseEntriesStorageKey, JSON.stringify(entries));
+}
+
 function upsertStoredDayEntry(entry) {
   const entries = readStoredDayEntries();
   const nextEntries = entries.filter((item) => item.id !== entry.id);
   nextEntries.unshift(entry);
   writeStoredDayEntries(nextEntries);
+}
+
+function upsertStoredPurchaseEntry(entry) {
+  const entries = readStoredPurchaseEntries();
+  const nextEntries = entries.filter((item) => item.id !== entry.id);
+  nextEntries.unshift(entry);
+  writeStoredPurchaseEntries(nextEntries);
 }
 
 function archiveStoredDayEntries(entryIds) {
@@ -380,6 +416,14 @@ function archiveStoredDayEntries(entryIds) {
     entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
   );
   writeStoredDayEntries(nextEntries);
+}
+
+function archiveStoredPurchaseEntries(entryIds) {
+  const entryIdSet = new Set(entryIds);
+  const nextEntries = readStoredPurchaseEntries().map((entry) =>
+    entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+  );
+  writeStoredPurchaseEntries(nextEntries);
 }
 
 function buildLocalDayEntry(payload, saveResult) {
@@ -391,6 +435,19 @@ function buildLocalDayEntry(payload, saveResult) {
     relatedReference: payload.relatedReference,
     employees: payload.employees,
     attachments: payload.attachments,
+    createdAt: new Date().toISOString(),
+    archivedAt: null,
+  };
+}
+
+function buildLocalPurchaseEntry(payload, saveResult) {
+  return {
+    id: saveResult.id || `purchase-${payload.date}-${Date.now()}`,
+    date: payload.date,
+    relatedReference: payload.relatedReference,
+    receipts: payload.receipts,
+    total: Number(payload.total || 0),
+    analysisText: payload.analysisText || "",
     createdAt: new Date().toISOString(),
     archivedAt: null,
   };
@@ -608,6 +665,39 @@ function renderCheckHoursEntries() {
     .join("");
 }
 
+function renderCheckReceiptsEntries() {
+  const visibleEntries = purchaseEntriesCache.filter((entry) => !entry.archivedAt);
+
+  if (!visibleEntries.length) {
+    checkReceiptsList.className = "entry-list empty-state";
+    checkReceiptsList.textContent = "No recorded receipts yet.";
+    return;
+  }
+
+  checkReceiptsList.className = "entry-list";
+  checkReceiptsList.innerHTML = visibleEntries
+    .map((entry) => {
+      const receipts = (entry.receipts || [])
+        .map((item) => `- ${item.name}${item.url ? `: ${item.url}` : ""}`)
+        .join("<br />");
+
+      return `
+        <label class="entry-card">
+          <div class="entry-select-row">
+            <input type="checkbox" data-receipt-id="${entry.id}" />
+            <div class="entry-meta">
+              <h3>${formatDisplayDate(entry.date)}</h3>
+              <p class="entry-pill">Total Receipt: ${formatCurrency(entry.total)}</p>
+              ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
+              <div class="entry-attachments"><strong>Receipts</strong><span>${receipts || "None"}</span></div>
+            </div>
+          </div>
+        </label>
+      `;
+    })
+    .join("");
+}
+
 async function loadCheckHoursEntries() {
   const localEntries = readStoredDayEntries().filter((entry) => !entry.archivedAt);
   let nextEntries = [...localEntries];
@@ -676,6 +766,142 @@ async function loadCheckHoursEntries() {
 
   dayEntriesCache = nextEntries.sort((left, right) => right.date.localeCompare(left.date));
   renderCheckHoursEntries();
+}
+
+async function loadCheckReceiptsEntries() {
+  const localEntries = readStoredPurchaseEntries().filter((entry) => !entry.archivedAt);
+  let nextEntries = [...localEntries];
+
+  if (supabaseClient && currentSession?.user) {
+    const queryVariants = [
+      "id, purchase_date, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at",
+      "id, purchase_date, related_reference, receipt_total, receipt_files, created_at",
+      "id, purchase_date, receipt_total, created_at",
+    ];
+
+    let data = null;
+    let error = null;
+
+    for (const selectClause of queryVariants) {
+      let query = supabaseClient
+        .from("purchase_entries")
+        .select(selectClause)
+        .order("purchase_date", { ascending: false });
+
+      if (selectClause.includes("archived_at")) {
+        query = query.is("archived_at", null);
+      }
+
+      const result = await query;
+
+      if (!result.error) {
+        data = result.data;
+        error = null;
+        break;
+      }
+
+      error = result.error;
+    }
+
+    if (!error && Array.isArray(data)) {
+      nextEntries = data
+        .map((entry) => ({
+          id: entry.id,
+          date: entry.purchase_date,
+          relatedReference: entry.related_reference || "",
+          receipts: Array.isArray(entry.receipt_files) ? entry.receipt_files : [],
+          total: Number(entry.receipt_total || 0),
+          analysisText: entry.receipt_text || "",
+          archivedAt: entry.archived_at || null,
+          createdAt: entry.created_at,
+        }))
+        .filter((entry) => !entry.archivedAt);
+    } else if (error) {
+      setCheckReceiptsStatus(
+        "Could not load online receipt entries. Showing browser-saved entries instead.",
+        "warning"
+      );
+    }
+  }
+
+  purchaseEntriesCache = nextEntries.sort((left, right) => right.date.localeCompare(left.date));
+  renderCheckReceiptsEntries();
+}
+
+function getSelectedReceiptEntries() {
+  const selectedIds = [
+    ...checkReceiptsList.querySelectorAll('input[type="checkbox"]:checked'),
+  ].map((input) => input.dataset.receiptId);
+
+  return purchaseEntriesCache.filter((entry) => selectedIds.includes(entry.id));
+}
+
+function buildReceiptsEmailBody(entries) {
+  return entries
+    .map((entry) => {
+      const receipts = (entry.receipts || [])
+        .map((item) => `- ${item.name}${item.url ? `: ${item.url}` : ""}`)
+        .join("\n");
+
+      return [
+        `Date: ${formatDisplayDate(entry.date)}`,
+        `Reference: ${entry.relatedReference || "None"}`,
+        `Total Receipt: ${formatCurrency(entry.total)}`,
+        "Receipts:",
+        receipts || "- None",
+      ].join("\n");
+    })
+    .join("\n\n--------------------\n\n");
+}
+
+function emailSelectedReceipts() {
+  const selectedEntries = getSelectedReceiptEntries();
+
+  if (!selectedEntries.length) {
+    setCheckReceiptsStatus("Please select at least one recorded receipt to email.", "error");
+    return;
+  }
+
+  const totalAmount = selectedEntries.reduce((sum, entry) => sum + Number(entry.total || 0), 0);
+  const subject = encodeURIComponent(`Recorded Receipt Details (${formatCurrency(totalAmount)})`);
+  const body = encodeURIComponent(
+    `${buildReceiptsEmailBody(selectedEntries)}\n\nTotal Receipts: ${formatCurrency(totalAmount)}`
+  );
+  window.location.href = `mailto:${ownerEmail}?subject=${subject}&body=${body}`;
+  setCheckReceiptsStatus("Opening your email app with the selected receipt details.", "success");
+}
+
+async function archiveSelectedReceipts() {
+  const selectedEntries = getSelectedReceiptEntries();
+
+  if (!selectedEntries.length) {
+    setCheckReceiptsStatus("Please select at least one recorded receipt to archive.", "error");
+    return;
+  }
+
+  const selectedIds = selectedEntries.map((entry) => entry.id);
+
+  if (supabaseClient && currentSession?.user) {
+    const { error } = await supabaseClient
+      .from("purchase_entries")
+      .update({ archived_at: new Date().toISOString() })
+      .in("id", selectedIds);
+
+    if (error) {
+      setCheckReceiptsStatus(
+        "Could not archive the selected receipts online. They were kept active.",
+        "error"
+      );
+      return;
+    }
+  }
+
+  archiveStoredPurchaseEntries(selectedIds);
+  purchaseEntriesCache = purchaseEntriesCache.map((entry) =>
+    selectedIds.includes(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+  );
+  renderCheckReceiptsEntries();
+  setCheckReceiptsStatus("Selected receipt entries were archived.", "success");
 }
 
 function getSelectedCheckHoursEntries() {
@@ -1756,17 +1982,10 @@ async function saveEntryToSupabase(payload) {
 async function savePurchaseToSupabase(payload) {
   if (!supabaseClient) {
     return {
+      id: null,
       mode: "local-only",
       message: "Saved in this browser. Add the purchase table in Supabase to save online.",
     };
-  }
-
-  if (purchaseSupabaseReady === false) {
-    const isReady = await checkPurchaseSupabaseReady();
-
-    if (!isReady) {
-      throw new Error("purchase_entries setup is missing in Supabase");
-    }
   }
 
   const insertVariants = [
@@ -1796,6 +2015,7 @@ async function savePurchaseToSupabase(payload) {
 
     if (!result.error) {
       return {
+        id: result.data?.id || null,
         mode: "supabase",
         message: "Saved to Supabase and to this browser.",
       };
@@ -1998,27 +2218,33 @@ async function savePurchaseEntry(event) {
 
   try {
     const saveResult = await savePurchaseToSupabase(payload);
-    localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
+    const savedPurchase = buildLocalPurchaseEntry(payload, saveResult);
+    localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
+    upsertStoredPurchaseEntry(savedPurchase);
     recordPurchaseForm.classList.add("hidden");
     recordPurchaseStepTitle.textContent = "Purchase Recorded";
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
-    purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
+    purchaseSavedOutput.textContent = formatPurchaseSummary(savedPurchase);
     purchaseSavedPanel.classList.remove("hidden");
     recordPurchaseSaveButton.classList.add("hidden");
     setPurchaseSaveStatus(
       saveResult.message,
       saveResult.mode === "supabase" ? "success" : "warning"
     );
+    loadCheckReceiptsEntries();
   } catch (error) {
     console.error(error);
-    localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
+    const savedPurchase = buildLocalPurchaseEntry(payload, { id: null });
+    localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
+    upsertStoredPurchaseEntry(savedPurchase);
     recordPurchaseForm.classList.add("hidden");
     recordPurchaseStepTitle.textContent = "Purchase Recorded";
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
-    purchaseSavedOutput.textContent = formatPurchaseSummary(payload);
+    purchaseSavedOutput.textContent = formatPurchaseSummary(savedPurchase);
     purchaseSavedPanel.classList.remove("hidden");
     recordPurchaseSaveButton.classList.add("hidden");
     setPurchaseSaveStatus(getPurchaseSaveErrorMessage(error), "error");
+    loadCheckReceiptsEntries();
   }
 }
 
@@ -2078,6 +2304,8 @@ voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
 emailDaysButton.addEventListener("click", emailSelectedDays);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
+emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
+archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
 saveSettingsButton.addEventListener("click", saveSettings);
 savedEntryHomeButton.addEventListener("click", () => {
   resetRecordDayForm();
@@ -2111,4 +2339,5 @@ setupSpeechRecognition();
 updateRecordDayStep();
 updateRecordPurchaseStep();
 renderCheckHoursEntries();
+renderCheckReceiptsEntries();
 initializeAuth();
