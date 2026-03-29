@@ -1579,10 +1579,8 @@ async function signInWithStaticCredentials() {
   });
 
   if (error || !data.session) {
-    setAuthStatus(
-      "That Supabase username or password is not correct yet. Check the email/password in Supabase Auth.",
-      "error"
-    );
+    const detail = error?.message ? ` Supabase says: ${error.message}` : "";
+    setAuthStatus(`Login failed for ${matchedUser.email}.${detail}`, "error");
     return;
   }
 
