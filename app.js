@@ -1219,7 +1219,7 @@ function setupSpeechRecognition() {
       .join(" ")
       .trim();
 
-    const mergedText = [speechBaseText, transcript].filter(Boolean).join(" ").trim();
+    const mergedText = [speechBaseText, transcript].filter(Boolean).join("\n").trim();
     commentsText.value = mergedText;
     updateCommentsPreview();
   };
@@ -1563,7 +1563,7 @@ async function checkPurchaseSupabaseReady() {
 }
 
 async function saveDayEntry(event) {
-  event.preventDefault();
+  event?.preventDefault();
 
   if (!currentSession?.user) {
     setSaveStatus("Please sign in before saving entries.", "error");
@@ -1657,7 +1657,7 @@ async function saveDayEntry(event) {
 }
 
 async function savePurchaseEntry(event) {
-  event.preventDefault();
+  event?.preventDefault();
 
   if (!currentSession?.user) {
     setPurchaseSaveStatus("Please sign in before saving purchases.", "error");
@@ -1728,8 +1728,22 @@ authPinInput.addEventListener("input", updateMagicLinkButton);
 commentsText.addEventListener("input", updateCommentsPreview);
 recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
 recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
+recordDaySaveButton.addEventListener("click", () => {
+  if (!validateCurrentRecordDayStep()) {
+    return;
+  }
+
+  saveDayEntry();
+});
 recordPurchasePrevButton.addEventListener("click", goToPreviousRecordPurchaseStep);
 recordPurchaseNextButton.addEventListener("click", goToNextRecordPurchaseStep);
+recordPurchaseSaveButton.addEventListener("click", () => {
+  if (!validateCurrentRecordPurchaseStep()) {
+    return;
+  }
+
+  savePurchaseEntry();
+});
 dayRelatedInputs.forEach((input) => input.addEventListener("change", updateDayReferenceField));
 purchaseRelatedInputs.forEach((input) =>
   input.addEventListener("change", updatePurchaseReferenceField)
@@ -1756,9 +1770,6 @@ newEmployeeNameInput.addEventListener("keydown", (event) => {
     addEmployee();
   }
 });
-
-recordDayForm.addEventListener("submit", saveDayEntry);
-recordPurchaseForm.addEventListener("submit", savePurchaseEntry);
 
 renderEmployees();
 renderLocations();
