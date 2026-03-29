@@ -74,6 +74,9 @@
           <button class="action-button" type="button" data-screen="check-receipts">
             Check Receipts
           </button>
+          <button class="action-button" type="button" data-screen="archived-items">
+            Archived Items
+          </button>
           <button class="action-button" type="button" data-screen="settings">
             Settings
           </button>
@@ -444,6 +447,39 @@ No analysis yet.
 
         <div id="check-receipts-list" class="entry-list empty-state">
           No recorded receipts yet.
+        </div>
+      </section>
+
+      <section class="form-card hidden" id="archived-items-screen">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Archived Items</p>
+            <h2>Search and Retrieve</h2>
+          </div>
+          <div class="section-actions">
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
+        </div>
+
+        <label class="field-group field-group-large">
+          <span>Search archived items</span>
+          <input
+            id="archived-search-input"
+            type="text"
+            placeholder="Search by date, location, comment, ticket, employee, file name"
+          />
+        </label>
+
+        <div class="hours-toolbar">
+          <button id="retrieve-archived-button" class="submit-button" type="button">
+            Retrieve Selected
+          </button>
+        </div>
+
+        <p id="archived-items-status" class="save-status hidden" aria-live="polite"></p>
+
+        <div id="archived-items-list" class="entry-list empty-state">
+          No archived items yet.
         </div>
       </section>
 

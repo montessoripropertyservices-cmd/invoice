@@ -32,6 +32,7 @@ const screens = {
   "check-hours": document.getElementById("check-hours-screen"),
   "selected-days": document.getElementById("selected-days-screen"),
   "check-receipts": document.getElementById("check-receipts-screen"),
+  "archived-items": document.getElementById("archived-items-screen"),
   settings: document.getElementById("settings-screen"),
 };
 
@@ -107,6 +108,10 @@ const emailReceiptsButton = document.getElementById("email-receipts-button");
 const archiveReceiptsButton = document.getElementById("archive-receipts-button");
 const checkReceiptsStatus = document.getElementById("check-receipts-status");
 const checkReceiptsList = document.getElementById("check-receipts-list");
+const archivedSearchInput = document.getElementById("archived-search-input");
+const retrieveArchivedButton = document.getElementById("retrieve-archived-button");
+const archivedItemsStatus = document.getElementById("archived-items-status");
+const archivedItemsList = document.getElementById("archived-items-list");
 const settingsStatus = document.getElementById("settings-status");
 const settingsEmployeeList = document.getElementById("settings-employee-list");
 const saveSettingsButton = document.getElementById("save-settings-button");
@@ -156,6 +161,7 @@ let recordedDayDates = new Set();
 let purchaseSupabaseReady = null;
 let dayEntriesCache = [];
 let purchaseEntriesCache = [];
+let archivedItemsCache = [];
 let recordDayCompleted = false;
 let employees = [];
 let editingDayEntryId = null;
@@ -212,6 +218,10 @@ function setCheckReceiptsStatus(message, tone) {
   setStatusMessage(checkReceiptsStatus, message, tone);
 }
 
+function setArchivedItemsStatus(message, tone) {
+  setStatusMessage(archivedItemsStatus, message, tone);
+}
+
 function setSettingsStatus(message, tone) {
   setStatusMessage(settingsStatus, message, tone);
 }
@@ -239,6 +249,10 @@ function showScreen(screenName) {
 
   if (screenName === "check-receipts") {
     loadCheckReceiptsEntries();
+  }
+
+  if (screenName === "archived-items") {
+    loadArchivedItems();
   }
 
   if (screenName === "settings") {
@@ -435,6 +449,22 @@ function archiveStoredPurchaseEntries(entryIds) {
   writeStoredPurchaseEntries(nextEntries);
 }
 
+function restoreStoredDayEntries(entryIds) {
+  const entryIdSet = new Set(entryIds);
+  const nextEntries = readStoredDayEntries().map((entry) =>
+    entryIdSet.has(entry.id) ? { ...entry, archivedAt: null } : entry
+  );
+  writeStoredDayEntries(nextEntries);
+}
+
+function restoreStoredPurchaseEntries(entryIds) {
+  const entryIdSet = new Set(entryIds);
+  const nextEntries = readStoredPurchaseEntries().map((entry) =>
+    entryIdSet.has(entry.id) ? { ...entry, archivedAt: null } : entry
+  );
+  writeStoredPurchaseEntries(nextEntries);
+}
+
 function buildLocalDayEntry(payload, saveResult) {
   return {
     id: saveResult.id || payload.id || `local-${payload.date}-${Date.now()}`,
@@ -514,6 +544,22 @@ function formatPurchaseSummary(entry) {
     `Receipt images: ${attachmentCount}`,
     `Receipt links: ${receiptLinks || "None"}`,
   ].join("\n");
+}
+
+function getArchivedDayIds() {
+  return new Set(
+    readStoredDayEntries()
+      .filter((entry) => entry.archivedAt)
+      .map((entry) => entry.id)
+  );
+}
+
+function getArchivedReceiptIds() {
+  return new Set(
+    readStoredPurchaseEntries()
+      .filter((entry) => entry.archivedAt)
+      .map((entry) => entry.id)
+  );
 }
 
 function readStoredRecordedDayDates() {
@@ -748,8 +794,246 @@ function renderCheckReceiptsEntries() {
     .join("");
 }
 
+function buildArchivedSearchText(item) {
+  if (item.kind === "day") {
+    const employees = (item.employees || [])
+      .map((employee) => `${employee.employee || ""} ${employee.firstName || ""} ${employee.lastName || ""}`)
+      .join(" ");
+    const attachments = (item.attachments || []).map((attachment) => attachment.name || "").join(" ");
+
+    return [
+      item.date,
+      item.location,
+      item.relatedReference,
+      item.comments,
+      employees,
+      attachments,
+      "day",
+    ]
+      .join(" ")
+      .toLowerCase();
+  }
+
+  const receipts = (item.receipts || []).map((receipt) => receipt.name || "").join(" ");
+  return [item.date, item.relatedReference, item.analysisText, receipts, "receipt"]
+    .join(" ")
+    .toLowerCase();
+}
+
+function renderArchivedItems() {
+  const terms = archivedSearchInput.value
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+
+  const visibleItems = archivedItemsCache.filter((item) => {
+    if (!terms.length) {
+      return true;
+    }
+
+    const haystack = buildArchivedSearchText(item);
+    return terms.every((term) => haystack.includes(term));
+  });
+
+  if (!visibleItems.length) {
+    archivedItemsList.className = "entry-list empty-state";
+    archivedItemsList.textContent = "No archived items match that search.";
+    return;
+  }
+
+  archivedItemsList.className = "entry-list";
+  archivedItemsList.innerHTML = visibleItems
+    .map((item) => {
+      if (item.kind === "day") {
+        const employees = (item.employees || [])
+          .map((employee) => `${employee.employee || "Unknown"}: ${employee.hours}h`)
+          .join("<br />");
+        const attachments = (item.attachments || [])
+          .map((attachment) =>
+            attachment.url
+              ? `<a href="${attachment.url}" target="_blank" rel="noreferrer">${attachment.name}</a>`
+              : attachment.name
+          )
+          .join("<br />");
+
+        return `
+          <label class="entry-card">
+            <div class="entry-select-row">
+              <input type="checkbox" data-archived-kind="day" data-archived-id="${item.id}" />
+              <div class="entry-meta">
+                <h3>${formatDisplayDate(item.date)}</h3>
+                <p class="entry-pill">Archived Day</p>
+                <p>${item.location || ""}</p>
+                ${item.relatedReference ? `<p>Ticket / Invoice: ${item.relatedReference}</p>` : ""}
+                ${item.comments ? `<p>${item.comments}</p>` : ""}
+                <p class="entry-pill">Total Hours: ${getEntryTotalHours(item).toFixed(2)}</p>
+                <p class="entry-pill">Total Day: ${formatCurrency(getEntryTotalCost(item))}</p>
+                <div class="entry-employees"><strong>People</strong><span>${employees || "None"}</span></div>
+                <div class="entry-attachments"><strong>Attachments</strong><span>${attachments || "None"}</span></div>
+              </div>
+            </div>
+          </label>
+        `;
+      }
+
+      const receipts = (item.receipts || [])
+        .map((receipt) =>
+          receipt.url
+            ? `<a href="${receipt.url}" target="_blank" rel="noreferrer">${receipt.name}</a>`
+            : receipt.name
+        )
+        .join("<br />");
+
+      return `
+        <label class="entry-card">
+          <div class="entry-select-row">
+            <input type="checkbox" data-archived-kind="receipt" data-archived-id="${item.id}" />
+            <div class="entry-meta">
+              <h3>${formatDisplayDate(item.date)}</h3>
+              <p class="entry-pill">Archived Receipt</p>
+              ${item.relatedReference ? `<p>Ticket / Invoice: ${item.relatedReference}</p>` : ""}
+              <p class="entry-pill">Total Receipt: ${formatCurrency(item.total)}</p>
+              <div class="entry-attachments"><strong>Receipts</strong><span>${receipts || "None"}</span></div>
+            </div>
+          </div>
+        </label>
+      `;
+    })
+    .join("");
+}
+
+async function loadArchivedItems() {
+  const localArchivedDays = readStoredDayEntries()
+    .filter((entry) => entry.archivedAt)
+    .map((entry) => ({ ...entry, kind: "day" }));
+  const localArchivedReceipts = readStoredPurchaseEntries()
+    .filter((entry) => entry.archivedAt)
+    .map((entry) => ({ ...entry, kind: "receipt" }));
+
+  let nextItems = [...localArchivedDays, ...localArchivedReceipts];
+
+  if (supabaseClient && currentSession?.user) {
+    const dayResult = await supabaseClient
+      .from("day_entries")
+      .select(
+        "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)"
+      )
+      .not("archived_at", "is", null)
+      .order("work_date", { ascending: false });
+
+    if (!dayResult.error && Array.isArray(dayResult.data)) {
+      const remoteDays = dayResult.data.map((entry) => ({
+        kind: "day",
+        id: entry.id,
+        date: entry.work_date,
+        location: entry.location,
+        comments: entry.comments || "",
+        relatedReference: entry.related_reference || "",
+        attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
+        employees: (entry.day_entry_employees || []).map((item) => ({
+          employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
+          employee: item.employee_name,
+          firstName: item.first_name || item.employee_name || "",
+          lastName: item.last_name || "",
+          hours: Number(item.hours),
+          rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
+        })),
+        archivedAt: entry.archived_at || null,
+        createdAt: entry.created_at,
+      }));
+      nextItems = [...nextItems.filter((item) => !(item.kind === "day" && isUuid(item.id))), ...remoteDays];
+    }
+
+    const receiptResult = await supabaseClient
+      .from("purchase_entries")
+      .select("id, purchase_date, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at")
+      .not("archived_at", "is", null)
+      .order("purchase_date", { ascending: false });
+
+    if (!receiptResult.error && Array.isArray(receiptResult.data)) {
+      const remoteReceipts = receiptResult.data.map((entry) => ({
+        kind: "receipt",
+        id: entry.id,
+        date: entry.purchase_date,
+        relatedReference: entry.related_reference || "",
+        receipts: Array.isArray(entry.receipt_files) ? entry.receipt_files : [],
+        total: Number(entry.receipt_total || 0),
+        analysisText: entry.receipt_text || "",
+        archivedAt: entry.archived_at || null,
+        createdAt: entry.created_at,
+      }));
+      nextItems = [
+        ...nextItems.filter((item) => !(item.kind === "receipt" && isUuid(item.id))),
+        ...remoteReceipts,
+      ];
+    }
+  }
+
+  archivedItemsCache = nextItems.sort((left, right) =>
+    String(right.date || "").localeCompare(String(left.date || ""))
+  );
+  renderArchivedItems();
+}
+
+function getSelectedArchivedItems() {
+  const selectedKeys = [...archivedItemsList.querySelectorAll('input[type="checkbox"]:checked')].map(
+    (input) => `${input.dataset.archivedKind}:${input.dataset.archivedId}`
+  );
+
+  return archivedItemsCache.filter((item) => selectedKeys.includes(`${item.kind}:${item.id}`));
+}
+
+async function retrieveSelectedArchivedItems() {
+  const selectedItems = getSelectedArchivedItems();
+
+  if (!selectedItems.length) {
+    setArchivedItemsStatus("Please select at least one archived item to retrieve.", "error");
+    return;
+  }
+
+  const dayIds = selectedItems.filter((item) => item.kind === "day").map((item) => item.id);
+  const receiptIds = selectedItems
+    .filter((item) => item.kind === "receipt")
+    .map((item) => item.id);
+  const onlineDayIds = dayIds.filter(isUuid);
+  const onlineReceiptIds = receiptIds.filter(isUuid);
+
+  if (supabaseClient && currentSession?.user && onlineDayIds.length) {
+    const { error } = await supabaseClient
+      .from("day_entries")
+      .update({ archived_at: null })
+      .in("id", onlineDayIds);
+
+    if (error) {
+      setArchivedItemsStatus("Could not retrieve the selected archived days online.", "error");
+      return;
+    }
+  }
+
+  if (supabaseClient && currentSession?.user && onlineReceiptIds.length) {
+    const { error } = await supabaseClient
+      .from("purchase_entries")
+      .update({ archived_at: null })
+      .in("id", onlineReceiptIds);
+
+    if (error) {
+      setArchivedItemsStatus("Could not retrieve the selected archived receipts online.", "error");
+      return;
+    }
+  }
+
+  restoreStoredDayEntries(dayIds);
+  restoreStoredPurchaseEntries(receiptIds);
+  await loadCheckHoursEntries();
+  await loadCheckReceiptsEntries();
+  await loadArchivedItems();
+  setArchivedItemsStatus("Selected archived items were retrieved.", "success");
+}
+
 async function loadCheckHoursEntries() {
   const localEntries = readStoredDayEntries().filter((entry) => !entry.archivedAt);
+  const archivedDayIds = getArchivedDayIds();
   let nextEntries = [...localEntries];
 
   if (supabaseClient && currentSession?.user) {
@@ -805,7 +1089,7 @@ async function loadCheckHoursEntries() {
           archivedAt: entry.archived_at || null,
           createdAt: entry.created_at,
         }))
-        .filter((entry) => !entry.archivedAt);
+        .filter((entry) => !entry.archivedAt && !archivedDayIds.has(entry.id));
     } else if (error) {
       setCheckHoursStatus(
         "Could not load online day entries. Showing browser-saved entries instead.",
@@ -820,6 +1104,7 @@ async function loadCheckHoursEntries() {
 
 async function loadCheckReceiptsEntries() {
   const localEntries = readStoredPurchaseEntries().filter((entry) => !entry.archivedAt);
+  const archivedReceiptIds = getArchivedReceiptIds();
   let nextEntries = [...localEntries];
 
   if (supabaseClient && currentSession?.user) {
@@ -865,7 +1150,7 @@ async function loadCheckReceiptsEntries() {
           archivedAt: entry.archived_at || null,
           createdAt: entry.created_at,
         }))
-        .filter((entry) => !entry.archivedAt);
+        .filter((entry) => !entry.archivedAt && !archivedReceiptIds.has(entry.id));
     } else if (error) {
       setCheckReceiptsStatus(
         "Could not load online receipt entries. Showing browser-saved entries instead.",
@@ -2687,11 +2972,13 @@ archiveDaysButton.addEventListener("click", archiveSelectedDays);
 selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
 archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
+retrieveArchivedButton.addEventListener("click", retrieveSelectedArchivedItems);
 checkHoursList.addEventListener("change", (event) => {
   if (event.target.matches('input[type="checkbox"][data-entry-id]')) {
     updateSelectAllDaysButton();
   }
 });
+archivedSearchInput.addEventListener("input", renderArchivedItems);
 checkHoursList.addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-edit-day-id]");
 
