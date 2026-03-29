@@ -54,6 +54,7 @@ const savedEntryOutput = document.getElementById("saved-entry-output");
 const saveStatus = document.getElementById("save-status");
 const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
+const developerCreditCard = document.getElementById("developer-credit-card");
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
 const authPinInput = document.getElementById("auth-pin");
@@ -123,6 +124,8 @@ function showScreen(screenName) {
     element.classList.toggle("hidden", name !== screenName);
   });
 
+  developerCreditCard.classList.toggle("hidden", screenName !== "home");
+
   if (screenName === "record-day") {
     updateRecordDayStep();
   }
@@ -163,6 +166,7 @@ function applyAuthState(session) {
 
   authScreen.classList.remove("hidden");
   Object.values(screens).forEach((element) => element.classList.add("hidden"));
+  developerCreditCard.classList.add("hidden");
   setSignedInEmail("Not signed in");
 }
 
@@ -602,16 +606,42 @@ async function saveEntryToSupabase(payload) {
     };
   }
 
-  const { data: dayEntry, error: dayEntryError } = await supabaseClient
-    .from("day_entries")
-    .insert({
+  const insertVariants = [
+    {
       work_date: payload.date,
       location: payload.location,
       comments: payload.comments,
       related_reference: payload.relatedReference,
-    })
-    .select("id")
-    .single();
+    },
+    {
+      work_date: payload.date,
+      location: payload.location,
+      comments: payload.comments,
+    },
+    {
+      work_date: payload.date,
+      location: payload.location,
+    },
+  ];
+
+  let dayEntry = null;
+  let dayEntryError = null;
+
+  for (const insertPayload of insertVariants) {
+    const result = await supabaseClient
+      .from("day_entries")
+      .insert(insertPayload)
+      .select("id")
+      .single();
+
+    if (!result.error) {
+      dayEntry = result.data;
+      dayEntryError = null;
+      break;
+    }
+
+    dayEntryError = result.error;
+  }
 
   if (dayEntryError) {
     throw dayEntryError;
