@@ -750,33 +750,79 @@ function extractLikelyReceiptTotal(rawText) {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const priorityPatterns = [
-    /grand\s*total/i,
-    /amount\s*due/i,
-    /balance\s*due/i,
-    /^total$/i,
-    /total\s*[:\-]/i,
-  ];
+  const parseAmounts = (line) =>
+    (line.match(/\d{1,5}(?:[.,]\d{2})/g) || [])
+      .map((value) => Number(value.replace(",", ".")))
+      .filter((value) => Number.isFinite(value));
 
-  for (const pattern of priorityPatterns) {
-    const matchingLine = lines.find((line) => pattern.test(line));
+  const isBadContext = (line) =>
+    /subtotal|sales\s*tax|tax|change|cash|debit|credit|auth|survey|policy|expires/i.test(line);
 
-    if (matchingLine) {
-      const amounts = matchingLine.match(/\d{1,4}(?:[.,]\d{2})/g);
+  const candidates = [];
 
-      if (amounts?.length) {
-        return Number(amounts[amounts.length - 1].replace(",", "."));
-      }
+  lines.forEach((line, index) => {
+    const amounts = parseAmounts(line);
+
+    if (!amounts.length) {
+      return;
     }
+
+    const previousLine = lines[index - 1] || "";
+    const nextLine = lines[index + 1] || "";
+    const combinedLine = `${previousLine} ${line} ${nextLine}`;
+    let score = 0;
+
+    if (/grand\s*total/i.test(combinedLine)) {
+      score += 120;
+    }
+
+    if (/amount\s*due|balance\s*due/i.test(combinedLine)) {
+      score += 110;
+    }
+
+    if (/\btotal\b/i.test(combinedLine)) {
+      score += 90;
+    }
+
+    if (/usd\$|\$\s*\d|\d\s*\$/i.test(combinedLine)) {
+      score += 30;
+    }
+
+    if (/amex|visa|mastercard|american\s*express/i.test(combinedLine)) {
+      score += 12;
+    }
+
+    if (/subtotal|sales\s*tax|tax/i.test(line)) {
+      score -= 80;
+    }
+
+    if (isBadContext(previousLine) || isBadContext(nextLine)) {
+      score -= 20;
+    }
+
+    amounts.forEach((amount, amountIndex) => {
+      candidates.push({
+        amount,
+        score: score + amountIndex,
+        index,
+      });
+    });
+  });
+
+  if (!candidates.length) {
+    const amounts = parseAmounts(normalizedText);
+    return amounts.length ? amounts[amounts.length - 1] : null;
   }
 
-  const amounts = normalizedText.match(/\d{1,4}(?:[.,]\d{2})/g) || [];
+  candidates.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
 
-  if (!amounts.length) {
-    return null;
-  }
+    return right.index - left.index;
+  });
 
-  return Number(amounts[amounts.length - 1].replace(",", "."));
+  return candidates[0].amount;
 }
 
 async function analyzeReceipt() {
