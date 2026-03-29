@@ -1066,6 +1066,7 @@ async function retrieveSelectedArchivedItems() {
 async function loadCheckHoursEntries() {
   const localEntries = readStoredDayEntries().filter((entry) => !entry.archivedAt);
   const archivedDayIds = getArchivedDayIds();
+  const localEntryMap = new Map(localEntries.map((entry) => [entry.id, entry]));
   let nextEntries = [...localEntries];
 
   if (supabaseClient && currentSession?.user) {
@@ -1103,24 +1104,34 @@ async function loadCheckHoursEntries() {
 
     if (!error && Array.isArray(data)) {
       nextEntries = data
-        .map((entry) => ({
-          id: entry.id,
-          date: entry.work_date,
-          location: entry.location,
-          comments: entry.comments || "",
-          relatedReference: entry.related_reference || "",
-          attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
-          employees: (entry.day_entry_employees || []).map((item) => ({
-            employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
-            employee: item.employee_name,
-            firstName: item.first_name || item.employee_name || "",
-            lastName: item.last_name || "",
-            hours: Number(item.hours),
-            rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
-          })),
-          archivedAt: entry.archived_at || null,
-          createdAt: entry.created_at,
-        }))
+        .map((entry) => {
+          const localEntry = localEntryMap.get(entry.id);
+
+          return {
+            id: entry.id,
+            date: entry.work_date,
+            location: entry.location || localEntry?.location || "",
+            comments: entry.comments || localEntry?.comments || "",
+            relatedReference: entry.related_reference || localEntry?.relatedReference || "",
+            attachments:
+              (Array.isArray(entry.attachments) && entry.attachments.length
+                ? entry.attachments
+                : localEntry?.attachments) || [],
+            employees:
+              (entry.day_entry_employees || []).length
+                ? (entry.day_entry_employees || []).map((item) => ({
+                    employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
+                    employee: item.employee_name,
+                    firstName: item.first_name || item.employee_name || "",
+                    lastName: item.last_name || "",
+                    hours: Number(item.hours),
+                    rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
+                  }))
+                : localEntry?.employees || [],
+            archivedAt: entry.archived_at || localEntry?.archivedAt || null,
+            createdAt: entry.created_at || localEntry?.createdAt || null,
+          };
+        })
         .filter((entry) => !entry.archivedAt && !archivedDayIds.has(entry.id));
     } else if (error) {
       setCheckHoursStatus(
