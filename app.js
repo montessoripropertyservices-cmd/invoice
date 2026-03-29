@@ -2231,11 +2231,18 @@ function setVoiceModalVisible(isVisible) {
 }
 
 function setupSpeechRecognition() {
+  const isIosDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent || "");
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
+  if (isIosDevice) {
+    updateVoiceStatus("On iPhone, use the keyboard microphone instead of this button.");
+    voiceCommentButton.disabled = true;
+    return;
+  }
+
   if (!SpeechRecognition) {
-    updateVoiceStatus("");
+    updateVoiceStatus("Speech input is not available on this device.");
     voiceCommentButton.disabled = true;
     return;
   }
