@@ -174,6 +174,8 @@ const recordedDayDatesStorageKey = "recordedDayDates";
 const dayEntriesStorageKey = "dayEntriesHistory";
 const purchaseEntriesStorageKey = "purchaseEntriesHistory";
 const employeeProfilesStorageKey = "employeeProfiles";
+const archivedDayIdsStorageKey = "archivedDayIds";
+const archivedReceiptIdsStorageKey = "archivedReceiptIds";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -419,11 +421,31 @@ function writeStoredPurchaseEntries(entries) {
   localStorage.setItem(purchaseEntriesStorageKey, JSON.stringify(entries));
 }
 
+function readStoredArchivedIds(storageKey) {
+  try {
+    const rawValue = localStorage.getItem(storageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return new Set(Array.isArray(parsedValue) ? parsedValue.filter(Boolean) : []);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
+function writeStoredArchivedIds(storageKey, values) {
+  localStorage.setItem(storageKey, JSON.stringify([...values].sort()));
+}
+
 function upsertStoredDayEntry(entry) {
   const entries = readStoredDayEntries();
   const nextEntries = entries.filter((item) => item.id !== entry.id);
   nextEntries.unshift(entry);
   writeStoredDayEntries(nextEntries);
+
+  if (!entry.archivedAt) {
+    const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
+    archivedIds.delete(entry.id);
+    writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
+  }
 }
 
 function upsertStoredPurchaseEntry(entry) {
@@ -431,6 +453,12 @@ function upsertStoredPurchaseEntry(entry) {
   const nextEntries = entries.filter((item) => item.id !== entry.id);
   nextEntries.unshift(entry);
   writeStoredPurchaseEntries(nextEntries);
+
+  if (!entry.archivedAt) {
+    const archivedIds = readStoredArchivedIds(archivedReceiptIdsStorageKey);
+    archivedIds.delete(entry.id);
+    writeStoredArchivedIds(archivedReceiptIdsStorageKey, archivedIds);
+  }
 }
 
 function archiveStoredDayEntries(entryIds) {
@@ -439,6 +467,9 @@ function archiveStoredDayEntries(entryIds) {
     entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
   );
   writeStoredDayEntries(nextEntries);
+  const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
+  entryIds.forEach((id) => archivedIds.add(id));
+  writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
 }
 
 function archiveStoredPurchaseEntries(entryIds) {
@@ -447,6 +478,9 @@ function archiveStoredPurchaseEntries(entryIds) {
     entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
   );
   writeStoredPurchaseEntries(nextEntries);
+  const archivedIds = readStoredArchivedIds(archivedReceiptIdsStorageKey);
+  entryIds.forEach((id) => archivedIds.add(id));
+  writeStoredArchivedIds(archivedReceiptIdsStorageKey, archivedIds);
 }
 
 function restoreStoredDayEntries(entryIds) {
@@ -455,6 +489,9 @@ function restoreStoredDayEntries(entryIds) {
     entryIdSet.has(entry.id) ? { ...entry, archivedAt: null } : entry
   );
   writeStoredDayEntries(nextEntries);
+  const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
+  entryIds.forEach((id) => archivedIds.delete(id));
+  writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
 }
 
 function restoreStoredPurchaseEntries(entryIds) {
@@ -463,6 +500,9 @@ function restoreStoredPurchaseEntries(entryIds) {
     entryIdSet.has(entry.id) ? { ...entry, archivedAt: null } : entry
   );
   writeStoredPurchaseEntries(nextEntries);
+  const archivedIds = readStoredArchivedIds(archivedReceiptIdsStorageKey);
+  entryIds.forEach((id) => archivedIds.delete(id));
+  writeStoredArchivedIds(archivedReceiptIdsStorageKey, archivedIds);
 }
 
 function buildLocalDayEntry(payload, saveResult) {
@@ -547,19 +587,11 @@ function formatPurchaseSummary(entry) {
 }
 
 function getArchivedDayIds() {
-  return new Set(
-    readStoredDayEntries()
-      .filter((entry) => entry.archivedAt)
-      .map((entry) => entry.id)
-  );
+  return readStoredArchivedIds(archivedDayIdsStorageKey);
 }
 
 function getArchivedReceiptIds() {
-  return new Set(
-    readStoredPurchaseEntries()
-      .filter((entry) => entry.archivedAt)
-      .map((entry) => entry.id)
-  );
+  return readStoredArchivedIds(archivedReceiptIdsStorageKey);
 }
 
 function readStoredRecordedDayDates() {
