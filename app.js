@@ -121,6 +121,7 @@ const authForm = document.getElementById("auth-form");
 const authPinInput = document.getElementById("auth-pin");
 const authUsernameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
+const authDebugEmail = document.getElementById("auth-debug-email");
 const authStatus = document.getElementById("auth-status");
 const signOutButton = document.getElementById("sign-out-button");
 const magicLinkButton = document.getElementById("magic-link-button");
@@ -1565,6 +1566,8 @@ async function signInWithStaticCredentials() {
     return;
   }
 
+  updateAuthDebugEmail();
+
   if (!supabaseClient) {
     setAuthStatus("Supabase is not configured yet.", "error");
     return;
@@ -1593,6 +1596,14 @@ async function signInWithStaticCredentials() {
 
 function updateMagicLinkButton() {
   magicLinkButton.disabled = authPinInput.value.trim() !== authPinCode;
+}
+
+function updateAuthDebugEmail() {
+  const username = authUsernameInput.value.trim().toLowerCase();
+  const matchedUser = staticUsers[username];
+  authDebugEmail.textContent = matchedUser
+    ? `Trying email: ${matchedUser.email}`
+    : "";
 }
 
 async function signOut() {
@@ -3052,6 +3063,7 @@ authForm.addEventListener("submit", sendMagicLink);
 staticLoginButton.addEventListener("click", signInWithStaticCredentials);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
+authUsernameInput.addEventListener("input", updateAuthDebugEmail);
 commentsText.addEventListener("input", updateCommentsPreview);
 recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
 recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
