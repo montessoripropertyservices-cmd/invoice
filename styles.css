@@ -196,14 +196,28 @@ body {
   margin-top: 18px;
 }
 
-.developer-credit a {
+.developer-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.developer-link {
+  display: inline-grid;
+  justify-items: center;
+  gap: 8px;
   color: var(--accent-deep);
   font-weight: 700;
   text-decoration: none;
 }
 
-.developer-credit a:hover {
+.developer-link:hover {
   text-decoration: underline;
+}
+
+.developer-logo {
+  height: 120px;
+  width: auto;
+  object-fit: contain;
 }
 
 .session-pill.compact {
