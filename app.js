@@ -162,6 +162,7 @@ let editingDayEntryId = null;
 let editingDayOriginalDate = "";
 let editingDayCreatedAt = null;
 let editingDayExistingAttachments = [];
+let currentScreenName = null;
 
 const recordedDayDatesStorageKey = "recordedDayDates";
 const dayEntriesStorageKey = "dayEntriesHistory";
@@ -216,6 +217,7 @@ function setSettingsStatus(message, tone) {
 }
 
 function showScreen(screenName) {
+  currentScreenName = screenName;
   Object.entries(screens).forEach(([name, element]) => {
     element.classList.toggle("hidden", name !== screenName);
   });
@@ -1086,6 +1088,7 @@ function isAllowedEmail(email) {
 }
 
 function applyAuthState(session) {
+  const hadSession = Boolean(currentSession?.user?.email);
   currentSession = session;
 
   if (session?.user?.email) {
@@ -1102,7 +1105,11 @@ function applyAuthState(session) {
 
     authScreen.classList.add("hidden");
     setSignedInEmail(session.user.email);
-    showScreen("home");
+
+    if (!hadSession || !currentScreenName || !screens[currentScreenName]) {
+      showScreen("home");
+    }
+
     return;
   }
 
@@ -1110,6 +1117,7 @@ function applyAuthState(session) {
   Object.values(screens).forEach((element) => element.classList.add("hidden"));
   developerCreditCard.classList.add("hidden");
   setSignedInEmail("Not signed in");
+  currentScreenName = null;
 }
 
 async function initializeAuth() {
