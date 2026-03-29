@@ -187,13 +187,13 @@ body {
 
 .developer-credit {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.88rem;
   color: #d8e2ff;
   text-align: center;
   background: #05070a;
   border-radius: var(--radius-xl);
-  padding: 22px 24px;
-  width: min(100%, 360px);
+  padding: 10px 16px;
+  width: 100%;
   box-shadow: 0 18px 34px rgba(5, 7, 10, 0.26);
 }
 
@@ -202,14 +202,14 @@ body {
 }
 
 .developer-label {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   color: #d8e2ff;
 }
 
 .developer-link {
   display: inline-grid;
   justify-items: center;
-  gap: 8px;
+  gap: 4px;
   color: #4f8cff;
   font-weight: 700;
   text-decoration: none;
@@ -220,7 +220,7 @@ body {
 }
 
 .developer-logo {
-  height: 120px;
+  height: 60px;
   width: auto;
   object-fit: contain;
 }
