@@ -46,7 +46,7 @@
         </div>
 
         <form id="record-day-form">
-          <label class="field-group">
+          <label class="field-group field-group-large">
             <span>Day</span>
             <input id="work-date" name="workDate" type="date" required />
           </label>
@@ -85,6 +85,17 @@
             <legend>Hours for each selected person</legend>
             <div id="hours-fields" class="hours-grid empty-state">
               Select at least one employee to enter hours.
+            </div>
+          </fieldset>
+
+          <fieldset class="field-set">
+            <legend>Attachments</legend>
+            <label class="field-group field-group-large">
+              <span>Add photos or files</span>
+              <input id="day-attachments" name="attachments" type="file" multiple />
+            </label>
+            <div id="attachment-list" class="attachment-list empty-state">
+              No attachments selected yet.
             </div>
           </fieldset>
 

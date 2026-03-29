@@ -38,6 +38,8 @@ const locationEmptyState = document.getElementById("location-empty-state");
 const savedEntryPanel = document.getElementById("saved-entry-panel");
 const savedEntryOutput = document.getElementById("saved-entry-output");
 const saveStatus = document.getElementById("save-status");
+const attachmentInput = document.getElementById("day-attachments");
+const attachmentList = document.getElementById("attachment-list");
 
 const appConfig = window.APP_CONFIG || {};
 const hasSupabaseConfig = Boolean(
@@ -104,6 +106,26 @@ function renderLocations() {
     option.value = location;
     option.textContent = location;
     locationSelect.appendChild(option);
+  });
+}
+
+function renderAttachmentList() {
+  const attachments = [...attachmentInput.files];
+
+  if (!attachments.length) {
+    attachmentList.className = "attachment-list empty-state";
+    attachmentList.textContent = "No attachments selected yet.";
+    return;
+  }
+
+  attachmentList.className = "attachment-list";
+  attachmentList.innerHTML = "";
+
+  attachments.forEach((file) => {
+    const item = document.createElement("div");
+    item.className = "attachment-item";
+    item.textContent = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+    attachmentList.appendChild(item);
   });
 }
 
@@ -237,6 +259,11 @@ async function saveDayEntry(event) {
       employee: item.employee,
       hours: Number(item.hours),
     })),
+    attachments: [...attachmentInput.files].map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    })),
   };
 
   try {
@@ -252,6 +279,7 @@ async function saveDayEntry(event) {
     renderEmployees();
     renderHoursFields();
     renderLocations();
+    renderAttachmentList();
   } catch (error) {
     console.error(error);
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
@@ -261,6 +289,7 @@ async function saveDayEntry(event) {
       "Supabase save failed, but the entry was saved in this browser. Check your config.js and Supabase table setup.",
       "error"
     );
+    renderAttachmentList();
   }
 }
 
@@ -272,6 +301,7 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 });
 
 addEmployeeButton.addEventListener("click", addEmployee);
+attachmentInput.addEventListener("change", renderAttachmentList);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -284,3 +314,4 @@ recordDayForm.addEventListener("submit", saveDayEntry);
 renderEmployees();
 renderLocations();
 renderHoursFields();
+renderAttachmentList();
