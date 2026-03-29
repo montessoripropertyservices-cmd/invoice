@@ -38,6 +38,15 @@ create table if not exists public.purchase_entries (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.employee_profiles (
+  id text primary key,
+  first_name text not null default '',
+  last_name text not null default '',
+  hourly_rate numeric(10,2) not null default 0 check (hourly_rate >= 0),
+  created_by uuid not null default auth.uid(),
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 alter table public.day_entries
 add column if not exists created_by uuid default auth.uid();
 
@@ -89,12 +98,25 @@ add column if not exists receipt_text text default '';
 alter table public.purchase_entries
 add column if not exists archived_at timestamptz;
 
+alter table public.employee_profiles
+add column if not exists created_by uuid default auth.uid();
+
+alter table public.employee_profiles
+add column if not exists first_name text default '';
+
+alter table public.employee_profiles
+add column if not exists last_name text default '';
+
+alter table public.employee_profiles
+add column if not exists hourly_rate numeric(10,2) default 0;
+
 create unique index if not exists day_entries_created_by_work_date_idx
 on public.day_entries (created_by, work_date);
 
 alter table public.day_entries enable row level security;
 alter table public.day_entry_employees enable row level security;
 alter table public.purchase_entries enable row level security;
+alter table public.employee_profiles enable row level security;
 
 drop policy if exists "Allow public insert day_entries" on public.day_entries;
 drop policy if exists "Allow public select day_entries" on public.day_entries;
@@ -110,6 +132,9 @@ drop policy if exists "Allow authenticated select own day_entry_employees" on pu
 drop policy if exists "Allow authenticated insert purchase_entries" on public.purchase_entries;
 drop policy if exists "Allow authenticated select own purchase_entries" on public.purchase_entries;
 drop policy if exists "Allow authenticated update own purchase_entries" on public.purchase_entries;
+drop policy if exists "Allow authenticated insert employee_profiles" on public.employee_profiles;
+drop policy if exists "Allow authenticated select own employee_profiles" on public.employee_profiles;
+drop policy if exists "Allow authenticated update own employee_profiles" on public.employee_profiles;
 
 create policy "Allow authenticated insert day_entries"
 on public.day_entries
@@ -156,6 +181,25 @@ using (auth.uid() = created_by);
 
 create policy "Allow authenticated update own purchase_entries"
 on public.purchase_entries
+for update
+to authenticated
+using (auth.uid() = created_by)
+with check (auth.uid() = created_by);
+
+create policy "Allow authenticated insert employee_profiles"
+on public.employee_profiles
+for insert
+to authenticated
+with check (auth.uid() = created_by);
+
+create policy "Allow authenticated select own employee_profiles"
+on public.employee_profiles
+for select
+to authenticated
+using (auth.uid() = created_by);
+
+create policy "Allow authenticated update own employee_profiles"
+on public.employee_profiles
 for update
 to authenticated
 using (auth.uid() = created_by)

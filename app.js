@@ -276,6 +276,7 @@ function showScreen(screenName) {
 
   if (screenName === "settings") {
     renderSettingsEmployees();
+    loadEmployeeProfilesFromSupabase();
   }
 }
 
@@ -392,6 +393,26 @@ function writeStoredEmployees(nextEmployees) {
 function saveEmployees(nextEmployees) {
   employees = nextEmployees.map((employee, index) => normalizeEmployeeProfile(employee, index));
   writeStoredEmployees(employees);
+}
+
+function mergeEmployeeProfiles(baseEmployees, overrideEmployees) {
+  const employeeMap = new Map();
+
+  baseEmployees.forEach((employee, index) => {
+    const normalized = normalizeEmployeeProfile(employee, index);
+    employeeMap.set(normalized.id, normalized);
+  });
+
+  overrideEmployees.forEach((employee, index) => {
+    const normalized = normalizeEmployeeProfile(employee, index);
+    const existing = employeeMap.get(normalized.id) || {};
+    employeeMap.set(normalized.id, {
+      ...existing,
+      ...normalized,
+    });
+  });
+
+  return [...employeeMap.values()];
 }
 
 function getEmployeeFullName(employee) {
@@ -733,12 +754,89 @@ function saveSettings() {
     )
     .filter((employee) => employee.firstName);
 
+  persistEmployeeSettings(nextEmployees);
+}
+
+async function loadEmployeeProfilesFromSupabase() {
+  if (!canUseSupabaseSession()) {
+    return false;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("employee_profiles")
+    .select("id, first_name, last_name, hourly_rate")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return false;
+  }
+
+  const normalizedProfiles = (Array.isArray(data) ? data : []).map((profile, index) =>
+    normalizeEmployeeProfile(
+      {
+        id: profile.id,
+        firstName: profile.first_name,
+        lastName: profile.last_name,
+        rate: profile.hourly_rate,
+      },
+      index
+    )
+  );
+
+  if (!normalizedProfiles.length) {
+    return true;
+  }
+
+  saveEmployees(mergeEmployeeProfiles(defaultEmployees, normalizedProfiles));
+  renderEmployees();
+  renderHoursFields();
+  renderSettingsEmployees();
+  return true;
+}
+
+async function persistEmployeeSettings(nextEmployees) {
   saveEmployees(nextEmployees);
   renderEmployees();
   renderHoursFields();
   renderSettingsEmployees();
   loadCheckHoursEntries();
-  setSettingsStatus("Employee settings saved.", "success");
+
+  if (!canUseSupabaseSession()) {
+    setSettingsStatus("Employee settings saved on this device.", "warning");
+    return;
+  }
+
+  const rows = nextEmployees.map((employee, index) => {
+    const normalized = normalizeEmployeeProfile(employee, index);
+    return {
+      id: normalized.id,
+      first_name: normalized.firstName,
+      last_name: normalized.lastName,
+      hourly_rate: Number(normalized.rate || 0),
+    };
+  });
+
+  if (!rows.length) {
+    setSettingsStatus("Employee settings saved on this device.", "warning");
+    return;
+  }
+
+  const { error } = await supabaseClient.from("employee_profiles").upsert(rows, {
+    onConflict: "id",
+  });
+
+  if (error) {
+    console.error(error);
+    setSettingsStatus(
+      "Employee settings saved on this device, but Supabase could not save them online. Run the latest SQL and check your login.",
+      "warning"
+    );
+    return;
+  }
+
+  setSettingsStatus("Employee settings saved online.", "success");
+  await loadEmployeeProfilesFromSupabase();
 }
 
 function toggleNewEmployeePanel() {
@@ -1507,11 +1605,13 @@ async function initializeAuth() {
   applyAuthState(session);
   await loadRecordedDayDates();
   await checkPurchaseSupabaseReady();
+  await loadEmployeeProfilesFromSupabase();
 
   supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
     applyAuthState(nextSession);
     loadRecordedDayDates();
     checkPurchaseSupabaseReady();
+    loadEmployeeProfilesFromSupabase();
   });
 }
 
@@ -1589,6 +1689,7 @@ async function signInWithStaticCredentials() {
   applyAuthState(data.session);
   await loadRecordedDayDates();
   await checkPurchaseSupabaseReady();
+  await loadEmployeeProfilesFromSupabase();
   setAuthStatus("Signed in with username and password.", "success");
 }
 
