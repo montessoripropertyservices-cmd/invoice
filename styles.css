@@ -1,13 +1,13 @@
 :root {
-  --bg: #f3efe4;
-  --panel: rgba(255, 252, 245, 0.88);
-  --panel-strong: #fffdf8;
-  --ink: #1e2430;
-  --muted: #5d6473;
-  --accent: #d26a2e;
-  --accent-deep: #8f3c14;
-  --line: rgba(30, 36, 48, 0.12);
-  --shadow: 0 24px 60px rgba(56, 39, 21, 0.14);
+  --bg: #eef8f1;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --ink: #1f3b2d;
+  --muted: #5e7a68;
+  --accent: #8fd19e;
+  --accent-deep: #4d9b66;
+  --line: rgba(77, 155, 102, 0.16);
+  --shadow: 0 24px 60px rgba(82, 140, 102, 0.12);
   --radius-xl: 28px;
   --radius-lg: 18px;
   --radius-md: 12px;
@@ -23,9 +23,9 @@ body {
   font-family: "Space Grotesk", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgba(210, 106, 46, 0.18), transparent 26%),
-    radial-gradient(circle at 85% 20%, rgba(57, 119, 102, 0.16), transparent 22%),
-    linear-gradient(180deg, #f7f3e8 0%, #efe6d6 100%);
+    radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
+    radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
+    linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
 }
 
 .app-shell {
@@ -37,7 +37,7 @@ body {
 .hero-card,
 .form-card {
   background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(143, 209, 158, 0.24);
   box-shadow: var(--shadow);
   border-radius: var(--radius-xl);
   backdrop-filter: blur(14px);
@@ -48,8 +48,10 @@ body {
   min-height: calc(100vh - 80px);
   display: grid;
   align-content: center;
+  justify-items: center;
   gap: 36px;
   padding: 40px;
+  text-align: center;
 }
 
 .form-card {
@@ -78,6 +80,11 @@ body {
 .hero-copy h1 {
   font-size: clamp(2.5rem, 7vw, 5.5rem);
   max-width: 10ch;
+}
+
+.auth-title {
+  max-width: none;
+  color: var(--accent-deep);
 }
 
 .subtitle,
@@ -128,9 +135,9 @@ body {
 }
 
 .action-button.primary {
-  background: linear-gradient(135deg, #cb5f1f, #e8893e);
-  color: white;
-  box-shadow: 0 22px 34px rgba(210, 106, 46, 0.28);
+  background: linear-gradient(135deg, #71c488, #a6dfb4);
+  color: #123424;
+  box-shadow: 0 22px 34px rgba(113, 196, 136, 0.26);
 }
 
 .action-button:hover,
@@ -151,7 +158,7 @@ body {
 .back-button,
 .mini-button {
   padding: 12px 18px;
-  background: #f0e7d8;
+  background: #edf8f0;
   color: var(--ink);
 }
 
@@ -160,8 +167,8 @@ body {
   gap: 2px;
   padding: 12px 16px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(30, 36, 48, 0.1);
+  background: #f5fcf7;
+  border: 1px solid rgba(77, 155, 102, 0.14);
 }
 
 .session-pill.compact {
@@ -182,11 +189,12 @@ form {
 
 .auth-form {
   max-width: 640px;
+  width: min(100%, 420px);
 }
 
 .auth-brand {
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .auth-logo {
@@ -194,10 +202,6 @@ form {
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 18px 24px rgba(30, 36, 48, 0.12));
-}
-
-.auth-helper {
-  margin: 0;
 }
 
 .field-group,
@@ -211,7 +215,7 @@ form {
   padding: 20px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.55);
+  background: #f9fdf9;
 }
 
 .field-group span,
@@ -317,8 +321,8 @@ input[type="file"]::file-selector-button {
 
 .submit-button {
   padding: 16px 24px;
-  background: linear-gradient(135deg, #2e6d5d, #3d9079);
-  color: white;
+  background: linear-gradient(135deg, #73c98b, #b5e8c2);
+  color: #153728;
   font-weight: 700;
 }
 
@@ -344,17 +348,17 @@ input[type="file"]::file-selector-button {
 }
 
 .save-status.success {
-  background: rgba(61, 144, 121, 0.16);
-  color: #175647;
+  background: rgba(115, 201, 139, 0.16);
+  color: #1d6a38;
 }
 
 .save-status.warning {
-  background: rgba(210, 106, 46, 0.14);
-  color: #8f3c14;
+  background: rgba(166, 223, 180, 0.3);
+  color: #316b43;
 }
 
 .save-status.error {
-  background: rgba(166, 48, 61, 0.14);
+  background: rgba(191, 91, 106, 0.14);
   color: #8a1f2b;
 }
 
@@ -366,7 +370,7 @@ input[type="file"]::file-selector-button {
 .attachment-item {
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.82);
+  background: #ffffff;
   font-weight: 500;
 }
 

@@ -46,7 +46,6 @@ const authPinInput = document.getElementById("auth-pin");
 const authStatus = document.getElementById("auth-status");
 const signOutButton = document.getElementById("sign-out-button");
 const magicLinkButton = document.getElementById("magic-link-button");
-const authEmailTarget = document.getElementById("auth-email-target");
 const sessionEmailTargets = [
   document.getElementById("session-email"),
   document.getElementById("record-day-session-email"),
@@ -136,8 +135,6 @@ function applyAuthState(session) {
 }
 
 async function initializeAuth() {
-  authEmailTarget.textContent = `Approved email: ${ownerEmail}`;
-
   if (!supabaseClient) {
     authScreen.classList.remove("hidden");
     authForm.classList.add("hidden");
