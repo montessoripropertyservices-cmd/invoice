@@ -46,9 +46,34 @@
             />
           </label>
 
+          <label class="field-group field-group-large">
+            <span>Username</span>
+            <input
+              id="auth-username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              placeholder="Enter username"
+            />
+          </label>
+
+          <label class="field-group field-group-large">
+            <span>Password</span>
+            <input
+              id="auth-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Enter password"
+            />
+          </label>
+
           <div class="form-actions">
             <button id="magic-link-button" class="submit-button" type="submit" disabled>
               Send Me a Magic Link
+            </button>
+            <button id="static-login-button" class="back-button" type="button">
+              Sign In
             </button>
           </div>
         </form>

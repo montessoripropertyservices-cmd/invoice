@@ -119,9 +119,12 @@ const developerCreditCard = document.getElementById("developer-credit-card");
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
 const authPinInput = document.getElementById("auth-pin");
+const authUsernameInput = document.getElementById("auth-username");
+const authPasswordInput = document.getElementById("auth-password");
 const authStatus = document.getElementById("auth-status");
 const signOutButton = document.getElementById("sign-out-button");
 const magicLinkButton = document.getElementById("magic-link-button");
+const staticLoginButton = document.getElementById("static-login-button");
 const sessionEmailTargets = [
   document.getElementById("session-email"),
   document.getElementById("record-day-session-email"),
@@ -149,6 +152,11 @@ const allowedEmails = (appConfig.allowedEmails || ["montessoripropertyservices@g
 );
 const ownerEmail = allowedEmails[0];
 const authPinCode = String(appConfig.authPinCode || "2740");
+const staticAuthSessionStorageKey = "staticAuthSession";
+const staticUsers = {
+  erik: { username: "erik", password: "E1976", email: ownerEmail, displayName: "Erik" },
+  martin: { username: "martin", password: "M2026", email: ownerEmail, displayName: "Martin" },
+};
 
 let currentSession = null;
 let speechRecognition = null;
@@ -169,6 +177,27 @@ let editingDayOriginalDate = "";
 let editingDayCreatedAt = null;
 let editingDayExistingAttachments = [];
 let currentScreenName = null;
+
+function canUseSupabaseSession() {
+  return Boolean(supabaseClient && currentSession?.user && !currentSession?.isStatic);
+}
+
+function readStaticAuthSession() {
+  try {
+    const rawValue = localStorage.getItem(staticAuthSessionStorageKey);
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStaticAuthSession(session) {
+  localStorage.setItem(staticAuthSessionStorageKey, JSON.stringify(session));
+}
+
+function clearStaticAuthSession() {
+  localStorage.removeItem(staticAuthSessionStorageKey);
+}
 
 const recordedDayDatesStorageKey = "recordedDayDates";
 const dayEntriesStorageKey = "dayEntriesHistory";
@@ -655,7 +684,7 @@ function updateWorkDateLockState() {
 async function loadRecordedDayDates() {
   const nextDates = new Set(readStoredRecordedDayDates());
 
-  if (currentSession?.user && supabaseClient) {
+  if (canUseSupabaseSession()) {
     const { data, error } = await supabaseClient.from("day_entries").select("work_date");
 
     if (!error && Array.isArray(data)) {
@@ -945,7 +974,7 @@ async function loadArchivedItems() {
 
   let nextItems = [...localArchivedDays, ...localArchivedReceipts];
 
-  if (supabaseClient && currentSession?.user) {
+  if (canUseSupabaseSession()) {
     const dayResult = await supabaseClient
       .from("day_entries")
       .select(
@@ -1031,7 +1060,7 @@ async function retrieveSelectedArchivedItems() {
   const onlineDayIds = dayIds.filter(isUuid);
   const onlineReceiptIds = receiptIds.filter(isUuid);
 
-  if (supabaseClient && currentSession?.user && onlineDayIds.length) {
+  if (canUseSupabaseSession() && onlineDayIds.length) {
     const { error } = await supabaseClient
       .from("day_entries")
       .update({ archived_at: null })
@@ -1043,7 +1072,7 @@ async function retrieveSelectedArchivedItems() {
     }
   }
 
-  if (supabaseClient && currentSession?.user && onlineReceiptIds.length) {
+  if (canUseSupabaseSession() && onlineReceiptIds.length) {
     const { error } = await supabaseClient
       .from("purchase_entries")
       .update({ archived_at: null })
@@ -1069,7 +1098,7 @@ async function loadCheckHoursEntries() {
   const localEntryMap = new Map(localEntries.map((entry) => [entry.id, entry]));
   let nextEntries = [...localEntries];
 
-  if (supabaseClient && currentSession?.user) {
+  if (canUseSupabaseSession()) {
     const queryVariants = [
       "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
       "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)",
@@ -1261,7 +1290,7 @@ async function archiveSelectedReceipts() {
   const onlineIds = selectedIds.filter(isUuid);
   const archivedAt = new Date().toISOString();
 
-  if (supabaseClient && currentSession?.user && onlineIds.length) {
+  if (canUseSupabaseSession() && onlineIds.length) {
     const { error } = await supabaseClient
       .from("purchase_entries")
       .update({ archived_at: archivedAt })
@@ -1399,7 +1428,7 @@ async function archiveSelectedDays() {
   const onlineIds = selectedIds.filter(isUuid);
   const archivedAt = new Date().toISOString();
 
-  if (supabaseClient && currentSession?.user && onlineIds.length) {
+  if (canUseSupabaseSession() && onlineIds.length) {
     const { error } = await supabaseClient
       .from("day_entries")
       .update({ archived_at: archivedAt })
@@ -1468,15 +1497,18 @@ function applyAuthState(session) {
 }
 
 async function initializeAuth() {
+  const staticSession = readStaticAuthSession();
+
+  if (staticSession?.user?.email) {
+    applyAuthState(staticSession);
+    await loadRecordedDayDates();
+    return;
+  }
+
   if (!supabaseClient) {
     authScreen.classList.remove("hidden");
-    authForm.classList.add("hidden");
     Object.values(screens).forEach((element) => element.classList.add("hidden"));
     await loadRecordedDayDates();
-    setAuthStatus(
-      "Supabase is not configured yet. Add your project values in config.js before using secure login.",
-      "warning"
-    );
     return;
   }
 
@@ -1542,11 +1574,50 @@ async function sendMagicLink(event) {
   setAuthStatus("Magic link sent. Open your email and tap the link to enter the app.", "success");
 }
 
+function signInWithStaticCredentials() {
+  const username = authUsernameInput.value.trim().toLowerCase();
+  const password = authPasswordInput.value;
+  const matchedUser = staticUsers[username];
+
+  if (!matchedUser || matchedUser.password !== password) {
+    setAuthStatus("That username or password is not correct.", "error");
+    return;
+  }
+
+  const staticSession = {
+    isStatic: true,
+    user: {
+      email: matchedUser.email,
+      username: matchedUser.username,
+      displayName: matchedUser.displayName,
+    },
+  };
+
+  writeStaticAuthSession(staticSession);
+  authForm.reset();
+  updateMagicLinkButton();
+  applyAuthState(staticSession);
+  loadRecordedDayDates();
+  setAuthStatus("Signed in with username and password.", "success");
+}
+
 function updateMagicLinkButton() {
   magicLinkButton.disabled = authPinInput.value.trim() !== authPinCode;
 }
 
 async function signOut() {
+  if (currentSession?.isStatic) {
+    clearStaticAuthSession();
+    recordedDayDates = new Set(readStoredRecordedDayDates());
+    purchaseSupabaseReady = null;
+    updateWorkDateLockState();
+    saveStatus.classList.add("hidden");
+    savedEntryPanel.classList.add("hidden");
+    applyAuthState(null);
+    setAuthStatus("You have been signed out.", "warning");
+    return;
+  }
+
   if (!supabaseClient) {
     return;
   }
@@ -2340,7 +2411,7 @@ function addEmployee() {
 }
 
 async function saveEntryToSupabase(payload) {
-  if (!supabaseClient) {
+  if (!supabaseClient || currentSession?.isStatic) {
     return {
       id: payload.id || null,
       attachments: payload.attachments,
@@ -2627,7 +2698,7 @@ async function saveEntryToSupabase(payload) {
 }
 
 async function savePurchaseToSupabase(payload) {
-  if (!supabaseClient) {
+  if (!supabaseClient || currentSession?.isStatic) {
     return {
       id: null,
       receipts: payload.receipts,
@@ -2771,7 +2842,7 @@ function getPurchaseSaveErrorMessage(error) {
 }
 
 async function checkPurchaseSupabaseReady() {
-  if (!supabaseClient || !currentSession?.user) {
+  if (!canUseSupabaseSession()) {
     purchaseSupabaseReady = false;
     return false;
   }
@@ -3000,6 +3071,7 @@ purchaseReceiptInput.addEventListener("change", () => {
   updateReceiptAnalysisStatus("");
 });
 authForm.addEventListener("submit", sendMagicLink);
+staticLoginButton.addEventListener("click", signInWithStaticCredentials);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
 commentsText.addEventListener("input", updateCommentsPreview);
