@@ -1560,8 +1560,8 @@ async function signInWithStaticCredentials() {
   const password = authPasswordInput.value;
   const matchedUser = staticUsers[username];
 
-  if (!matchedUser || matchedUser.password !== password) {
-    setAuthStatus("That username or password is not correct.", "error");
+  if (!matchedUser) {
+    setAuthStatus("That username is not recognized.", "error");
     return;
   }
 
@@ -1577,7 +1577,7 @@ async function signInWithStaticCredentials() {
 
   if (error || !data.session) {
     setAuthStatus(
-      "That Supabase user/password is not available yet. Create or update this user in Supabase Auth first.",
+      "That Supabase username or password is not correct yet. Check the email/password in Supabase Auth.",
       "error"
     );
     return;
