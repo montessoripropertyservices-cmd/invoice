@@ -126,6 +126,7 @@ let recordDayStepIndex = 0;
 let recordPurchaseStepIndex = 0;
 let receiptAnalysisText = "";
 let recordedDayDates = new Set();
+let purchaseSupabaseReady = null;
 
 const recordedDayDatesStorageKey = "recordedDayDates";
 
@@ -177,6 +178,7 @@ function showScreen(screenName) {
 
   if (screenName === "record-purchase") {
     updateRecordPurchaseStep();
+    checkPurchaseSupabaseReady();
   }
 }
 
@@ -343,10 +345,12 @@ async function initializeAuth() {
 
   applyAuthState(session);
   await loadRecordedDayDates();
+  await checkPurchaseSupabaseReady();
 
   supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
     applyAuthState(nextSession);
     loadRecordedDayDates();
+    checkPurchaseSupabaseReady();
   });
 }
 
@@ -409,6 +413,7 @@ async function signOut() {
   }
 
   recordedDayDates = new Set(readStoredRecordedDayDates());
+  purchaseSupabaseReady = null;
   updateWorkDateLockState();
   saveStatus.classList.add("hidden");
   savedEntryPanel.classList.add("hidden");
@@ -1168,6 +1173,14 @@ async function savePurchaseToSupabase(payload) {
     };
   }
 
+  if (purchaseSupabaseReady === false) {
+    const isReady = await checkPurchaseSupabaseReady();
+
+    if (!isReady) {
+      throw new Error("purchase_entries setup is missing in Supabase");
+    }
+  }
+
   const insertVariants = [
     {
       purchase_date: payload.date,
@@ -1211,7 +1224,9 @@ function getPurchaseSaveErrorMessage(error) {
 
   if (
     message.includes("purchase_entries") &&
-    (message.includes("does not exist") || message.includes("schema cache"))
+    (message.includes("does not exist") ||
+      message.includes("schema cache") ||
+      message.includes("setup is missing"))
   ) {
     return "Supabase is missing the purchase table. Run the updated SQL in supabase/schema.sql, then try again.";
   }
@@ -1234,6 +1249,27 @@ function getPurchaseSaveErrorMessage(error) {
   }
 
   return "Supabase save failed, but the purchase was saved in this browser. Run the updated SQL in supabase/schema.sql and check your Supabase setup.";
+}
+
+async function checkPurchaseSupabaseReady() {
+  if (!supabaseClient || !currentSession?.user) {
+    purchaseSupabaseReady = false;
+    return false;
+  }
+
+  const { error } = await supabaseClient.from("purchase_entries").select("id").limit(1);
+
+  if (error) {
+    purchaseSupabaseReady = false;
+    setPurchaseSaveStatus(getPurchaseSaveErrorMessage(error), "warning");
+    return false;
+  }
+
+  purchaseSupabaseReady = true;
+  if (!purchaseSaveStatus.classList.contains("error")) {
+    purchaseSaveStatus.classList.add("hidden");
+  }
+  return true;
 }
 
 async function saveDayEntry(event) {

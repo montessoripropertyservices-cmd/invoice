@@ -716,6 +716,10 @@ input[type="file"]::file-selector-button {
     padding: 16px;
   }
 
+  .form-card {
+    padding: 18px;
+  }
+
   .top-brand-logo {
     height: 46px;
   }
@@ -731,14 +735,79 @@ input[type="file"]::file-selector-button {
   }
 
   .section-head,
+  .top-bar,
+  .section-actions {
+    align-items: flex-start;
+  }
+
+  .section-head,
+  .wizard-nav,
+  .saved-entry-actions,
+  .comment-actions,
+  .inline-input-row,
   .hours-row,
-  .inline-input-row {
+  .choice-grid {
     grid-template-columns: 1fr;
   }
 
   .section-head,
-  .top-bar,
-  .section-actions {
-    align-items: flex-start;
+  .wizard-nav,
+  .saved-entry-actions,
+  .comment-actions {
+    display: grid;
+  }
+
+  .wizard-step {
+    min-height: auto;
+    padding: 22px 16px;
+  }
+
+  .step-heading {
+    max-width: 100%;
+    font-size: clamp(1.65rem, 8vw, 2.5rem);
+  }
+
+  .choice-grid {
+    display: grid;
+  }
+
+  .choice-card {
+    min-height: 110px;
+    width: 100%;
+    font-size: 1.45rem;
+  }
+
+  .hours-row {
+    display: grid;
+  }
+
+  .action-button,
+  .wizard-nav .back-button,
+  .wizard-nav .submit-button,
+  .saved-entry-actions .back-button,
+  .saved-entry-actions .submit-button,
+  .mic-button,
+  .clear-button,
+  .analysis-button,
+  .voice-stop-button,
+  .home-footer .back-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  input[type="file"] {
+    font-size: 1rem;
+    padding: 16px;
+  }
+
+  input[type="file"]::file-selector-button {
+    display: block;
+    width: 100%;
+    margin: 0 0 12px;
+  }
+
+  textarea,
+  .receipt-analysis-output {
+    font-size: 1rem;
   }
 }
