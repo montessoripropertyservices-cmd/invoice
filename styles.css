@@ -36,6 +36,19 @@ body {
     radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
     linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
   overflow-x: hidden;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
+    radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
+    linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .app-shell {
@@ -67,6 +80,7 @@ body {
   box-shadow: var(--shadow);
   border-radius: var(--radius-xl);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .hero-card,
@@ -895,6 +909,12 @@ input[type="file"]::file-selector-button {
 }
 
 @media (max-width: 720px) {
+  .hero-card,
+  .form-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .app-shell {
     padding: 16px;
   }
