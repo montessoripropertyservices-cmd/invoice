@@ -311,6 +311,10 @@ form {
   background: #f7fcf1;
 }
 
+.section-reference {
+  background: #f4f7ff;
+}
+
 .section-comments {
   background: #f2fbfb;
 }
@@ -439,7 +443,7 @@ input[type="file"]::file-selector-button {
 .comment-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -448,14 +452,23 @@ input[type="file"]::file-selector-button {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .mic-button {
-  min-width: 180px;
+  min-width: 220px;
+  min-height: 72px;
+  font-size: 1.25rem;
+  background: linear-gradient(135deg, #73c98b, #b5e8c2);
+  color: #153728;
 }
 
 .clear-button {
-  min-width: 140px;
+  min-width: 220px;
+  min-height: 72px;
+  font-size: 1.25rem;
+  background: linear-gradient(135deg, #e46d6d, #f6b1b1);
+  color: #5a1818;
 }
 
 .mic-button.listening {
@@ -469,6 +482,33 @@ input[type="file"]::file-selector-button {
   line-height: 1.5;
   color: var(--ink);
   width: 100%;
+  min-height: 1.5em;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+
+.choice-card {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 140px;
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(77, 155, 102, 0.18);
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 1.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.choice-card input {
+  width: 28px;
+  height: 28px;
+  margin: 0;
 }
 
 .hours-grid {

@@ -39,6 +39,9 @@ const recordDayPrevButton = document.getElementById("record-day-prev");
 const recordDayNextButton = document.getElementById("record-day-next");
 const recordDaySaveButton = document.getElementById("record-day-save");
 const recordDaySteps = [...document.querySelectorAll(".wizard-step")];
+const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"]')];
+const dayReferenceField = document.getElementById("day-reference-field");
+const dayReferenceText = document.getElementById("day-reference-text");
 const commentsText = document.getElementById("comments-text");
 const commentsPreview = document.getElementById("comments-preview");
 const voiceCommentButton = document.getElementById("voice-comment-button");
@@ -92,12 +95,13 @@ let speechBaseText = "";
 let recordDayStepIndex = 0;
 
 const recordDayStepMeta = [
-  { title: "Step 1 of 6: Day" },
-  { title: "Step 2 of 6: Employees" },
-  { title: "Step 3 of 6: Comments" },
-  { title: "Step 4 of 6: Location" },
-  { title: "Step 5 of 6: Hours" },
-  { title: "Step 6 of 6: Attachments" },
+  { title: "Step 1 of 7: Day" },
+  { title: "Step 2 of 7: Invoice or Ticket" },
+  { title: "Step 3 of 7: Employees" },
+  { title: "Step 4 of 7: Comments" },
+  { title: "Step 5 of 7: Location" },
+  { title: "Step 6 of 7: Hours" },
+  { title: "Step 7 of 7: Attachments" },
 ];
 
 function setStatusMessage(element, message, tone) {
@@ -322,6 +326,16 @@ function renderAttachmentList() {
   });
 }
 
+function updateDayReferenceField() {
+  const isRelated = dayRelatedInputs.find((input) => input.checked)?.value === "yes";
+  dayReferenceField.classList.toggle("hidden", !isRelated);
+  dayReferenceText.required = isRelated;
+
+  if (!isRelated) {
+    dayReferenceText.value = "";
+  }
+}
+
 function focusCurrentRecordDayStep() {
   const currentStep = recordDaySteps[recordDayStepIndex];
   const focusTarget = currentStep.querySelector("input, textarea, select, button");
@@ -350,22 +364,31 @@ function validateCurrentRecordDayStep() {
     return false;
   }
 
-  if (recordDayStepIndex === 1 && !getSelectedEmployees().length) {
+  if (recordDayStepIndex === 1) {
+    const isRelated = dayRelatedInputs.find((input) => input.checked)?.value === "yes";
+
+    if (isRelated && !dayReferenceText.value.trim()) {
+      setSaveStatus("Please enter the invoice or ticket reference before continuing.", "error");
+      return false;
+    }
+  }
+
+  if (recordDayStepIndex === 2 && !getSelectedEmployees().length) {
     setSaveStatus("Please select at least one employee before continuing.", "error");
     return false;
   }
 
-  if (recordDayStepIndex === 2 && !commentsText.value.trim()) {
+  if (recordDayStepIndex === 3 && !commentsText.value.trim()) {
     setSaveStatus("Please add comments before continuing.", "error");
     return false;
   }
 
-  if (recordDayStepIndex === 3 && !locationSelect.value) {
+  if (recordDayStepIndex === 4 && !locationSelect.value) {
     setSaveStatus("Please choose a location before continuing.", "error");
     return false;
   }
 
-  if (recordDayStepIndex === 4) {
+  if (recordDayStepIndex === 5) {
     const selectedEmployees = getSelectedEmployees();
     const hasAllHours = selectedEmployees.every((employee) =>
       document.getElementById(`hours-${employee}`)?.value
@@ -377,7 +400,7 @@ function validateCurrentRecordDayStep() {
     }
   }
 
-  if (recordDayStepIndex === 5 && !attachmentInput.files.length) {
+  if (recordDayStepIndex === 6 && !attachmentInput.files.length) {
     setSaveStatus("Please add at least one file before saving.", "error");
     return false;
   }
@@ -410,8 +433,8 @@ function updateCommentsPreview() {
   const text = commentsText.value.trim();
 
   if (!text) {
-    commentsPreview.className = "comments-preview empty-state";
-    commentsPreview.textContent = "Dictated or typed comments will appear here.";
+    commentsPreview.className = "comments-preview";
+    commentsPreview.textContent = "";
     return;
   }
 
@@ -428,7 +451,7 @@ function setupSpeechRecognition() {
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
   if (!SpeechRecognition) {
-    updateVoiceStatus("Speech-to-text is not available on this device. Use the textbox below.");
+    updateVoiceStatus("");
     voiceCommentButton.disabled = true;
     return;
   }
@@ -585,6 +608,7 @@ async function saveEntryToSupabase(payload) {
       work_date: payload.date,
       location: payload.location,
       comments: payload.comments,
+      related_reference: payload.relatedReference,
     })
     .select("id")
     .single();
@@ -652,6 +676,10 @@ async function saveDayEntry(event) {
       type: file.type,
     })),
     comments: commentsText.value.trim(),
+    relatedReference:
+      dayRelatedInputs.find((input) => input.checked)?.value === "yes"
+        ? dayReferenceText.value.trim()
+        : "",
   };
 
   try {
@@ -700,6 +728,7 @@ authPinInput.addEventListener("input", updateMagicLinkButton);
 commentsText.addEventListener("input", updateCommentsPreview);
 recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
 recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
+dayRelatedInputs.forEach((input) => input.addEventListener("change", updateDayReferenceField));
 clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("mousedown", startVoiceCapture);
 voiceCommentButton.addEventListener("mouseup", stopVoiceCapture);
@@ -722,6 +751,7 @@ renderHoursFields();
 renderAttachmentList();
 updateCommentsPreview();
 updateMagicLinkButton();
+updateDayReferenceField();
 setupSpeechRecognition();
 updateRecordDayStep();
 initializeAuth();

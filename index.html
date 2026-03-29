@@ -111,8 +111,32 @@
             </label>
           </section>
 
-          <section class="wizard-step section-card section-employees hidden" data-step="1">
+          <section class="wizard-step section-card section-reference hidden" data-step="1">
             <p class="step-kicker">Step 2</p>
+            <h3 class="step-heading">Is this related to an invoice or a ticket?</h3>
+            <div class="choice-grid">
+              <label class="choice-card">
+                <input type="radio" name="day-related" value="no" checked />
+                <span>No</span>
+              </label>
+              <label class="choice-card">
+                <input type="radio" name="day-related" value="yes" />
+                <span>Yes</span>
+              </label>
+            </div>
+
+            <label id="day-reference-field" class="field-group hidden">
+              <span>Invoice or ticket reference</span>
+              <input
+                id="day-reference-text"
+                type="text"
+                placeholder="Type the invoice or ticket number"
+              />
+            </label>
+          </section>
+
+          <section class="wizard-step section-card section-employees hidden" data-step="2">
+            <p class="step-kicker">Step 3</p>
             <h3 class="step-heading">Who worked that day?</h3>
             <div id="employee-list" class="checkbox-list checkbox-list-large"></div>
 
@@ -131,8 +155,8 @@
             </label>
           </section>
 
-          <section class="wizard-step section-card section-comments hidden" data-step="2">
-            <p class="step-kicker">Step 3</p>
+          <section class="wizard-step section-card section-comments hidden" data-step="3">
+            <p class="step-kicker">Step 4</p>
             <h3 class="step-heading">Add comments for the day</h3>
             <div class="comment-toolbar">
               <div class="comment-actions">
@@ -143,7 +167,7 @@
                   Clear Text
                 </button>
               </div>
-              <span id="voice-status" class="helper-text">Use the textbox if speech is unavailable.</span>
+              <span id="voice-status" class="helper-text"></span>
             </div>
 
             <label class="field-group">
@@ -157,13 +181,11 @@
               ></textarea>
             </label>
 
-            <div id="comments-preview" class="comments-preview empty-state">
-              Dictated or typed comments will appear here.
-            </div>
+            <div id="comments-preview" class="comments-preview"></div>
           </section>
 
-          <section class="wizard-step section-card section-location hidden" data-step="3">
-            <p class="step-kicker">Step 4</p>
+          <section class="wizard-step section-card section-location hidden" data-step="4">
+            <p class="step-kicker">Step 5</p>
             <h3 class="step-heading">Which location was it?</h3>
             <label class="field-group">
               <span>Select a location</span>
@@ -174,16 +196,16 @@
             </p>
           </section>
 
-          <section class="wizard-step section-card section-hours hidden" data-step="4">
-            <p class="step-kicker">Step 5</p>
+          <section class="wizard-step section-card section-hours hidden" data-step="5">
+            <p class="step-kicker">Step 6</p>
             <h3 class="step-heading">How many hours did each person work?</h3>
             <div id="hours-fields" class="hours-grid empty-state">
               Select at least one employee to enter hours.
             </div>
           </section>
 
-          <section class="wizard-step section-card section-attachments hidden" data-step="5">
-            <p class="step-kicker">Step 6</p>
+          <section class="wizard-step section-card section-attachments hidden" data-step="6">
+            <p class="step-kicker">Step 7</p>
             <h3 class="step-heading">Add your files</h3>
             <label class="field-group field-group-large">
               <span>Add photos or files</span>
