@@ -245,12 +245,42 @@ form {
   gap: 10px;
 }
 
+.section-card {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+}
+
 .field-set {
   margin: 0;
   padding: 20px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: #f9fdf9;
+}
+
+.section-date {
+  background: #f3fbf5;
+}
+
+.section-employees {
+  background: #f7fcf1;
+}
+
+.section-comments {
+  background: #f2fbfb;
+}
+
+.section-location {
+  background: #f5f8ff;
+}
+
+.section-hours {
+  background: #fcf8ef;
+}
+
+.section-attachments {
+  background: #fff6f3;
 }
 
 .field-group span,
