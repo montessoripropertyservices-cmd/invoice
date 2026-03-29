@@ -41,7 +41,7 @@ body {
 }
 
 .top-brand-logo {
-  height: 64px;
+  height: 82px;
   width: auto;
   object-fit: contain;
   border-radius: 9px;
@@ -854,7 +854,7 @@ input[type="file"]::file-selector-button {
   }
 
   .top-brand-logo {
-    height: 52px;
+    height: 66px;
   }
 
   .hero-card,
