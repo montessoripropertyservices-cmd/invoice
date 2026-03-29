@@ -33,6 +33,12 @@ const newEmployeeNameInput = document.getElementById("new-employee-name");
 const addEmployeeButton = document.getElementById("add-employee-button");
 const hoursFields = document.getElementById("hours-fields");
 const recordDayForm = document.getElementById("record-day-form");
+const recordDayStepTitle = document.getElementById("record-day-step-title");
+const recordDayProgressBar = document.getElementById("record-day-progress-bar");
+const recordDayPrevButton = document.getElementById("record-day-prev");
+const recordDayNextButton = document.getElementById("record-day-next");
+const recordDaySaveButton = document.getElementById("record-day-save");
+const recordDaySteps = [...document.querySelectorAll(".wizard-step")];
 const commentsText = document.getElementById("comments-text");
 const commentsPreview = document.getElementById("comments-preview");
 const voiceCommentButton = document.getElementById("voice-comment-button");
@@ -83,6 +89,16 @@ let currentSession = null;
 let speechRecognition = null;
 let speechSessionActive = false;
 let speechBaseText = "";
+let recordDayStepIndex = 0;
+
+const recordDayStepMeta = [
+  { title: "Step 1 of 6: Day" },
+  { title: "Step 2 of 6: Employees" },
+  { title: "Step 3 of 6: Comments" },
+  { title: "Step 4 of 6: Location" },
+  { title: "Step 5 of 6: Hours" },
+  { title: "Step 6 of 6: Attachments" },
+];
 
 function setStatusMessage(element, message, tone) {
   element.textContent = message;
@@ -102,6 +118,10 @@ function showScreen(screenName) {
   Object.entries(screens).forEach(([name, element]) => {
     element.classList.toggle("hidden", name !== screenName);
   });
+
+  if (screenName === "record-day") {
+    updateRecordDayStep();
+  }
 }
 
 function setSignedInEmail(email) {
@@ -300,6 +320,90 @@ function renderAttachmentList() {
     item.textContent = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
     attachmentList.appendChild(item);
   });
+}
+
+function focusCurrentRecordDayStep() {
+  const currentStep = recordDaySteps[recordDayStepIndex];
+  const focusTarget = currentStep.querySelector("input, textarea, select, button");
+
+  if (focusTarget) {
+    focusTarget.focus();
+  }
+}
+
+function updateRecordDayStep() {
+  recordDaySteps.forEach((step, index) => {
+    step.classList.toggle("hidden", index !== recordDayStepIndex);
+  });
+
+  const progress = ((recordDayStepIndex + 1) / recordDaySteps.length) * 100;
+  recordDayStepTitle.textContent = recordDayStepMeta[recordDayStepIndex].title;
+  recordDayProgressBar.style.width = `${progress}%`;
+  recordDayPrevButton.classList.toggle("hidden", recordDayStepIndex === 0);
+  recordDayNextButton.classList.toggle("hidden", recordDayStepIndex === recordDaySteps.length - 1);
+  recordDaySaveButton.classList.toggle("hidden", recordDayStepIndex !== recordDaySteps.length - 1);
+}
+
+function validateCurrentRecordDayStep() {
+  if (recordDayStepIndex === 0 && !document.getElementById("work-date").value) {
+    setSaveStatus("Please choose the day before continuing.", "error");
+    return false;
+  }
+
+  if (recordDayStepIndex === 1 && !getSelectedEmployees().length) {
+    setSaveStatus("Please select at least one employee before continuing.", "error");
+    return false;
+  }
+
+  if (recordDayStepIndex === 2 && !commentsText.value.trim()) {
+    setSaveStatus("Please add comments before continuing.", "error");
+    return false;
+  }
+
+  if (recordDayStepIndex === 3 && !locationSelect.value) {
+    setSaveStatus("Please choose a location before continuing.", "error");
+    return false;
+  }
+
+  if (recordDayStepIndex === 4) {
+    const selectedEmployees = getSelectedEmployees();
+    const hasAllHours = selectedEmployees.every((employee) =>
+      document.getElementById(`hours-${employee}`)?.value
+    );
+
+    if (!selectedEmployees.length || !hasAllHours) {
+      setSaveStatus("Please enter hours for each selected person before continuing.", "error");
+      return false;
+    }
+  }
+
+  if (recordDayStepIndex === 5 && !attachmentInput.files.length) {
+    setSaveStatus("Please add at least one file before saving.", "error");
+    return false;
+  }
+
+  saveStatus.classList.add("hidden");
+  return true;
+}
+
+function goToNextRecordDayStep() {
+  if (!validateCurrentRecordDayStep()) {
+    return;
+  }
+
+  if (recordDayStepIndex < recordDaySteps.length - 1) {
+    recordDayStepIndex += 1;
+    updateRecordDayStep();
+    focusCurrentRecordDayStep();
+  }
+}
+
+function goToPreviousRecordDayStep() {
+  if (recordDayStepIndex > 0) {
+    recordDayStepIndex -= 1;
+    updateRecordDayStep();
+    focusCurrentRecordDayStep();
+  }
 }
 
 function updateCommentsPreview() {
@@ -565,6 +669,8 @@ async function saveDayEntry(event) {
     renderLocations();
     renderAttachmentList();
     updateCommentsPreview();
+    recordDayStepIndex = 0;
+    updateRecordDayStep();
   } catch (error) {
     console.error(error);
     localStorage.setItem("latestDayEntry", JSON.stringify(payload, null, 2));
@@ -592,6 +698,8 @@ authForm.addEventListener("submit", sendMagicLink);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
 commentsText.addEventListener("input", updateCommentsPreview);
+recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
+recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
 clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("mousedown", startVoiceCapture);
 voiceCommentButton.addEventListener("mouseup", stopVoiceCapture);
@@ -615,4 +723,5 @@ renderAttachmentList();
 updateCommentsPreview();
 updateMagicLinkButton();
 setupSpeechRecognition();
+updateRecordDayStep();
 initializeAuth();

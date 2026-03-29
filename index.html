@@ -86,7 +86,7 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Record a Day</p>
-            <h2>Fill out the work log</h2>
+            <h2 id="record-day-step-title">Step 1 of 6</h2>
           </div>
           <div class="section-actions">
             <div class="session-pill compact">
@@ -98,14 +98,23 @@
         </div>
 
         <form id="record-day-form">
-          <label class="field-group field-group-large section-card section-date">
-            <span>Day</span>
-            <input id="work-date" name="workDate" type="date" required />
-          </label>
+          <div class="wizard-progress" aria-hidden="true">
+            <div id="record-day-progress-bar" class="wizard-progress-bar"></div>
+          </div>
 
-          <fieldset class="field-set section-employees">
-            <legend>Employees</legend>
-            <div id="employee-list" class="checkbox-list"></div>
+          <section class="wizard-step section-card section-date" data-step="0">
+            <p class="step-kicker">Step 1</p>
+            <h3 class="step-heading">What day are you recording?</h3>
+            <label class="field-group field-group-large">
+              <span>Day</span>
+              <input id="work-date" name="workDate" type="date" required />
+            </label>
+          </section>
+
+          <section class="wizard-step section-card section-employees hidden" data-step="1">
+            <p class="step-kicker">Step 2</p>
+            <h3 class="step-heading">Who worked that day?</h3>
+            <div id="employee-list" class="checkbox-list checkbox-list-large"></div>
 
             <label class="field-group inline-field">
               <span>Add a new employee</span>
@@ -120,10 +129,11 @@
                 </button>
               </div>
             </label>
-          </fieldset>
+          </section>
 
-          <fieldset class="field-set section-comments">
-            <legend>Comments</legend>
+          <section class="wizard-step section-card section-comments hidden" data-step="2">
+            <p class="step-kicker">Step 3</p>
+            <h3 class="step-heading">Add comments for the day</h3>
             <div class="comment-toolbar">
               <div class="comment-actions">
                 <button id="voice-comment-button" class="mini-button mic-button" type="button">
@@ -150,10 +160,11 @@
             <div id="comments-preview" class="comments-preview empty-state">
               Dictated or typed comments will appear here.
             </div>
-          </fieldset>
+          </section>
 
-          <fieldset class="field-set section-location">
-            <legend>Location</legend>
+          <section class="wizard-step section-card section-location hidden" data-step="3">
+            <p class="step-kicker">Step 4</p>
+            <h3 class="step-heading">Which location was it?</h3>
             <label class="field-group">
               <span>Select a location</span>
               <select id="location-select" name="location" required></select>
@@ -161,17 +172,19 @@
             <p id="location-empty-state" class="helper-text hidden">
               Add your locations in <code>app.js</code> once you send them over.
             </p>
-          </fieldset>
+          </section>
 
-          <fieldset class="field-set section-hours">
-            <legend>Hours for each selected person</legend>
+          <section class="wizard-step section-card section-hours hidden" data-step="4">
+            <p class="step-kicker">Step 5</p>
+            <h3 class="step-heading">How many hours did each person work?</h3>
             <div id="hours-fields" class="hours-grid empty-state">
               Select at least one employee to enter hours.
             </div>
-          </fieldset>
+          </section>
 
-          <fieldset class="field-set section-attachments">
-            <legend>Attachments</legend>
+          <section class="wizard-step section-card section-attachments hidden" data-step="5">
+            <p class="step-kicker">Step 6</p>
+            <h3 class="step-heading">Add your files</h3>
             <label class="field-group field-group-large">
               <span>Add photos or files</span>
               <input id="day-attachments" name="attachments" type="file" multiple required />
@@ -179,10 +192,14 @@
             <div id="attachment-list" class="attachment-list empty-state">
               No attachments selected yet.
             </div>
-          </fieldset>
+          </section>
 
-          <div class="form-actions">
-            <button class="submit-button" type="submit">Save Day Entry</button>
+          <div class="wizard-nav">
+            <button id="record-day-prev" class="back-button" type="button">Back</button>
+            <button id="record-day-next" class="submit-button" type="button">Next</button>
+            <button id="record-day-save" class="submit-button hidden" type="submit">
+              Save Day Entry
+            </button>
           </div>
         </form>
 
