@@ -844,6 +844,172 @@ input[type="file"]::file-selector-button {
   background: linear-gradient(135deg, #f2f3f5, #dfe5ea);
 }
 
+.hours-dashboard {
+  display: grid;
+  gap: 18px;
+  margin: 18px 0 22px;
+}
+
+.hours-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hours-dashboard-card,
+.hours-dashboard-mini-card,
+.hours-location-card {
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(77, 155, 102, 0.16);
+  box-shadow: 0 14px 30px rgba(82, 140, 102, 0.08);
+}
+
+.hours-dashboard-card {
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.hours-dashboard-card p,
+.hours-dashboard-card strong {
+  margin: 0;
+}
+
+.hours-dashboard-card p {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hours-dashboard-card strong {
+  font-size: clamp(1.4rem, 3vw, 2.3rem);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.hours-dashboard-section {
+  display: grid;
+  gap: 14px;
+}
+
+.hours-dashboard-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.hours-dashboard-heading h3,
+.hours-dashboard-heading p {
+  margin: 0;
+}
+
+.hours-dashboard-heading h3 {
+  font-size: 1.4rem;
+}
+
+.hours-dashboard-heading p {
+  color: var(--muted);
+}
+
+.hours-dashboard-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hours-dashboard-mini-card {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.hours-dashboard-mini-card strong,
+.hours-dashboard-mini-card span {
+  margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hours-dashboard-mini-card strong {
+  font-size: 1.15rem;
+}
+
+.hours-dashboard-mini-card span {
+  color: var(--muted);
+}
+
+.hours-location-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.hours-location-card {
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.hours-location-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hours-location-head h3,
+.hours-location-head p {
+  margin: 0;
+}
+
+.hours-location-head h3 {
+  font-size: 1.3rem;
+}
+
+.hours-location-head p {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.hours-location-bar {
+  display: flex;
+  width: 100%;
+  min-height: 26px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf8f0;
+}
+
+.hours-location-bar-segment {
+  min-width: 8px;
+}
+
+.hours-location-legend {
+  display: grid;
+  gap: 8px;
+}
+
+.hours-location-legend-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hours-location-legend-item span,
+.hours-location-legend-item strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hours-location-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+}
+
 .entry-list {
   display: grid;
   gap: 14px;
@@ -997,6 +1163,16 @@ input[type="file"]::file-selector-button {
   }
 
   .hours-toolbar {
+    display: grid;
+  }
+
+  .hours-dashboard-grid,
+  .hours-dashboard-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hours-location-head,
+  .hours-location-legend-item {
     display: grid;
   }
 

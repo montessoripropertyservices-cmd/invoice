@@ -102,6 +102,7 @@ const showDaysButton = document.getElementById("show-days-button");
 const archiveDaysButton = document.getElementById("archive-days-button");
 const selectAllDaysButton = document.getElementById("select-all-days-button");
 const checkHoursStatus = document.getElementById("check-hours-status");
+const checkHoursDashboard = document.getElementById("check-hours-dashboard");
 const checkHoursList = document.getElementById("check-hours-list");
 const selectedDaysOutput = document.getElementById("selected-days-output");
 const emailReceiptsButton = document.getElementById("email-receipts-button");
@@ -843,8 +844,162 @@ function toggleNewEmployeePanel() {
   newEmployeePanel.classList.toggle("hidden");
 }
 
+function renderCheckHoursDashboard(entries) {
+  if (!checkHoursDashboard) {
+    return;
+  }
+
+  if (!entries.length) {
+    checkHoursDashboard.innerHTML = '<div class="empty-state">No active day stats yet.</div>';
+    return;
+  }
+
+  const activeLocations = new Set();
+  const employeeTotals = new Map();
+  const locationTotals = new Map();
+
+  entries.forEach((entry) => {
+    const locationName = entry.location || "No location";
+    activeLocations.add(locationName);
+
+    if (!locationTotals.has(locationName)) {
+      locationTotals.set(locationName, { totalHours: 0, employees: new Map() });
+    }
+
+    const locationStat = locationTotals.get(locationName);
+
+    (entry.employees || []).forEach((item) => {
+      const hours = Number(item.hours || 0);
+      const label =
+        item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
+
+      locationStat.totalHours += hours;
+      locationStat.employees.set(label, (locationStat.employees.get(label) || 0) + hours);
+      employeeTotals.set(label, (employeeTotals.get(label) || 0) + hours);
+    });
+  });
+
+  const totalHours = entries.reduce((sum, entry) => sum + getEntryTotalHours(entry), 0);
+  const totalPay = entries.reduce((sum, entry) => sum + getEntryTotalCost(entry), 0);
+  const averageHours = entries.length ? totalHours / entries.length : 0;
+  const topEmployeeEntry =
+    [...employeeTotals.entries()].sort((left, right) => right[1] - left[1])[0] || null;
+
+  const palette = ["#73c98b", "#4f8cff", "#f2a64b", "#d96c8c", "#7d6cff", "#40bfb4"];
+  const employeeColors = new Map();
+  [...employeeTotals.keys()].forEach((name, index) => {
+    employeeColors.set(name, palette[index % palette.length]);
+  });
+
+  const summaryCards = [
+    { label: "Active Days", value: String(entries.length) },
+    { label: "Total Hours", value: totalHours.toFixed(2) },
+    { label: "Locations", value: String(activeLocations.size) },
+    { label: "Total Day Value", value: formatCurrency(totalPay) },
+    { label: "Average Hours / Day", value: averageHours.toFixed(2) },
+    {
+      label: "Top Person",
+      value: topEmployeeEntry ? `${topEmployeeEntry[0]} (${topEmployeeEntry[1].toFixed(2)}h)` : "None",
+    },
+  ];
+
+  const topEmployees = [...employeeTotals.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6)
+    .map(
+      ([name, hours]) => `
+        <div class="hours-dashboard-mini-card">
+          <strong>${name}</strong>
+          <span>${hours.toFixed(2)} hours</span>
+        </div>
+      `
+    )
+    .join("");
+
+  const locationCards = [...locationTotals.entries()]
+    .sort((left, right) => right[1].totalHours - left[1].totalHours)
+    .map(([locationName, stats]) => {
+      const segments = [...stats.employees.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .map(([employeeName, hours]) => {
+          const width = stats.totalHours ? Math.max((hours / stats.totalHours) * 100, 8) : 0;
+          const color = employeeColors.get(employeeName) || palette[0];
+
+          return `
+            <div
+              class="hours-location-bar-segment"
+              style="width:${width}%; background:${color};"
+              title="${employeeName}: ${hours.toFixed(2)} hours"
+            ></div>
+          `;
+        })
+        .join("");
+
+      const legend = [...stats.employees.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .map(([employeeName, hours]) => {
+          const color = employeeColors.get(employeeName) || palette[0];
+          return `
+            <div class="hours-location-legend-item">
+              <span class="hours-location-swatch" style="background:${color};"></span>
+              <span>${employeeName}</span>
+              <strong>${hours.toFixed(2)}h</strong>
+            </div>
+          `;
+        })
+        .join("");
+
+      return `
+        <article class="hours-location-card">
+          <div class="hours-location-head">
+            <h3>${locationName}</h3>
+            <p>${stats.totalHours.toFixed(2)} total hours</p>
+          </div>
+          <div class="hours-location-bar">${segments}</div>
+          <div class="hours-location-legend">${legend}</div>
+        </article>
+      `;
+    })
+    .join("");
+
+  checkHoursDashboard.innerHTML = `
+    <div class="hours-dashboard-grid">
+      ${summaryCards
+        .map(
+          (card) => `
+            <article class="hours-dashboard-card">
+              <p>${card.label}</p>
+              <strong>${card.value}</strong>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+    <section class="hours-dashboard-section">
+      <div class="hours-dashboard-heading">
+        <h3>Hours by Person</h3>
+        <p>Active totals across all recorded days</p>
+      </div>
+      <div class="hours-dashboard-mini-grid">
+        ${topEmployees || '<div class="empty-state">No people totals yet.</div>'}
+      </div>
+    </section>
+    <section class="hours-dashboard-section">
+      <div class="hours-dashboard-heading">
+        <h3>Hours by Location and Person</h3>
+        <p>Each bar shows where the active hours are going</p>
+      </div>
+      <div class="hours-location-grid">
+        ${locationCards}
+      </div>
+    </section>
+  `;
+}
+
 function renderCheckHoursEntries() {
   const visibleEntries = dayEntriesCache.filter((entry) => !entry.archivedAt);
+
+  renderCheckHoursDashboard(visibleEntries);
 
   if (!visibleEntries.length) {
     checkHoursList.className = "entry-list empty-state";
