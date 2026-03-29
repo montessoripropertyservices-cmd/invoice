@@ -158,6 +158,10 @@ let dayEntriesCache = [];
 let purchaseEntriesCache = [];
 let recordDayCompleted = false;
 let employees = [];
+let editingDayEntryId = null;
+let editingDayOriginalDate = "";
+let editingDayCreatedAt = null;
+let editingDayExistingAttachments = [];
 
 const recordedDayDatesStorageKey = "recordedDayDates";
 const dayEntriesStorageKey = "dayEntriesHistory";
@@ -431,15 +435,15 @@ function archiveStoredPurchaseEntries(entryIds) {
 
 function buildLocalDayEntry(payload, saveResult) {
   return {
-    id: saveResult.id || `local-${payload.date}-${Date.now()}`,
+    id: saveResult.id || payload.id || `local-${payload.date}-${Date.now()}`,
     date: payload.date,
     location: payload.location,
     comments: payload.comments,
     relatedReference: payload.relatedReference,
     employees: payload.employees,
     attachments: payload.attachments,
-    createdAt: new Date().toISOString(),
-    archivedAt: null,
+    createdAt: payload.createdAt || saveResult.createdAt || new Date().toISOString(),
+    archivedAt: payload.archivedAt || null,
   };
 }
 
@@ -532,6 +536,16 @@ function addRecordedDayDate(dateValue) {
   updateWorkDateLockState();
 }
 
+function removeRecordedDayDate(dateValue) {
+  if (!dateValue) {
+    return;
+  }
+
+  recordedDayDates.delete(dateValue);
+  writeStoredRecordedDayDates(recordedDayDates);
+  updateWorkDateLockState();
+}
+
 function isRecordedDay(dateValue) {
   return Boolean(dateValue) && recordedDayDates.has(dateValue);
 }
@@ -539,7 +553,11 @@ function isRecordedDay(dateValue) {
 function updateWorkDateLockState() {
   const selectedDate = workDateInput.value;
 
-  if (selectedDate && isRecordedDay(selectedDate)) {
+  const isEditingSameDate = Boolean(
+    editingDayEntryId && editingDayOriginalDate && selectedDate === editingDayOriginalDate
+  );
+
+  if (selectedDate && isRecordedDay(selectedDate) && !isEditingSameDate) {
     const message = "That day has already been recorded and is locked.";
     workDateInput.setCustomValidity(message);
     workDateStatus.textContent = message;
@@ -662,7 +680,7 @@ function renderCheckHoursEntries() {
         .join("<br />");
 
       return `
-        <label class="entry-card">
+        <div class="entry-card">
           <div class="entry-select-row">
             <input type="checkbox" data-entry-id="${entry.id}" />
             <div class="entry-meta">
@@ -676,7 +694,10 @@ function renderCheckHoursEntries() {
               <div class="entry-attachments"><strong>Attachments</strong><span>${attachments || "None"}</span></div>
             </div>
           </div>
-        </label>
+          <div class="entry-inline-actions">
+            <button class="back-button" type="button" data-edit-day-id="${entry.id}">Edit Day</button>
+          </div>
+        </div>
       `;
     })
     .join("");
@@ -1239,8 +1260,9 @@ function renderLocations() {
 
 function renderAttachmentList() {
   const attachments = [...attachmentInput.files];
+  const existingAttachments = editingDayExistingAttachments || [];
 
-  if (!attachments.length) {
+  if (!attachments.length && !existingAttachments.length) {
     attachmentList.className = "attachment-list empty-state";
     attachmentList.textContent = "No attachments selected yet.";
     return;
@@ -1248,6 +1270,13 @@ function renderAttachmentList() {
 
   attachmentList.className = "attachment-list";
   attachmentList.innerHTML = "";
+
+  existingAttachments.forEach((file) => {
+    const item = document.createElement("div");
+    item.className = "attachment-item";
+    item.textContent = file.url ? `${file.name} (saved link)` : `${file.name} (saved)`;
+    attachmentList.appendChild(item);
+  });
 
   attachments.forEach((file) => {
     const item = document.createElement("div");
@@ -1336,7 +1365,11 @@ function validateCurrentRecordDayStep() {
       return false;
     }
 
-    if (isRecordedDay(workDateInput.value)) {
+    const isEditingSameDate = Boolean(
+      editingDayEntryId && editingDayOriginalDate && workDateInput.value === editingDayOriginalDate
+    );
+
+    if (isRecordedDay(workDateInput.value) && !isEditingSameDate) {
       updateWorkDateLockState();
       setSaveStatus("That day has already been recorded. Please choose a different day.", "error");
       return false;
@@ -1379,7 +1412,11 @@ function validateCurrentRecordDayStep() {
     return false;
   }
 
-  if (recordDayStepIndex === 6 && !attachmentInput.files.length) {
+  if (
+    recordDayStepIndex === 6 &&
+    !attachmentInput.files.length &&
+    !(editingDayExistingAttachments || []).length
+  ) {
     const confirmed = window.confirm("No attachments?");
 
     if (!confirmed) {
@@ -1504,6 +1541,10 @@ function resetRecordDayForm() {
   saveStatus.classList.add("hidden");
   recordDaySaveButton.classList.remove("hidden");
   recordDayCompleted = false;
+  editingDayEntryId = null;
+  editingDayOriginalDate = "";
+  editingDayCreatedAt = null;
+  editingDayExistingAttachments = [];
   updateVoiceStatus("");
   renderEmployees();
   renderHoursFields();
@@ -1515,6 +1556,53 @@ function resetRecordDayForm() {
   recordDayStepIndex = 0;
   updateRecordDayStep();
   recordDayStepTitle.textContent = recordDayStepMeta[recordDayStepIndex].title;
+}
+
+function loadDayEntryForEditing(entryId) {
+  const entry = dayEntriesCache.find((item) => item.id === entryId);
+
+  if (!entry) {
+    setCheckHoursStatus("That day could not be loaded for editing.", "error");
+    return;
+  }
+
+  resetRecordDayForm();
+  editingDayEntryId = entry.id;
+  editingDayOriginalDate = entry.date;
+  editingDayCreatedAt = entry.createdAt || null;
+  editingDayExistingAttachments = Array.isArray(entry.attachments) ? [...entry.attachments] : [];
+
+  workDateInput.value = entry.date || "";
+  const isRelated = Boolean(entry.relatedReference);
+  dayRelatedInputs.forEach((input) => {
+    input.checked = input.value === (isRelated ? "yes" : "no");
+  });
+  updateDayReferenceField();
+  dayReferenceText.value = entry.relatedReference || "";
+  commentsText.value = entry.comments || "";
+  locationSelect.value = entry.location || "";
+
+  renderEmployees();
+  const employeeIds = new Set((entry.employees || []).map((item) => item.employeeId));
+  employeeList.querySelectorAll('input[name="employee"]').forEach((checkbox) => {
+    checkbox.checked = employeeIds.has(checkbox.value);
+  });
+  renderHoursFields();
+  (entry.employees || []).forEach((item) => {
+    const hoursInput = document.getElementById(`hours-${item.employeeId}`);
+    if (hoursInput) {
+      hoursInput.value = item.hours;
+    }
+  });
+
+  renderAttachmentList();
+  updateCommentsPreview();
+  updateWorkDateLockState();
+  recordDayStepIndex = 0;
+  updateRecordDayStep();
+  setSaveStatus(`Editing ${formatDisplayDate(entry.date)}. Save when you are done.`, "warning");
+  showScreen("record-day");
+  focusCurrentRecordDayStep();
 }
 
 function startAnotherDay() {
@@ -1897,10 +1985,151 @@ function addEmployee() {
 async function saveEntryToSupabase(payload) {
   if (!supabaseClient) {
     return {
-      id: null,
+      id: payload.id || null,
       attachments: payload.attachments,
+      createdAt: payload.createdAt || null,
       mode: "local-only",
       message: "Saved in this browser. Add Supabase in config.js to save online.",
+    };
+  }
+
+  if (payload.id && isUuid(payload.id)) {
+    const updateVariants = [
+      {
+        work_date: payload.date,
+        location: payload.location,
+        comments: payload.comments,
+        related_reference: payload.relatedReference,
+        attachments: payload.attachments,
+      },
+      {
+        work_date: payload.date,
+        location: payload.location,
+        comments: payload.comments,
+      },
+      {
+        work_date: payload.date,
+        location: payload.location,
+      },
+    ];
+
+    let updateError = null;
+
+    for (const updatePayload of updateVariants) {
+      const result = await supabaseClient.from("day_entries").update(updatePayload).eq("id", payload.id);
+
+      if (!result.error) {
+        updateError = null;
+        break;
+      }
+
+      updateError = result.error;
+    }
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    const deleteEmployeesResult = await supabaseClient
+      .from("day_entry_employees")
+      .delete()
+      .eq("day_entry_id", payload.id);
+
+    if (deleteEmployeesResult.error) {
+      throw deleteEmployeesResult.error;
+    }
+
+    const employeeRows = payload.employees.map((item) => ({
+      day_entry_id: payload.id,
+      employee_id: item.employeeId,
+      employee_name: item.employee,
+      first_name: item.firstName,
+      last_name: item.lastName,
+      hours: item.hours,
+      hourly_rate: item.rate,
+      total_pay: item.totalPay,
+    }));
+    const employeeInsertVariants = [
+      employeeRows,
+      payload.employees.map((item) => ({
+        day_entry_id: payload.id,
+        employee_name: item.employee,
+        first_name: item.firstName,
+        last_name: item.lastName,
+        hours: item.hours,
+        hourly_rate: item.rate,
+        total_pay: item.totalPay,
+      })),
+      payload.employees.map((item) => ({
+        day_entry_id: payload.id,
+        employee_name: item.employee,
+        hours: item.hours,
+      })),
+    ];
+
+    let employeesError = null;
+
+    for (const employeeInsertPayload of employeeInsertVariants) {
+      const result = await supabaseClient.from("day_entry_employees").insert(employeeInsertPayload);
+
+      if (!result.error) {
+        employeesError = null;
+        break;
+      }
+
+      employeesError = result.error;
+    }
+
+    if (employeesError) {
+      throw employeesError;
+    }
+
+    let uploadedAttachments = [...(editingDayExistingAttachments || [])];
+    const attachmentFiles = [...attachmentInput.files];
+
+    if (attachmentFiles.length) {
+      const nextAttachments = [...uploadedAttachments];
+
+      for (const file of attachmentFiles) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+        const path = `${currentSession.user.id}/${payload.id}/${Date.now()}-${safeName}`;
+
+        const { error: uploadError } = await supabaseClient.storage
+          .from("day-attachments")
+          .upload(path, file, { upsert: false });
+
+        if (uploadError) {
+          nextAttachments.push({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          });
+          continue;
+        }
+
+        const { data: publicData } = supabaseClient.storage.from("day-attachments").getPublicUrl(path);
+        nextAttachments.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: publicData.publicUrl,
+        });
+      }
+
+      uploadedAttachments = nextAttachments;
+    }
+
+    await supabaseClient
+      .from("day_entries")
+      .update({ attachments: uploadedAttachments })
+      .eq("id", payload.id);
+
+    return {
+      id: payload.id,
+      attachments: uploadedAttachments,
+      createdAt: payload.createdAt || null,
+      mode: "supabase",
+      message: "Updated in Supabase and in this browser.",
     };
   }
 
@@ -2034,6 +2263,7 @@ async function saveEntryToSupabase(payload) {
   return {
     id: dayEntry.id,
     attachments: uploadedAttachments,
+    createdAt: payload.createdAt || new Date().toISOString(),
     mode: "supabase",
     message: "Saved to Supabase and to this browser.",
   };
@@ -2232,6 +2462,7 @@ async function saveDayEntry(event) {
   }));
 
   const payload = {
+    id: editingDayEntryId,
     date: workDateInput.value,
     location: locationSelect.value,
     employees: hoursByEmployee.map((item) => ({
@@ -2253,9 +2484,15 @@ async function saveDayEntry(event) {
       dayRelatedInputs.find((input) => input.checked)?.value === "yes"
         ? dayReferenceText.value.trim()
         : "",
+    createdAt: editingDayCreatedAt,
+    archivedAt: null,
   };
 
-  if (isRecordedDay(payload.date)) {
+  const isEditingSameDate = Boolean(
+    editingDayEntryId && editingDayOriginalDate && payload.date === editingDayOriginalDate
+  );
+
+  if (isRecordedDay(payload.date) && !isEditingSameDate) {
     updateWorkDateLockState();
     setSaveStatus("That day has already been recorded. Please choose a different day.", "error");
     return;
@@ -2269,6 +2506,9 @@ async function saveDayEntry(event) {
     );
     localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
     upsertStoredDayEntry(savedEntry);
+    if (editingDayOriginalDate && editingDayOriginalDate !== payload.date) {
+      removeRecordedDayDate(editingDayOriginalDate);
+    }
     addRecordedDayDate(payload.date);
     recordDayForm.classList.add("hidden");
     recordDayStepTitle.textContent = "Day Recorded";
@@ -2294,6 +2534,9 @@ async function saveDayEntry(event) {
     const savedEntry = buildLocalDayEntry(payload, { id: null });
     localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
     upsertStoredDayEntry(savedEntry);
+    if (editingDayOriginalDate && editingDayOriginalDate !== payload.date) {
+      removeRecordedDayDate(editingDayOriginalDate);
+    }
     addRecordedDayDate(payload.date);
     recordDayForm.classList.add("hidden");
     recordDayStepTitle.textContent = "Day Recorded";
@@ -2438,6 +2681,15 @@ checkHoursList.addEventListener("change", (event) => {
   if (event.target.matches('input[type="checkbox"][data-entry-id]')) {
     updateSelectAllDaysButton();
   }
+});
+checkHoursList.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-day-id]");
+
+  if (!editButton) {
+    return;
+  }
+
+  loadDayEntryForEditing(editButton.dataset.editDayId);
 });
 saveSettingsButton.addEventListener("click", saveSettings);
 savedEntryHomeButton.addEventListener("click", () => {
