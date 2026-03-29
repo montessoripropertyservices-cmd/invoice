@@ -460,6 +460,17 @@ input[type="file"]::file-selector-button {
   font-size: 1.05rem;
 }
 
+.new-employee-drawer {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.new-employee-drawer .field-set {
+  width: min(100%, 720px);
+}
+
 .settings-list {
   display: grid;
   gap: 18px;

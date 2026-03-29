@@ -135,35 +135,6 @@
             <p class="step-kicker">Step 3</p>
             <h3 class="step-heading">Who worked that day?</h3>
             <div id="employee-list" class="checkbox-list checkbox-list-large"></div>
-
-            <button id="toggle-new-employee-button" class="mini-button subtle-button" type="button">
-              New Employee?
-            </button>
-
-            <div id="new-employee-panel" class="field-set hidden">
-              <label class="field-group field-group-large">
-                <span>First name</span>
-                <input id="new-employee-first-name" type="text" placeholder="First name" />
-              </label>
-              <label class="field-group field-group-large">
-                <span>Last name</span>
-                <input id="new-employee-last-name" type="text" placeholder="Last name" />
-              </label>
-              <label class="field-group field-group-large">
-                <span>Rate</span>
-                <input
-                  id="new-employee-rate"
-                  type="number"
-                  inputmode="decimal"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                />
-              </label>
-              <button id="add-employee-button" class="submit-button" type="button">
-                Add Employee
-              </button>
-            </div>
           </section>
 
           <section class="wizard-step section-card section-hours hidden" data-step="3">
@@ -233,6 +204,37 @@
             <button id="record-day-save" class="submit-button hidden" type="button">
               Save Day Entry
             </button>
+          </div>
+
+          <div class="new-employee-drawer">
+            <button id="toggle-new-employee-button" class="mini-button subtle-button" type="button">
+              New Employee?
+            </button>
+
+            <div id="new-employee-panel" class="field-set hidden">
+              <label class="field-group field-group-large">
+                <span>First name</span>
+                <input id="new-employee-first-name" type="text" placeholder="First name" />
+              </label>
+              <label class="field-group field-group-large">
+                <span>Last name</span>
+                <input id="new-employee-last-name" type="text" placeholder="Last name" />
+              </label>
+              <label class="field-group field-group-large">
+                <span>Rate</span>
+                <input
+                  id="new-employee-rate"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              </label>
+              <button id="add-employee-button" class="submit-button" type="button">
+                Add Employee
+              </button>
+            </div>
           </div>
         </form>
 
