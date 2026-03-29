@@ -152,7 +152,6 @@ const allowedEmails = (appConfig.allowedEmails || ["montessoripropertyservices@g
 );
 const ownerEmail = allowedEmails[0];
 const authPinCode = String(appConfig.authPinCode || "2740");
-const staticAuthSessionStorageKey = "staticAuthSession";
 const staticUsers = {
   erik: { username: "erik", password: "E1976", email: "erik.nuno@gmail.com", displayName: "Erik" },
   martin: {
@@ -184,24 +183,7 @@ let editingDayExistingAttachments = [];
 let currentScreenName = null;
 
 function canUseSupabaseSession() {
-  return Boolean(supabaseClient && currentSession?.user && !currentSession?.isStatic);
-}
-
-function readStaticAuthSession() {
-  try {
-    const rawValue = localStorage.getItem(staticAuthSessionStorageKey);
-    return rawValue ? JSON.parse(rawValue) : null;
-  } catch (_error) {
-    return null;
-  }
-}
-
-function writeStaticAuthSession(session) {
-  localStorage.setItem(staticAuthSessionStorageKey, JSON.stringify(session));
-}
-
-function clearStaticAuthSession() {
-  localStorage.removeItem(staticAuthSessionStorageKey);
+  return Boolean(supabaseClient && currentSession?.user);
 }
 
 const recordedDayDatesStorageKey = "recordedDayDates";
@@ -1465,7 +1447,9 @@ function setSignedInEmail(email) {
 }
 
 function isAllowedEmail(email) {
-  return allowedEmails.includes((email || "").toLowerCase().trim());
+  const normalizedEmail = (email || "").toLowerCase().trim();
+  const usernameEmails = Object.values(staticUsers).map((user) => user.email.toLowerCase().trim());
+  return allowedEmails.includes(normalizedEmail) || usernameEmails.includes(normalizedEmail);
 }
 
 function applyAuthState(session) {
@@ -1502,14 +1486,6 @@ function applyAuthState(session) {
 }
 
 async function initializeAuth() {
-  const staticSession = readStaticAuthSession();
-
-  if (staticSession?.user?.email) {
-    applyAuthState(staticSession);
-    await loadRecordedDayDates();
-    return;
-  }
-
   if (!supabaseClient) {
     authScreen.classList.remove("hidden");
     Object.values(screens).forEach((element) => element.classList.add("hidden"));
@@ -1579,7 +1555,7 @@ async function sendMagicLink(event) {
   setAuthStatus("Magic link sent. Open your email and tap the link to enter the app.", "success");
 }
 
-function signInWithStaticCredentials() {
+async function signInWithStaticCredentials() {
   const username = authUsernameInput.value.trim().toLowerCase();
   const password = authPasswordInput.value;
   const matchedUser = staticUsers[username];
@@ -1589,60 +1565,29 @@ function signInWithStaticCredentials() {
     return;
   }
 
-  if (supabaseClient) {
-    supabaseClient.auth
-      .signInWithPassword({
-        email: matchedUser.email,
-        password,
-      })
-      .then(async ({ data, error }) => {
-        if (!error && data.session) {
-          clearStaticAuthSession();
-          authForm.reset();
-          updateMagicLinkButton();
-          applyAuthState(data.session);
-          await loadRecordedDayDates();
-          await checkPurchaseSupabaseReady();
-          setAuthStatus("Signed in and connected to Supabase.", "success");
-          return;
-        }
-
-        const staticSession = {
-          isStatic: true,
-          user: {
-            email: matchedUser.email,
-            username: matchedUser.username,
-            displayName: matchedUser.displayName,
-          },
-        };
-
-        writeStaticAuthSession(staticSession);
-        authForm.reset();
-        updateMagicLinkButton();
-        applyAuthState(staticSession);
-        loadRecordedDayDates();
-        setAuthStatus(
-          "Signed in in local-only mode. To save online, this username must also exist in Supabase Auth.",
-          "warning"
-        );
-      });
+  if (!supabaseClient) {
+    setAuthStatus("Supabase is not configured yet.", "error");
     return;
   }
 
-  const staticSession = {
-    isStatic: true,
-    user: {
-      email: matchedUser.email,
-      username: matchedUser.username,
-      displayName: matchedUser.displayName,
-    },
-  };
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: matchedUser.email,
+    password,
+  });
 
-  writeStaticAuthSession(staticSession);
+  if (error || !data.session) {
+    setAuthStatus(
+      "That Supabase user/password is not available yet. Create or update this user in Supabase Auth first.",
+      "error"
+    );
+    return;
+  }
+
   authForm.reset();
   updateMagicLinkButton();
-  applyAuthState(staticSession);
-  loadRecordedDayDates();
+  applyAuthState(data.session);
+  await loadRecordedDayDates();
+  await checkPurchaseSupabaseReady();
   setAuthStatus("Signed in with username and password.", "success");
 }
 
@@ -1651,18 +1596,6 @@ function updateMagicLinkButton() {
 }
 
 async function signOut() {
-  if (currentSession?.isStatic) {
-    clearStaticAuthSession();
-    recordedDayDates = new Set(readStoredRecordedDayDates());
-    purchaseSupabaseReady = null;
-    updateWorkDateLockState();
-    saveStatus.classList.add("hidden");
-    savedEntryPanel.classList.add("hidden");
-    applyAuthState(null);
-    setAuthStatus("You have been signed out.", "warning");
-    return;
-  }
-
   if (!supabaseClient) {
     return;
   }
@@ -2456,7 +2389,7 @@ function addEmployee() {
 }
 
 async function saveEntryToSupabase(payload) {
-  if (!supabaseClient || currentSession?.isStatic) {
+  if (!supabaseClient) {
     return {
       id: payload.id || null,
       attachments: payload.attachments,
@@ -2743,7 +2676,7 @@ async function saveEntryToSupabase(payload) {
 }
 
 async function savePurchaseToSupabase(payload) {
-  if (!supabaseClient || currentSession?.isStatic) {
+  if (!supabaseClient) {
     return {
       id: null,
       receipts: payload.receipts,
