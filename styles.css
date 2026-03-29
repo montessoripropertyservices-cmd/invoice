@@ -523,6 +523,41 @@ input[type="file"]::file-selector-button {
   font-size: 1.4rem;
 }
 
+.analysis-button {
+  min-width: 240px;
+  min-height: 72px;
+  font-size: 1.25rem;
+}
+
+.analysis-block {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.analysis-label {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.receipt-analysis-output {
+  width: 100%;
+  margin: 0;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(77, 155, 102, 0.14);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.45;
+  max-height: 280px;
+  overflow: auto;
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));

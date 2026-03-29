@@ -59,6 +59,28 @@ const savedEntryAnotherButton = document.getElementById("saved-entry-another");
 const saveStatus = document.getElementById("save-status");
 const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
+const recordPurchaseForm = document.getElementById("record-purchase-form");
+const recordPurchaseStepTitle = document.getElementById("record-purchase-step-title");
+const recordPurchaseProgressBar = document.getElementById("record-purchase-progress-bar");
+const recordPurchasePrevButton = document.getElementById("record-purchase-prev");
+const recordPurchaseNextButton = document.getElementById("record-purchase-next");
+const recordPurchaseSaveButton = document.getElementById("record-purchase-save");
+const recordPurchaseSteps = [...document.querySelectorAll("[data-purchase-step]")];
+const purchaseRelatedInputs = [...document.querySelectorAll('input[name="purchase-related"]')];
+const purchaseReferenceField = document.getElementById("purchase-reference-field");
+const purchaseReferenceText = document.getElementById("purchase-reference-text");
+const purchaseReceiptInput = document.getElementById("purchase-receipts");
+const purchaseReceiptList = document.getElementById("purchase-receipt-list");
+const analyzeReceiptButton = document.getElementById("analyze-receipt-button");
+const receiptAnalysisStatus = document.getElementById("receipt-analysis-status");
+const receiptTotalInput = document.getElementById("receipt-total");
+const receiptAnalysisOutput = document.getElementById("receipt-analysis-output");
+const purchaseSaveStatus = document.getElementById("purchase-save-status");
+const purchaseSavedPanel = document.getElementById("purchase-saved-panel");
+const purchaseSavedTitle = document.getElementById("purchase-saved-title");
+const purchaseSavedOutput = document.getElementById("purchase-saved-output");
+const purchaseSavedHomeButton = document.getElementById("purchase-saved-home");
+const purchaseSavedAnotherButton = document.getElementById("purchase-saved-another");
 const developerCreditCard = document.getElementById("developer-credit-card");
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
@@ -99,6 +121,8 @@ let speechRecognition = null;
 let speechSessionActive = false;
 let speechBaseText = "";
 let recordDayStepIndex = 0;
+let recordPurchaseStepIndex = 0;
+let receiptAnalysisText = "";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -110,6 +134,13 @@ const recordDayStepMeta = [
   { title: "Step 7 of 7: Attachments" },
 ];
 
+const recordPurchaseStepMeta = [
+  { title: "Step 1 of 4: Purchase Date" },
+  { title: "Step 2 of 4: Invoice or Ticket" },
+  { title: "Step 3 of 4: Receipt Photos" },
+  { title: "Step 4 of 4: Confirm Total" },
+];
+
 function setStatusMessage(element, message, tone) {
   element.textContent = message;
   element.className = `save-status ${tone}`;
@@ -118,6 +149,10 @@ function setStatusMessage(element, message, tone) {
 
 function setSaveStatus(message, tone) {
   setStatusMessage(saveStatus, message, tone);
+}
+
+function setPurchaseSaveStatus(message, tone) {
+  setStatusMessage(purchaseSaveStatus, message, tone);
 }
 
 function setAuthStatus(message, tone) {
@@ -134,6 +169,10 @@ function showScreen(screenName) {
   if (screenName === "record-day") {
     updateRecordDayStep();
   }
+
+  if (screenName === "record-purchase") {
+    updateRecordPurchaseStep();
+  }
 }
 
 function formatSavedDayTitle(dateValue) {
@@ -148,6 +187,24 @@ function formatSavedDayTitle(dateValue) {
   }
 
   return `Day ${parsedDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })} Recorded`;
+}
+
+function formatSavedPurchaseTitle(dateValue) {
+  if (!dateValue) {
+    return "Purchase Recorded";
+  }
+
+  const parsedDate = new Date(`${dateValue}T12:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return `Purchase ${dateValue} Recorded`;
+  }
+
+  return `Purchase ${parsedDate.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -363,8 +420,27 @@ function updateDayReferenceField() {
   }
 }
 
+function updatePurchaseReferenceField() {
+  const isRelated = purchaseRelatedInputs.find((input) => input.checked)?.value === "yes";
+  purchaseReferenceField.classList.toggle("hidden", !isRelated);
+  purchaseReferenceText.required = isRelated;
+
+  if (!isRelated) {
+    purchaseReferenceText.value = "";
+  }
+}
+
 function focusCurrentRecordDayStep() {
   const currentStep = recordDaySteps[recordDayStepIndex];
+  const focusTarget = currentStep.querySelector("input, textarea, select, button");
+
+  if (focusTarget) {
+    focusTarget.focus();
+  }
+}
+
+function focusCurrentRecordPurchaseStep() {
+  const currentStep = recordPurchaseSteps[recordPurchaseStepIndex];
   const focusTarget = currentStep.querySelector("input, textarea, select, button");
 
   if (focusTarget) {
@@ -383,6 +459,25 @@ function updateRecordDayStep() {
   recordDayPrevButton.classList.toggle("hidden", recordDayStepIndex === 0);
   recordDayNextButton.classList.toggle("hidden", recordDayStepIndex === recordDaySteps.length - 1);
   recordDaySaveButton.classList.toggle("hidden", recordDayStepIndex !== recordDaySteps.length - 1);
+}
+
+function updateRecordPurchaseStep() {
+  recordPurchaseSteps.forEach((step, index) => {
+    step.classList.toggle("hidden", index !== recordPurchaseStepIndex);
+  });
+
+  const progress = ((recordPurchaseStepIndex + 1) / recordPurchaseSteps.length) * 100;
+  recordPurchaseStepTitle.textContent = recordPurchaseStepMeta[recordPurchaseStepIndex].title;
+  recordPurchaseProgressBar.style.width = `${progress}%`;
+  recordPurchasePrevButton.classList.toggle("hidden", recordPurchaseStepIndex === 0);
+  recordPurchaseNextButton.classList.toggle(
+    "hidden",
+    recordPurchaseStepIndex === recordPurchaseSteps.length - 1
+  );
+  recordPurchaseSaveButton.classList.toggle(
+    "hidden",
+    recordPurchaseStepIndex !== recordPurchaseSteps.length - 1
+  );
 }
 
 function validateCurrentRecordDayStep() {
@@ -456,6 +551,78 @@ function goToPreviousRecordDayStep() {
   }
 }
 
+function validateCurrentRecordPurchaseStep() {
+  if (recordPurchaseStepIndex === 0 && !document.getElementById("purchase-date").value) {
+    setPurchaseSaveStatus("Please choose the purchase date before continuing.", "error");
+    return false;
+  }
+
+  if (recordPurchaseStepIndex === 1) {
+    const isRelated = purchaseRelatedInputs.find((input) => input.checked)?.value === "yes";
+
+    if (isRelated && !purchaseReferenceText.value.trim()) {
+      setPurchaseSaveStatus(
+        "Please enter the invoice or ticket reference before continuing.",
+        "error"
+      );
+      return false;
+    }
+  }
+
+  if (recordPurchaseStepIndex === 2 && !purchaseReceiptInput.files.length) {
+    setPurchaseSaveStatus("Please add at least one receipt image before continuing.", "error");
+    return false;
+  }
+
+  if (recordPurchaseStepIndex === 3 && !receiptTotalInput.value) {
+    setPurchaseSaveStatus("Please confirm the total before saving.", "error");
+    return false;
+  }
+
+  purchaseSaveStatus.classList.add("hidden");
+  return true;
+}
+
+function goToNextRecordPurchaseStep() {
+  if (!validateCurrentRecordPurchaseStep()) {
+    return;
+  }
+
+  if (recordPurchaseStepIndex < recordPurchaseSteps.length - 1) {
+    recordPurchaseStepIndex += 1;
+    updateRecordPurchaseStep();
+    focusCurrentRecordPurchaseStep();
+  }
+}
+
+function goToPreviousRecordPurchaseStep() {
+  if (recordPurchaseStepIndex > 0) {
+    recordPurchaseStepIndex -= 1;
+    updateRecordPurchaseStep();
+    focusCurrentRecordPurchaseStep();
+  }
+}
+
+function renderPurchaseReceiptList() {
+  const receipts = [...purchaseReceiptInput.files];
+
+  if (!receipts.length) {
+    purchaseReceiptList.className = "attachment-list empty-state";
+    purchaseReceiptList.textContent = "No receipt images selected yet.";
+    return;
+  }
+
+  purchaseReceiptList.className = "attachment-list";
+  purchaseReceiptList.innerHTML = "";
+
+  receipts.forEach((file) => {
+    const item = document.createElement("div");
+    item.className = "attachment-item";
+    item.textContent = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+    purchaseReceiptList.appendChild(item);
+  });
+}
+
 function updateCommentsPreview() {
   const text = commentsText.value.trim();
 
@@ -488,6 +655,121 @@ function startAnotherDay() {
   resetRecordDayForm();
   showScreen("record-day");
   focusCurrentRecordDayStep();
+}
+
+function updateReceiptAnalysisStatus(message) {
+  receiptAnalysisStatus.textContent = message;
+}
+
+function extractLikelyReceiptTotal(rawText) {
+  const normalizedText = rawText.replace(/\r/g, "");
+  const lines = normalizedText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const priorityPatterns = [
+    /grand\s*total/i,
+    /amount\s*due/i,
+    /balance\s*due/i,
+    /^total$/i,
+    /total\s*[:\-]/i,
+  ];
+
+  for (const pattern of priorityPatterns) {
+    const matchingLine = lines.find((line) => pattern.test(line));
+
+    if (matchingLine) {
+      const amounts = matchingLine.match(/\d{1,4}(?:[.,]\d{2})/g);
+
+      if (amounts?.length) {
+        return Number(amounts[amounts.length - 1].replace(",", "."));
+      }
+    }
+  }
+
+  const amounts = normalizedText.match(/\d{1,4}(?:[.,]\d{2})/g) || [];
+
+  if (!amounts.length) {
+    return null;
+  }
+
+  return Number(amounts[amounts.length - 1].replace(",", "."));
+}
+
+async function analyzeReceipt() {
+  const receipts = [...purchaseReceiptInput.files];
+
+  if (!receipts.length) {
+    setPurchaseSaveStatus("Please add a receipt image before analyzing.", "error");
+    return;
+  }
+
+  if (!window.Tesseract) {
+    updateReceiptAnalysisStatus(
+      "Receipt analysis is not available right now. Please type the total manually."
+    );
+    return;
+  }
+
+  analyzeReceiptButton.disabled = true;
+  updateReceiptAnalysisStatus("Reading the receipt now...");
+
+  try {
+    const extractedChunks = [];
+
+    for (const file of receipts.slice(0, 3)) {
+      const {
+        data: { text },
+      } = await window.Tesseract.recognize(file, "eng");
+
+      if (text.trim()) {
+        extractedChunks.push(text.trim());
+      }
+    }
+
+    receiptAnalysisText = extractedChunks.join("\n\n");
+    receiptAnalysisOutput.className = "receipt-analysis-output";
+    receiptAnalysisOutput.textContent = receiptAnalysisText || "No clear text found on the receipt.";
+
+    const suggestedTotal = extractLikelyReceiptTotal(receiptAnalysisText);
+
+    if (suggestedTotal !== null && Number.isFinite(suggestedTotal)) {
+      receiptTotalInput.value = suggestedTotal.toFixed(2);
+      updateReceiptAnalysisStatus("Receipt scanned. Please review the total and edit it if needed.");
+    } else {
+      updateReceiptAnalysisStatus(
+        "Receipt scanned, but I could not find a clear total. Please type it manually."
+      );
+    }
+  } catch (error) {
+    console.error(error);
+    updateReceiptAnalysisStatus(
+      "Receipt analysis could not finish. Please type the total manually."
+    );
+  } finally {
+    analyzeReceiptButton.disabled = false;
+  }
+}
+
+function resetRecordPurchaseForm() {
+  recordPurchaseForm.reset();
+  recordPurchaseStepIndex = 0;
+  receiptAnalysisText = "";
+  purchaseSavedPanel.classList.add("hidden");
+  purchaseSaveStatus.classList.add("hidden");
+  receiptAnalysisOutput.className = "receipt-analysis-output empty-state";
+  receiptAnalysisOutput.textContent = "No analysis yet.";
+  updateReceiptAnalysisStatus("");
+  renderPurchaseReceiptList();
+  updatePurchaseReferenceField();
+  updateRecordPurchaseStep();
+}
+
+function startAnotherPurchase() {
+  resetRecordPurchaseForm();
+  showScreen("record-purchase");
+  focusCurrentRecordPurchaseStep();
 }
 
 function updateVoiceStatus(message) {
@@ -718,6 +1000,52 @@ async function saveEntryToSupabase(payload) {
   };
 }
 
+async function savePurchaseToSupabase(payload) {
+  if (!supabaseClient) {
+    return {
+      mode: "local-only",
+      message: "Saved in this browser. Add the purchase table in Supabase to save online.",
+    };
+  }
+
+  const insertVariants = [
+    {
+      purchase_date: payload.date,
+      related_reference: payload.relatedReference,
+      receipt_total: payload.total,
+      receipt_files: payload.receipts,
+      receipt_text: payload.analysisText,
+    },
+    {
+      purchase_date: payload.date,
+      related_reference: payload.relatedReference,
+      receipt_total: payload.total,
+      receipt_text: payload.analysisText,
+    },
+    {
+      purchase_date: payload.date,
+      receipt_total: payload.total,
+    },
+  ];
+
+  let purchaseEntryError = null;
+
+  for (const insertPayload of insertVariants) {
+    const result = await supabaseClient.from("purchase_entries").insert(insertPayload).select("id").single();
+
+    if (!result.error) {
+      return {
+        mode: "supabase",
+        message: "Saved to Supabase and to this browser.",
+      };
+    }
+
+    purchaseEntryError = result.error;
+  }
+
+  throw purchaseEntryError;
+}
+
 async function saveDayEntry(event) {
   event.preventDefault();
 
@@ -788,6 +1116,57 @@ async function saveDayEntry(event) {
   }
 }
 
+async function savePurchaseEntry(event) {
+  event.preventDefault();
+
+  if (!currentSession?.user) {
+    setPurchaseSaveStatus("Please sign in before saving purchases.", "error");
+    applyAuthState(null);
+    return;
+  }
+
+  if (!validateCurrentRecordPurchaseStep()) {
+    return;
+  }
+
+  const payload = {
+    date: document.getElementById("purchase-date").value,
+    relatedReference:
+      purchaseRelatedInputs.find((input) => input.checked)?.value === "yes"
+        ? purchaseReferenceText.value.trim()
+        : "",
+    receipts: [...purchaseReceiptInput.files].map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    })),
+    total: Number(receiptTotalInput.value),
+    analysisText: receiptAnalysisText,
+  };
+
+  try {
+    const saveResult = await savePurchaseToSupabase(payload);
+    localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
+    purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
+    purchaseSavedOutput.textContent = JSON.stringify(payload, null, 2);
+    purchaseSavedPanel.classList.remove("hidden");
+    setPurchaseSaveStatus(
+      saveResult.message,
+      saveResult.mode === "supabase" ? "success" : "warning"
+    );
+  } catch (error) {
+    console.error(error);
+    localStorage.setItem("latestPurchaseEntry", JSON.stringify(payload, null, 2));
+    purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
+    purchaseSavedOutput.textContent = JSON.stringify(payload, null, 2);
+    purchaseSavedPanel.classList.remove("hidden");
+    setPurchaseSaveStatus(
+      "Supabase save failed, but the purchase was saved in this browser. Check your Supabase setup.",
+      "error"
+    );
+  }
+}
+
 document.querySelectorAll("[data-screen]").forEach((button) => {
   button.addEventListener("click", () => {
     const screenName = button.dataset.screen;
@@ -797,21 +1176,39 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 
 addEmployeeButton.addEventListener("click", addEmployee);
 attachmentInput.addEventListener("change", renderAttachmentList);
+purchaseReceiptInput.addEventListener("change", () => {
+  renderPurchaseReceiptList();
+  receiptAnalysisText = "";
+  receiptAnalysisOutput.className = "receipt-analysis-output empty-state";
+  receiptAnalysisOutput.textContent = "No analysis yet.";
+  updateReceiptAnalysisStatus("");
+});
 authForm.addEventListener("submit", sendMagicLink);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
 commentsText.addEventListener("input", updateCommentsPreview);
 recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
 recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
+recordPurchasePrevButton.addEventListener("click", goToPreviousRecordPurchaseStep);
+recordPurchaseNextButton.addEventListener("click", goToNextRecordPurchaseStep);
 dayRelatedInputs.forEach((input) => input.addEventListener("change", updateDayReferenceField));
+purchaseRelatedInputs.forEach((input) =>
+  input.addEventListener("change", updatePurchaseReferenceField)
+);
 clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
+analyzeReceiptButton.addEventListener("click", analyzeReceipt);
 savedEntryHomeButton.addEventListener("click", () => {
   resetRecordDayForm();
   showScreen("home");
 });
 savedEntryAnotherButton.addEventListener("click", startAnotherDay);
+purchaseSavedHomeButton.addEventListener("click", () => {
+  resetRecordPurchaseForm();
+  showScreen("home");
+});
+purchaseSavedAnotherButton.addEventListener("click", startAnotherPurchase);
 newEmployeeNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -820,14 +1217,18 @@ newEmployeeNameInput.addEventListener("keydown", (event) => {
 });
 
 recordDayForm.addEventListener("submit", saveDayEntry);
+recordPurchaseForm.addEventListener("submit", savePurchaseEntry);
 
 renderEmployees();
 renderLocations();
 renderHoursFields();
 renderAttachmentList();
+renderPurchaseReceiptList();
 updateCommentsPreview();
 updateMagicLinkButton();
 updateDayReferenceField();
+updatePurchaseReferenceField();
 setupSpeechRecognition();
 updateRecordDayStep();
+updateRecordPurchaseStep();
 initializeAuth();

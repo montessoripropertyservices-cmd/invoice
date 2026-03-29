@@ -236,15 +236,122 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Record a Purchase</p>
-            <h2>Coming next</h2>
+            <h2 id="record-purchase-step-title">Step 1 of 4</h2>
           </div>
           <div class="section-actions">
             <button class="back-button" type="button" data-screen="home">Back</button>
           </div>
         </div>
-        <p class="placeholder-copy">
-          This button is ready and the purchase form can be added after we finish the day flow.
-        </p>
+
+        <form id="record-purchase-form">
+          <div class="wizard-progress" aria-hidden="true">
+            <div id="record-purchase-progress-bar" class="wizard-progress-bar"></div>
+          </div>
+
+          <section class="wizard-step section-card section-date" data-purchase-step="0">
+            <p class="step-kicker">Step 1</p>
+            <h3 class="step-heading">When was the purchase made?</h3>
+            <label class="field-group field-group-large">
+              <span>Purchase date</span>
+              <input id="purchase-date" name="purchaseDate" type="date" required />
+            </label>
+          </section>
+
+          <section class="wizard-step section-card section-reference hidden" data-purchase-step="1">
+            <p class="step-kicker">Step 2</p>
+            <h3 class="step-heading">Is this related to an invoice or a ticket?</h3>
+            <div class="choice-grid">
+              <label class="choice-card">
+                <input type="radio" name="purchase-related" value="no" checked />
+                <span>No</span>
+              </label>
+              <label class="choice-card">
+                <input type="radio" name="purchase-related" value="yes" />
+                <span>Yes</span>
+              </label>
+            </div>
+
+            <label id="purchase-reference-field" class="field-group hidden">
+              <span>Invoice or ticket reference</span>
+              <input
+                id="purchase-reference-text"
+                type="text"
+                placeholder="Type the invoice or ticket number"
+              />
+            </label>
+          </section>
+
+          <section class="wizard-step section-card section-attachments hidden" data-purchase-step="2">
+            <p class="step-kicker">Step 3</p>
+            <h3 class="step-heading">Attach pictures of the receipt</h3>
+            <label class="field-group field-group-large">
+              <span>Receipt photos</span>
+              <input
+                id="purchase-receipts"
+                name="purchaseReceipts"
+                type="file"
+                accept="image/*"
+                multiple
+                required
+              />
+            </label>
+            <div id="purchase-receipt-list" class="attachment-list empty-state">
+              No receipt images selected yet.
+            </div>
+          </section>
+
+          <section class="wizard-step section-card section-hours hidden" data-purchase-step="3">
+            <p class="step-kicker">Step 4</p>
+            <h3 class="step-heading">Review the total from the receipt</h3>
+            <button id="analyze-receipt-button" class="submit-button analysis-button" type="button">
+              Analyze Receipt
+            </button>
+            <p id="receipt-analysis-status" class="helper-text"></p>
+
+            <label class="field-group field-group-large">
+              <span>Total amount</span>
+              <input
+                id="receipt-total"
+                name="receiptTotal"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                required
+              />
+            </label>
+
+            <div class="analysis-block">
+              <p class="analysis-label">Receipt text found</p>
+              <pre id="receipt-analysis-output" class="receipt-analysis-output empty-state">
+No analysis yet.
+              </pre>
+            </div>
+          </section>
+
+          <div class="wizard-nav">
+            <button id="record-purchase-prev" class="back-button" type="button">Back</button>
+            <button id="record-purchase-next" class="submit-button" type="button">Next</button>
+            <button id="record-purchase-save" class="submit-button hidden" type="submit">
+              Save Purchase
+            </button>
+          </div>
+        </form>
+
+        <p id="purchase-save-status" class="save-status hidden" aria-live="polite"></p>
+
+        <section class="saved-panel hidden" id="purchase-saved-panel">
+          <p class="eyebrow">Saved successfully</p>
+          <h3 id="purchase-saved-title" class="saved-entry-title">Purchase Recorded</h3>
+          <pre id="purchase-saved-output"></pre>
+          <div class="saved-entry-actions">
+            <button id="purchase-saved-home" class="back-button" type="button">Return Home</button>
+            <button id="purchase-saved-another" class="submit-button" type="button">
+              Record Another Purchase
+            </button>
+          </div>
+        </section>
       </section>
 
       <section class="form-card hidden" id="check-hours-screen">
@@ -286,6 +393,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
   </body>
