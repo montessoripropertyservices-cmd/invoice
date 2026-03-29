@@ -98,6 +98,7 @@ const purchaseSavedHomeButton = document.getElementById("purchase-saved-home");
 const purchaseSavedAnotherButton = document.getElementById("purchase-saved-another");
 const emailDaysButton = document.getElementById("email-days-button");
 const archiveDaysButton = document.getElementById("archive-days-button");
+const selectAllDaysButton = document.getElementById("select-all-days-button");
 const checkHoursStatus = document.getElementById("check-hours-status");
 const checkHoursList = document.getElementById("check-hours-list");
 const emailReceiptsButton = document.getElementById("email-receipts-button");
@@ -625,6 +626,10 @@ function renderCheckHoursEntries() {
   if (!visibleEntries.length) {
     checkHoursList.className = "entry-list empty-state";
     checkHoursList.textContent = "No recorded days yet.";
+    if (selectAllDaysButton) {
+      selectAllDaysButton.textContent = "Select All";
+      selectAllDaysButton.disabled = true;
+    }
     return;
   }
 
@@ -667,6 +672,8 @@ function renderCheckHoursEntries() {
       `;
     })
     .join("");
+
+  updateSelectAllDaysButton();
 }
 
 function renderCheckReceiptsEntries() {
@@ -920,6 +927,39 @@ function getSelectedCheckHoursEntries() {
   );
 
   return dayEntriesCache.filter((entry) => selectedIds.includes(entry.id));
+}
+
+function updateSelectAllDaysButton() {
+  if (!selectAllDaysButton) {
+    return;
+  }
+
+  const checkboxes = [...checkHoursList.querySelectorAll('input[type="checkbox"][data-entry-id]')];
+
+  if (!checkboxes.length) {
+    selectAllDaysButton.textContent = "Select All";
+    selectAllDaysButton.disabled = true;
+    return;
+  }
+
+  const allChecked = checkboxes.every((checkbox) => checkbox.checked);
+  selectAllDaysButton.textContent = allChecked ? "Clear All" : "Select All";
+  selectAllDaysButton.disabled = false;
+}
+
+function toggleSelectAllDays() {
+  const checkboxes = [...checkHoursList.querySelectorAll('input[type="checkbox"][data-entry-id]')];
+
+  if (!checkboxes.length) {
+    return;
+  }
+
+  const shouldSelectAll = checkboxes.some((checkbox) => !checkbox.checked);
+  checkboxes.forEach((checkbox) => {
+    checkbox.checked = shouldSelectAll;
+  });
+
+  updateSelectAllDaysButton();
 }
 
 function buildDaysEmailBody(entries) {
@@ -2381,8 +2421,14 @@ voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
 emailDaysButton.addEventListener("click", emailSelectedDays);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
+selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
 archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
+checkHoursList.addEventListener("change", (event) => {
+  if (event.target.matches('input[type="checkbox"][data-entry-id]')) {
+    updateSelectAllDaysButton();
+  }
+});
 saveSettingsButton.addEventListener("click", saveSettings);
 savedEntryHomeButton.addEventListener("click", () => {
   resetRecordDayForm();
