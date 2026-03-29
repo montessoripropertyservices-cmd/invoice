@@ -1326,33 +1326,52 @@ function toggleSelectAllDays() {
 }
 
 function buildSelectedDaysReport(entries) {
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
   return entries
     .map((entry) => {
       const employees = (entry.employees || [])
         .map((item) => {
           const label =
             item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
-          return `- ${label}: ${item.hours} hours x $${Number(item.rate || 0).toFixed(2)} = $${getEntryEmployeeCost(item).toFixed(2)}`;
+          return escapeHtml(
+            `- ${label}: ${item.hours} hours x $${Number(item.rate || 0).toFixed(2)} = $${getEntryEmployeeCost(item).toFixed(2)}`
+          );
         })
-        .join("\n");
+        .join("<br>");
       const attachments = (entry.attachments || [])
-        .map((item) => `- ${item.name}${item.url ? `: ${item.url}` : ""}`)
-        .join("\n");
+        .map((item) => {
+          if (item.url) {
+            const safeUrl = escapeHtml(item.url);
+            return `- <a href="${safeUrl}" target="_blank" rel="noreferrer">${safeUrl}</a>`;
+          }
+
+          return escapeHtml(`- ${item.name || "Attachment"}`);
+        })
+        .join("<br>");
 
       return [
-        `------------------------- ${formatDisplayDate(entry.date)} -------------------------`,
-        `Location: ${entry.location || ""}`,
-        `Ticket #: ${entry.relatedReference || "None"}`,
-        `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
-        `Total Day: $${getEntryTotalCost(entry).toFixed(2)}`,
-        `Comment: ${entry.comments || ""}`,
+        escapeHtml(
+          `------------------------- ${formatDisplayDate(entry.date)} -------------------------`
+        ),
+        escapeHtml(`Location: ${entry.location || ""}`),
+        escapeHtml(`Ticket #: ${entry.relatedReference || "None"}`),
+        escapeHtml(`Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`),
+        escapeHtml(`Total Day: $${getEntryTotalCost(entry).toFixed(2)}`),
+        escapeHtml(`Comment: ${entry.comments || ""}`),
         "Attachments:",
         attachments || "- None",
         "People:",
         employees || "- None",
-      ].join("\n");
+      ].join("<br>");
     })
-    .join("\n\n");
+    .join("<br><br>");
 }
 
 function showSelectedDays() {
@@ -1363,7 +1382,7 @@ function showSelectedDays() {
     return;
   }
 
-  selectedDaysOutput.textContent = buildSelectedDaysReport(selectedEntries);
+  selectedDaysOutput.innerHTML = buildSelectedDaysReport(selectedEntries);
   setCheckHoursStatus("Showing the selected day details.", "success");
   showScreen("selected-days");
 }

@@ -782,10 +782,18 @@ input[type="file"]::file-selector-button {
   text-align: left;
 }
 
-.selected-days-panel pre {
+.selected-days-output {
   width: 100%;
   max-width: none;
   font-size: 1.18rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+}
+
+.selected-days-output a {
+  color: #8fd0ff;
+  text-decoration: underline;
 }
 
 .hours-toolbar {
