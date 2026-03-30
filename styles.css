@@ -326,6 +326,7 @@ form {
 .field-set {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .section-card {
@@ -423,6 +424,8 @@ textarea {
 }
 
 input[type="date"] {
+  display: block;
+  min-width: 0;
   max-width: 100%;
   min-height: 110px;
   font-size: clamp(1.45rem, 3.3vw, 2.35rem);
@@ -1335,5 +1338,34 @@ input[type="file"]::file-selector-button {
   .entry-card,
   .settings-card {
     transform: translateZ(0);
+  }
+
+  .field-group,
+  .wizard-step,
+  .section-card {
+    min-width: 0;
+  }
+
+  input[type="date"] {
+    width: 100%;
+    max-width: 100%;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    padding: 14px 12px;
+  }
+
+  input[type="date"]::-webkit-datetime-edit,
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+  input[type="date"]::-webkit-datetime-edit-text,
+  input[type="date"]::-webkit-datetime-edit-month-field,
+  input[type="date"]::-webkit-datetime-edit-day-field,
+  input[type="date"]::-webkit-datetime-edit-year-field {
+    padding: 0;
+    font-size: 1em;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    transform: scale(1);
+    margin-left: 6px;
   }
 }
