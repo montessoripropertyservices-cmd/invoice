@@ -178,6 +178,7 @@ let purchaseSupabaseReady = null;
 let dayEntriesCache = [];
 let purchaseEntriesCache = [];
 let archivedItemsCache = [];
+let hoursDashboardExpanded = false;
 let recordDayCompleted = false;
 let employees = [];
 let editingDayEntryId = null;
@@ -898,14 +899,8 @@ function renderCheckHoursDashboard(entries) {
 
   const summaryCards = [
     { label: "Active Days", value: String(entries.length) },
+    { label: "Total Amount", value: formatCurrency(totalPay) },
     { label: "Total Hours", value: totalHours.toFixed(2) },
-    { label: "Locations", value: String(activeLocations.size) },
-    { label: "Total Day Value", value: formatCurrency(totalPay) },
-    { label: "Average Hours / Day", value: averageHours.toFixed(2) },
-    {
-      label: "Top Person",
-      value: topEmployeeEntry ? `${topEmployeeEntry[0]} (${topEmployeeEntry[1].toFixed(2)}h)` : "None",
-    },
   ];
 
   const topEmployees = [...employeeTotals.entries()]
@@ -1011,19 +1006,43 @@ function renderCheckHoursDashboard(entries) {
     .join("");
 
   checkHoursDashboard.innerHTML = `
-    <div class="hours-dashboard-grid">
-      ${summaryCards
-        .map(
-          (card) => `
-            <article class="hours-dashboard-card">
-              <p>${card.label}</p>
-              <strong>${card.value}</strong>
-            </article>
-          `
-        )
-        .join("")}
-    </div>
-    <section class="hours-dashboard-section">
+    <section class="hours-summary-card">
+      <div class="hours-summary-grid">
+        ${summaryCards
+          .map(
+            (card) => `
+              <div class="hours-summary-item">
+                <p>${card.label}</p>
+                <strong>${card.value}</strong>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+      <button
+        type="button"
+        class="back-button hours-dashboard-toggle"
+        id="toggle-hours-dashboard-details"
+      >
+        ${hoursDashboardExpanded ? "Hide Stats" : "See More"}
+      </button>
+    </section>
+    <div class="hours-dashboard-details ${hoursDashboardExpanded ? "" : "hidden"}">
+      <div class="hours-dashboard-grid">
+        <article class="hours-dashboard-card">
+          <p>Locations</p>
+          <strong>${activeLocations.size}</strong>
+        </article>
+        <article class="hours-dashboard-card">
+          <p>Average Hours / Day</p>
+          <strong>${averageHours.toFixed(2)}</strong>
+        </article>
+        <article class="hours-dashboard-card">
+          <p>Top Person</p>
+          <strong>${topEmployeeEntry ? `${topEmployeeEntry[0]} (${topEmployeeEntry[1].toFixed(2)}h)` : "None"}</strong>
+        </article>
+      </div>
+      <section class="hours-dashboard-section">
       <div class="hours-dashboard-heading">
         <h3>Hours by Person</h3>
         <p>Active totals across all recorded days</p>
@@ -1031,8 +1050,8 @@ function renderCheckHoursDashboard(entries) {
       <div class="hours-dashboard-mini-grid">
         ${topEmployees || '<div class="empty-state">No people totals yet.</div>'}
       </div>
-    </section>
-    <section class="hours-dashboard-section">
+      </section>
+      <section class="hours-dashboard-section">
       <div class="hours-dashboard-heading">
         <h3>Combined Location Hours</h3>
         <p>All active hours grouped by location</p>
@@ -1050,8 +1069,8 @@ function renderCheckHoursDashboard(entries) {
           ${locationLegend}
         </div>
       </div>
-    </section>
-    <section class="hours-dashboard-section">
+      </section>
+      <section class="hours-dashboard-section">
       <div class="hours-dashboard-heading">
         <h3>Hours by Location and Person</h3>
         <p>Each bar shows where the active hours are going</p>
@@ -1059,8 +1078,14 @@ function renderCheckHoursDashboard(entries) {
       <div class="hours-location-grid">
         ${locationCards}
       </div>
-    </section>
+      </section>
+    </div>
   `;
+}
+
+function toggleHoursDashboardDetails() {
+  hoursDashboardExpanded = !hoursDashboardExpanded;
+  renderCheckHoursDashboard(dayEntriesCache.filter((entry) => !entry.archivedAt));
 }
 
 function renderCheckReceiptsDashboard(entries) {
@@ -3600,6 +3625,15 @@ checkHoursList.addEventListener("click", (event) => {
   }
 
   loadDayEntryForEditing(editButton.dataset.editDayId);
+});
+checkHoursDashboard.addEventListener("click", (event) => {
+  const toggleButton = event.target.closest("#toggle-hours-dashboard-details");
+
+  if (!toggleButton) {
+    return;
+  }
+
+  toggleHoursDashboardDetails();
 });
 saveSettingsButton.addEventListener("click", saveSettings);
 savedEntryHomeButton.addEventListener("click", () => {

@@ -856,6 +856,58 @@ input[type="file"]::file-selector-button {
   margin: 18px 0 22px;
 }
 
+.hours-summary-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, rgba(115, 201, 139, 0.2), rgba(181, 232, 194, 0.3));
+  border: 1px solid rgba(77, 155, 102, 0.18);
+  box-shadow: 0 14px 30px rgba(82, 140, 102, 0.1);
+}
+
+.hours-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hours-summary-item {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hours-summary-item p,
+.hours-summary-item strong {
+  margin: 0;
+}
+
+.hours-summary-item p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hours-summary-item strong {
+  font-size: clamp(1.35rem, 3vw, 2.25rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hours-dashboard-toggle {
+  justify-self: center;
+  min-width: 180px;
+}
+
+.hours-dashboard-details {
+  display: grid;
+  gap: 18px;
+}
+
 .hours-dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1226,7 +1278,8 @@ input[type="file"]::file-selector-button {
   }
 
   .hours-dashboard-grid,
-  .hours-dashboard-mini-grid {
+  .hours-dashboard-mini-grid,
+  .hours-summary-grid {
     grid-template-columns: 1fr;
   }
 
