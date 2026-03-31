@@ -605,6 +605,26 @@ function formatLocationDisplay(locationValue) {
     .join(", ");
 }
 
+function dedupeEntryEmployees(items) {
+  const nextItems = [];
+  const seen = new Set();
+
+  (items || []).forEach((item) => {
+    const key = String(item.employeeId || item.employee || "")
+      .trim()
+      .toLowerCase();
+
+    if (!key || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    nextItems.push(item);
+  });
+
+  return nextItems;
+}
+
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     String(value || "").trim()
@@ -612,7 +632,7 @@ function isUuid(value) {
 }
 
 function getEntryTotalHours(entry) {
-  return (entry.employees || []).reduce((sum, item) => sum + Number(item.hours || 0), 0);
+  return dedupeEntryEmployees(entry.employees || []).reduce((sum, item) => sum + Number(item.hours || 0), 0);
 }
 
 function getEntryEmployeeCost(item) {
@@ -621,11 +641,11 @@ function getEntryEmployeeCost(item) {
 }
 
 function getEntryTotalCost(entry) {
-  return (entry.employees || []).reduce((sum, item) => sum + getEntryEmployeeCost(item), 0);
+  return dedupeEntryEmployees(entry.employees || []).reduce((sum, item) => sum + getEntryEmployeeCost(item), 0);
 }
 
 function formatDaySummary(entry) {
-  const employeeLine = (entry.employees || [])
+  const employeeLine = dedupeEntryEmployees(entry.employees || [])
     .map((item) => `${item.employee}: ${item.hours} hours`)
     .join(", ");
   const attachmentLinks = (entry.attachments || [])
@@ -1236,7 +1256,7 @@ function renderCheckHoursEntries() {
   checkHoursList.className = "entry-list";
   checkHoursList.innerHTML = visibleEntries
     .map((entry) => {
-      const employees = (entry.employees || [])
+      const employees = dedupeEntryEmployees(entry.employees || [])
         .map((item) => {
           const label =
             item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
@@ -1324,7 +1344,7 @@ function renderCheckReceiptsEntries() {
 
 function buildArchivedSearchText(item) {
   if (item.kind === "day") {
-    const employees = (item.employees || [])
+    const employees = dedupeEntryEmployees(item.employees || [])
       .map((employee) => `${employee.employee || ""} ${employee.firstName || ""} ${employee.lastName || ""}`)
       .join(" ");
     const attachments = (item.attachments || []).map((attachment) => attachment.name || "").join(" ");
@@ -1459,14 +1479,16 @@ async function loadArchivedItems() {
         comments: entry.comments || "",
         relatedReference: entry.related_reference || "",
         attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
-        employees: (entry.day_entry_employees || []).map((item) => ({
-          employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
-          employee: item.employee_name,
-          firstName: item.first_name || item.employee_name || "",
-          lastName: item.last_name || "",
-          hours: Number(item.hours),
-          rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
-        })),
+        employees: dedupeEntryEmployees(
+          (entry.day_entry_employees || []).map((item) => ({
+            employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
+            employee: item.employee_name,
+            firstName: item.first_name || item.employee_name || "",
+            lastName: item.last_name || "",
+            hours: Number(item.hours),
+            rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
+          }))
+        ),
         archivedAt: entry.archived_at || null,
         createdAt: entry.created_at,
       }));
@@ -1616,15 +1638,17 @@ async function loadCheckHoursEntries() {
                 : localEntry?.attachments) || [],
             employees:
               (entry.day_entry_employees || []).length
-                ? (entry.day_entry_employees || []).map((item) => ({
-                    employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
-                    employee: item.employee_name,
-                    firstName: item.first_name || item.employee_name || "",
-                    lastName: item.last_name || "",
-                    hours: Number(item.hours),
-                    rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
-                  }))
-                : localEntry?.employees || [],
+                ? dedupeEntryEmployees(
+                    (entry.day_entry_employees || []).map((item) => ({
+                      employeeId: item.employee_id || slugifyEmployeeName(item.employee_name || ""),
+                      employee: item.employee_name,
+                      firstName: item.first_name || item.employee_name || "",
+                      lastName: item.last_name || "",
+                      hours: Number(item.hours),
+                      rate: Number(item.hourly_rate || getEmployeeById(item.employee_id || "")?.rate || 0),
+                    }))
+                  )
+                : dedupeEntryEmployees(localEntry?.employees || []),
             archivedAt: entry.archived_at || localEntry?.archivedAt || null,
             createdAt: entry.created_at || localEntry?.createdAt || null,
           };
@@ -1842,7 +1866,7 @@ function buildSelectedDaysReport(entries) {
 
   const dayBlocks = entries
     .map((entry) => {
-      const employees = (entry.employees || [])
+      const employees = dedupeEntryEmployees(entry.employees || [])
         .map((item) => {
           const label =
             item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
@@ -2559,12 +2583,17 @@ function resetRecordDayForm() {
 }
 
 function loadDayEntryForEditing(entryId) {
-  const entry = dayEntriesCache.find((item) => item.id === entryId);
+  const sourceEntry = dayEntriesCache.find((item) => item.id === entryId);
 
-  if (!entry) {
+  if (!sourceEntry) {
     setCheckHoursStatus("That day could not be loaded for editing.", "error");
     return;
   }
+
+  const entry = {
+    ...sourceEntry,
+    employees: dedupeEntryEmployees(sourceEntry.employees || []),
+  };
 
   resetRecordDayForm();
   editingDayEntryId = entry.id;
