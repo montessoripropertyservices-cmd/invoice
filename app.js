@@ -1885,6 +1885,13 @@ function buildSelectedDaysReport(entries) {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
 
+  const sortedDates = entries
+    .map((entry) => String(entry.date || "").trim())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const earliestDate = sortedDates[0] || "";
+  const latestDate = sortedDates[sortedDates.length - 1] || "";
+
   const dayBlocks = entries
     .map((entry) => {
       const employees = dedupeEntryEmployees(entry.employees || [])
@@ -1928,6 +1935,10 @@ function buildSelectedDaysReport(entries) {
   const overallTotal = entries.reduce((sum, entry) => sum + getEntryTotalCost(entry), 0);
 
   return [
+    escapeHtml(
+      `Work period ${formatDisplayDate(earliestDate)} --- ${formatDisplayDate(latestDate)}`
+    ),
+    "",
     dayBlocks,
     escapeHtml("------------------------- Overall Total -------------------------"),
     escapeHtml(`Days Selected: ${entries.length}`),
