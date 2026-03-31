@@ -347,6 +347,24 @@ function formatDisplayDate(dateValue) {
   });
 }
 
+function formatShortDate(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  const parsedDate = new Date(`${dateValue}T12:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+
+  return parsedDate.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
+
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("en-US", {
     style: "currency",
@@ -1936,7 +1954,7 @@ function buildSelectedDaysReport(entries) {
 
   return [
     escapeHtml(
-      `Work period ${formatDisplayDate(earliestDate)} --- ${formatDisplayDate(latestDate)}`
+      `Work period ${formatShortDate(earliestDate)} --- ${formatShortDate(latestDate)}`
     ),
     "",
     dayBlocks,
