@@ -1,5 +1,7 @@
 export default async function handler(request, response) {
-  if (!process.env.CRON_SECRET) {
+  const cronSecret = String(process.env.CRON_SECRET || "").trim();
+
+  if (!cronSecret) {
     return response.status(500).json({
       ok: false,
       message: "Missing CRON_SECRET",
@@ -7,14 +9,14 @@ export default async function handler(request, response) {
   }
 
   const authHeader = request.headers.authorization || "";
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+  const expectedAuth = `Bearer ${cronSecret}`;
 
   if (authHeader !== expectedAuth) {
     return response.status(401).json({ ok: false, message: "Unauthorized" });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = String(process.env.SUPABASE_URL || "").trim();
+  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!supabaseUrl || !serviceRoleKey) {
     return response.status(500).json({

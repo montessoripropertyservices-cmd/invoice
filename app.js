@@ -2829,9 +2829,24 @@ function startVoiceCapture() {
   const isIosDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent || "");
 
   if (isIosDevice) {
-    commentsText.focus();
-    commentsText.setSelectionRange(commentsText.value.length, commentsText.value.length);
-    updateVoiceStatus("Use the iPhone keyboard microphone to dictate.");
+    commentsText.scrollIntoView({ behavior: "smooth", block: "center" });
+    updateVoiceStatus("Opening the keyboard. Tap the microphone on the iPhone keyboard to dictate.");
+
+    const moveCursorToEnd = () => {
+      const end = commentsText.value.length;
+      commentsText.focus({ preventScroll: true });
+      commentsText.click();
+
+      try {
+        commentsText.setSelectionRange(end, end);
+      } catch (_error) {
+        // iOS can reject selection changes before the keyboard is fully ready.
+      }
+    };
+
+    moveCursorToEnd();
+    window.setTimeout(moveCursorToEnd, 60);
+    window.setTimeout(moveCursorToEnd, 180);
     return;
   }
 
