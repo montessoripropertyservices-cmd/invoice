@@ -106,6 +106,7 @@ const checkHoursStatus = document.getElementById("check-hours-status");
 const checkHoursDashboard = document.getElementById("check-hours-dashboard");
 const checkHoursList = document.getElementById("check-hours-list");
 const selectedDaysOutput = document.getElementById("selected-days-output");
+const copySelectedDaysButton = document.getElementById("copy-selected-days-button");
 const emailReceiptsButton = document.getElementById("email-receipts-button");
 const archiveReceiptsButton = document.getElementById("archive-receipts-button");
 const checkReceiptsStatus = document.getElementById("check-receipts-status");
@@ -1967,6 +1968,44 @@ function showSelectedDays() {
   showScreen("selected-days");
 }
 
+async function copySelectedDaysReport() {
+  const reportText = selectedDaysOutput.innerText.trim();
+
+  if (!reportText) {
+    return;
+  }
+
+  let copied = false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(reportText);
+      copied = true;
+    }
+  } catch (_error) {}
+
+  if (!copied) {
+    const tempTextArea = document.createElement("textarea");
+    tempTextArea.value = reportText;
+    tempTextArea.setAttribute("readonly", "");
+    tempTextArea.style.position = "fixed";
+    tempTextArea.style.left = "-9999px";
+    tempTextArea.style.top = "0";
+    document.body.appendChild(tempTextArea);
+    tempTextArea.focus();
+    tempTextArea.select();
+    copied = document.execCommand("copy");
+    document.body.removeChild(tempTextArea);
+  }
+
+  const originalLabel = copySelectedDaysButton.textContent;
+  copySelectedDaysButton.textContent = copied ? "Copied" : "Copy Failed";
+
+  window.setTimeout(() => {
+    copySelectedDaysButton.textContent = originalLabel;
+  }, 1200);
+}
+
 async function archiveSelectedDays() {
   const selectedEntries = getSelectedCheckHoursEntries();
 
@@ -3804,6 +3843,7 @@ voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
 showDaysButton.addEventListener("click", showSelectedDays);
+copySelectedDaysButton.addEventListener("click", copySelectedDaysReport);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
 selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
