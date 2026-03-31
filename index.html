@@ -106,7 +106,7 @@
             Check Receipts
           </button>
           <button class="action-button" type="button" data-screen="archived-items">
-            Archived Items
+            Invoiced Days
           </button>
           <button class="action-button" type="button" data-screen="settings">
             Settings
@@ -441,7 +441,7 @@ No analysis yet.
           <button id="select-all-days-button" class="back-button" type="button">Select All</button>
           <button id="show-days-button" class="submit-button" type="button">Show Selected Days</button>
           <button id="archive-days-button" class="back-button archive-button" type="button">
-            Archive Selected
+            Record Invoiced
           </button>
         </div>
 
@@ -509,7 +509,7 @@ No analysis yet.
       <section class="form-card hidden" id="archived-items-screen">
         <div class="section-head">
           <div>
-            <p class="eyebrow">Archived Items</p>
+            <p class="eyebrow">Invoiced Days</p>
             <h2>Search and Retrieve</h2>
           </div>
           <div class="section-actions">
@@ -518,11 +518,11 @@ No analysis yet.
         </div>
 
         <label class="field-group field-group-large">
-          <span>Search archived items</span>
+          <span>Search invoiced days and archived receipts</span>
           <input
             id="archived-search-input"
             type="text"
-            placeholder="Search by date, location, comment, ticket, employee, file name"
+            placeholder="Search by date, location, QuickBooks invoice, comment, ticket, employee, file name"
           />
         </label>
 
@@ -535,7 +535,7 @@ No analysis yet.
         <p id="archived-items-status" class="save-status hidden" aria-live="polite"></p>
 
         <div id="archived-items-list" class="entry-list empty-state">
-          No archived items yet.
+          No invoiced days or archived receipts yet.
         </div>
       </section>
 

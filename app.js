@@ -558,10 +558,16 @@ function upsertStoredPurchaseEntry(entry) {
   }
 }
 
-function archiveStoredDayEntries(entryIds) {
+function archiveStoredDayEntries(entryIds, quickbooksInvoiceNumber = "") {
   const entryIdSet = new Set(entryIds);
   const nextEntries = readStoredDayEntries().map((entry) =>
-    entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+    entryIdSet.has(entry.id)
+      ? {
+          ...entry,
+          archivedAt: new Date().toISOString(),
+          quickbooksInvoiceNumber: quickbooksInvoiceNumber || entry.quickbooksInvoiceNumber || "",
+        }
+      : entry
   );
   writeStoredDayEntries(nextEntries);
   const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
@@ -609,6 +615,7 @@ function buildLocalDayEntry(payload, saveResult) {
     location: payload.location,
     comments: payload.comments,
     relatedReference: payload.relatedReference,
+    quickbooksInvoiceNumber: payload.quickbooksInvoiceNumber || "",
     employees: payload.employees,
     attachments: payload.attachments,
     createdAt: payload.createdAt || saveResult.createdAt || new Date().toISOString(),
@@ -692,6 +699,7 @@ function formatDaySummary(entry) {
     `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
     `Total Day: ${formatCurrency(getEntryTotalCost(entry))}`,
     `Ticket #: ${entry.relatedReference || "None"}`,
+    `QuickBooks Invoice #: ${entry.quickbooksInvoiceNumber || "None"}`,
     `Comment: ${entry.comments || "None"}`,
     `Attachment Links: ${attachmentLinks || "None"}`,
   ].join("\n");
@@ -1390,6 +1398,7 @@ function buildArchivedSearchText(item) {
       item.date,
       item.location,
       item.relatedReference,
+      item.quickbooksInvoiceNumber,
       item.comments,
       employees,
       attachments,
@@ -1423,7 +1432,7 @@ function renderArchivedItems() {
 
   if (!visibleItems.length) {
     archivedItemsList.className = "entry-list empty-state";
-    archivedItemsList.textContent = "No archived items match that search.";
+    archivedItemsList.textContent = "No invoiced days or archived receipts match that search.";
     return;
   }
 
@@ -1448,9 +1457,14 @@ function renderArchivedItems() {
               <input type="checkbox" data-archived-kind="day" data-archived-id="${item.id}" />
               <div class="entry-meta">
                 <h3>${formatDisplayDate(item.date)}</h3>
-                <p class="entry-pill">Archived Day</p>
+                <p class="entry-pill">Invoiced Day</p>
                 <p>${item.location || ""}</p>
                 ${item.relatedReference ? `<p>Ticket #: ${item.relatedReference}</p>` : ""}
+                ${
+                  item.quickbooksInvoiceNumber
+                    ? `<p>QuickBooks Invoice #: ${item.quickbooksInvoiceNumber}</p>`
+                    : ""
+                }
                 ${item.comments ? `<p>Comment: ${item.comments}</p>` : ""}
                 <p class="entry-pill">Total Hours: ${getEntryTotalHours(item).toFixed(2)}</p>
                 <p class="entry-pill">Total Day: ${formatCurrency(getEntryTotalCost(item))}</p>
@@ -1502,7 +1516,7 @@ async function loadArchivedItems() {
     const dayResult = await supabaseClient
       .from("day_entries")
       .select(
-        "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)"
+        "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)"
       )
       .not("archived_at", "is", null)
       .order("work_date", { ascending: false });
@@ -1515,6 +1529,7 @@ async function loadArchivedItems() {
         location: entry.location,
         comments: entry.comments || "",
         relatedReference: entry.related_reference || "",
+        quickbooksInvoiceNumber: entry.quickbooks_invoice_number || "",
         attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
         employees: dedupeEntryEmployees(
           (entry.day_entry_employees || []).map((item) => ({
@@ -1594,7 +1609,7 @@ async function retrieveSelectedArchivedItems() {
       .in("id", onlineDayIds);
 
     if (error) {
-      setArchivedItemsStatus("Could not retrieve the selected archived days online.", "error");
+      setArchivedItemsStatus("Could not retrieve the selected invoiced days online.", "error");
       return;
     }
   }
@@ -1616,7 +1631,7 @@ async function retrieveSelectedArchivedItems() {
   await loadCheckHoursEntries();
   await loadCheckReceiptsEntries();
   await loadArchivedItems();
-  setArchivedItemsStatus("Selected archived items were retrieved.", "success");
+  setArchivedItemsStatus("Selected invoiced or archived items were retrieved.", "success");
 }
 
 async function loadCheckHoursEntries() {
@@ -1628,7 +1643,10 @@ async function loadCheckHoursEntries() {
 
   if (canUseSupabaseSession()) {
     const queryVariants = [
-      "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
+      "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
+      "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)",
+      "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, created_at, day_entry_employees(employee_name, hours)",
+      "id, work_date, location, comments, related_reference, quickbooks_invoice_number, created_at, day_entry_employees(employee_name, hours)",
       "id, work_date, location, comments, related_reference, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)",
       "id, work_date, location, comments, related_reference, attachments, created_at, day_entry_employees(employee_name, hours)",
       "id, work_date, location, comments, related_reference, created_at, day_entry_employees(employee_name, hours)",
@@ -1670,6 +1688,8 @@ async function loadCheckHoursEntries() {
             location: entry.location || localEntry?.location || "",
             comments: entry.comments || localEntry?.comments || "",
             relatedReference: entry.related_reference || localEntry?.relatedReference || "",
+            quickbooksInvoiceNumber:
+              entry.quickbooks_invoice_number || localEntry?.quickbooksInvoiceNumber || "",
             attachments:
               (Array.isArray(entry.attachments) && entry.attachments.length
                 ? entry.attachments
@@ -2010,7 +2030,20 @@ async function archiveSelectedDays() {
   const selectedEntries = getSelectedCheckHoursEntries();
 
   if (!selectedEntries.length) {
-    setCheckHoursStatus("Please select at least one recorded day to archive.", "error");
+    setCheckHoursStatus("Please select at least one recorded day to invoice.", "error");
+    return;
+  }
+
+  const invoiceNumber = window.prompt("Invoice #");
+
+  if (invoiceNumber === null) {
+    return;
+  }
+
+  const trimmedInvoiceNumber = invoiceNumber.trim();
+
+  if (!trimmedInvoiceNumber) {
+    setCheckHoursStatus("Please enter an Invoice # before recording invoiced days.", "error");
     return;
   }
 
@@ -2021,24 +2054,32 @@ async function archiveSelectedDays() {
   if (canUseSupabaseSession() && onlineIds.length) {
     const { error } = await supabaseClient
       .from("day_entries")
-      .update({ archived_at: archivedAt })
+      .update({ archived_at: archivedAt, quickbooks_invoice_number: trimmedInvoiceNumber })
       .in("id", onlineIds);
 
     if (error) {
+      const message = `${error.message || ""} ${error.details || ""}`.toLowerCase();
       setCheckHoursStatus(
-        "Could not archive the selected days online. They were kept active.",
+        message.includes("quickbooks_invoice_number")
+          ? "Supabase is missing the QuickBooks invoice field. Run the latest supabase/schema.sql, then try again."
+          : "Could not record the selected days as invoiced online. They were kept active.",
         "error"
       );
       return;
     }
   }
 
-  archiveStoredDayEntries(selectedIds);
+  archiveStoredDayEntries(selectedIds, trimmedInvoiceNumber);
   dayEntriesCache = dayEntriesCache.map((entry) =>
-    selectedIds.includes(entry.id) ? { ...entry, archivedAt } : entry
+    selectedIds.includes(entry.id)
+      ? { ...entry, archivedAt, quickbooksInvoiceNumber: trimmedInvoiceNumber }
+      : entry
   );
   renderCheckHoursEntries();
-  setCheckHoursStatus("Selected day entries were archived.", "success");
+  setCheckHoursStatus(
+    `Selected day entries were recorded as invoiced under QuickBooks Invoice # ${trimmedInvoiceNumber}.`,
+    "success"
+  );
 }
 
 async function deleteDayEntry(entryId) {
