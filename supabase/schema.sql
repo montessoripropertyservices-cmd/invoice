@@ -131,6 +131,7 @@ drop policy if exists "Allow public select purchase_entries" on public.purchase_
 drop policy if exists "Allow authenticated insert day_entries" on public.day_entries;
 drop policy if exists "Allow authenticated select own day_entries" on public.day_entries;
 drop policy if exists "Allow authenticated update own day_entries" on public.day_entries;
+drop policy if exists "Allow authenticated delete own day_entries" on public.day_entries;
 drop policy if exists "Allow authenticated insert day_entry_employees" on public.day_entry_employees;
 drop policy if exists "Allow authenticated select own day_entry_employees" on public.day_entry_employees;
 drop policy if exists "Allow authenticated insert purchase_entries" on public.purchase_entries;
@@ -158,6 +159,12 @@ for update
 to authenticated
 using (auth.uid() = created_by)
 with check (auth.uid() = created_by);
+
+create policy "Allow authenticated delete own day_entries"
+on public.day_entries
+for delete
+to authenticated
+using (auth.uid() = created_by);
 
 create policy "Allow authenticated insert day_entry_employees"
 on public.day_entry_employees

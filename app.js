@@ -198,6 +198,7 @@ const purchaseEntriesStorageKey = "purchaseEntriesHistory";
 const employeeProfilesStorageKey = "employeeProfiles";
 const archivedDayIdsStorageKey = "archivedDayIds";
 const archivedReceiptIdsStorageKey = "archivedReceiptIds";
+const deletedDayIdsStorageKey = "deletedDayIds";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -484,6 +485,7 @@ function upsertStoredDayEntry(entry) {
   const nextEntries = entries.filter((item) => item.id !== entry.id);
   nextEntries.unshift(entry);
   writeStoredDayEntries(nextEntries);
+  unhideDeletedDayEntry(entry.id);
 
   if (!entry.archivedAt) {
     const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
@@ -498,6 +500,18 @@ function deleteStoredDayEntry(entryId) {
   const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
   archivedIds.delete(entryId);
   writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
+}
+
+function hideDeletedDayEntry(entryId) {
+  const deletedIds = readStoredArchivedIds(deletedDayIdsStorageKey);
+  deletedIds.add(entryId);
+  writeStoredArchivedIds(deletedDayIdsStorageKey, deletedIds);
+}
+
+function unhideDeletedDayEntry(entryId) {
+  const deletedIds = readStoredArchivedIds(deletedDayIdsStorageKey);
+  deletedIds.delete(entryId);
+  writeStoredArchivedIds(deletedDayIdsStorageKey, deletedIds);
 }
 
 function replaceEditedDayEntry(previousEntryId, nextEntry) {
@@ -686,6 +700,10 @@ function getArchivedDayIds() {
 
 function getArchivedReceiptIds() {
   return readStoredArchivedIds(archivedReceiptIdsStorageKey);
+}
+
+function getDeletedDayIds() {
+  return readStoredArchivedIds(deletedDayIdsStorageKey);
 }
 
 function readStoredRecordedDayDates() {
@@ -1585,8 +1603,9 @@ async function retrieveSelectedArchivedItems() {
 async function loadCheckHoursEntries() {
   const localEntries = readStoredDayEntries().filter((entry) => !entry.archivedAt);
   const archivedDayIds = getArchivedDayIds();
+  const deletedDayIds = getDeletedDayIds();
   const localEntryMap = new Map(localEntries.map((entry) => [entry.id, entry]));
-  let nextEntries = [...localEntries];
+  let nextEntries = [...localEntries].filter((entry) => !deletedDayIds.has(entry.id));
 
   if (canUseSupabaseSession()) {
     const queryVariants = [
@@ -1653,7 +1672,9 @@ async function loadCheckHoursEntries() {
             createdAt: entry.created_at || localEntry?.createdAt || null,
           };
         })
-        .filter((entry) => !entry.archivedAt && !archivedDayIds.has(entry.id));
+        .filter(
+          (entry) => !entry.archivedAt && !archivedDayIds.has(entry.id) && !deletedDayIds.has(entry.id)
+        );
     } else if (error) {
       setCheckHoursStatus(
         "Could not load online day entries. Showing browser-saved entries instead.",
@@ -1983,11 +2004,20 @@ async function deleteDayEntry(entryId) {
     const { error } = await supabaseClient.from("day_entries").delete().eq("id", entryId);
 
     if (error) {
-      setCheckHoursStatus("Could not delete that day online. It was kept.", "error");
+      hideDeletedDayEntry(entryId);
+      deleteStoredDayEntry(entryId);
+      removeRecordedDayDate(entry.date);
+      dayEntriesCache = dayEntriesCache.filter((item) => item.id !== entryId);
+      renderCheckHoursEntries();
+      setCheckHoursStatus(
+        "Supabase blocked the online delete, but the day is hidden on this device. Run the latest SQL to make deletes permanent online.",
+        "warning"
+      );
       return;
     }
   }
 
+  unhideDeletedDayEntry(entryId);
   deleteStoredDayEntry(entryId);
   removeRecordedDayDate(entry.date);
   dayEntriesCache = dayEntriesCache.filter((item) => item.id !== entryId);
