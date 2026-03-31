@@ -65,7 +65,7 @@ const clearCommentsButton = document.getElementById("clear-comments-button");
 const voiceStatus = document.getElementById("voice-status");
 const voiceModal = document.getElementById("voice-modal");
 const voiceStopButton = document.getElementById("voice-stop-button");
-const locationSelect = document.getElementById("location-select");
+const locationList = document.getElementById("location-list");
 const locationEmptyState = document.getElementById("location-empty-state");
 const savedEntryPanel = document.getElementById("saved-entry-panel");
 const savedEntryTitle = document.getElementById("saved-entry-title");
@@ -181,6 +181,7 @@ let archivedItemsCache = [];
 let hoursDashboardExpanded = false;
 let recordDayCompleted = false;
 let employees = [];
+let dayCommentDraft = "";
 let editingDayEntryId = null;
 let editingDayOriginalDate = "";
 let editingDayCreatedAt = null;
@@ -576,6 +577,14 @@ function buildLocalPurchaseEntry(payload, saveResult) {
   };
 }
 
+function formatLocationDisplay(locationValue) {
+  return String(locationValue || "")
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     String(value || "").trim()
@@ -605,7 +614,7 @@ function formatDaySummary(entry) {
 
   return [
     `Date: ${formatDisplayDate(entry.date)}`,
-    `Location: ${entry.location || "None"}`,
+    `Location: ${formatLocationDisplay(entry.location) || "None"}`,
     `Employees: ${employeeLine || "None"}`,
     `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
     `Total Day: ${formatCurrency(getEntryTotalCost(entry))}`,
@@ -623,7 +632,7 @@ function formatPurchaseSummary(entry) {
 
   return [
     `Date: ${formatDisplayDate(entry.date)}`,
-    `Location: ${entry.location || "None"}`,
+    `Location: ${formatLocationDisplay(entry.location) || "None"}`,
     `Reference: ${entry.relatedReference || "None"}`,
     `Total: ${formatCurrency(entry.total)}`,
     `Receipt images: ${attachmentCount}`,
@@ -865,7 +874,7 @@ function renderCheckHoursDashboard(entries) {
   const locationTotals = new Map();
 
   entries.forEach((entry) => {
-    const locationName = entry.location || "No location";
+    const locationName = formatLocationDisplay(entry.location) || "No location";
     activeLocations.add(locationName);
 
     if (!locationTotals.has(locationName)) {
@@ -1103,7 +1112,7 @@ function renderCheckReceiptsDashboard(entries) {
 
   entries.forEach((entry) => {
     const amount = Number(entry.total || 0);
-    const locationName = entry.location || "No location";
+    const locationName = formatLocationDisplay(entry.location) || "No location";
     totalAmount += amount;
     locationTotals.set(locationName, (locationTotals.get(locationName) || 0) + amount);
   });
@@ -1230,7 +1239,7 @@ function renderCheckHoursEntries() {
             <input type="checkbox" data-entry-id="${entry.id}" />
             <div class="entry-meta">
               <h3>${formatDisplayDate(entry.date)}</h3>
-              <p>${entry.location}</p>
+              <p>${formatLocationDisplay(entry.location) || "No location"}</p>
               <p class="entry-pill">Total Hours: ${getEntryTotalHours(entry).toFixed(2)}</p>
               <p class="entry-pill">Total Day: $${getEntryTotalCost(entry).toFixed(2)}</p>
               ${entry.relatedReference ? `<p>Ticket #: ${entry.relatedReference}</p>` : ""}
@@ -1698,7 +1707,7 @@ function buildReceiptsEmailBody(entries) {
 
       return [
         `Date: ${formatDisplayDate(entry.date)}`,
-        `Location: ${entry.location || "None"}`,
+        `Location: ${formatLocationDisplay(entry.location) || "None"}`,
         `Reference: ${entry.relatedReference || "None"}`,
         `Total Receipt: ${formatCurrency(entry.total)}`,
         "Receipts:",
@@ -2120,41 +2129,50 @@ function renderEmployees() {
 }
 
 function renderLocations() {
-  locationSelect.innerHTML = "";
+  locationList.innerHTML = "";
   if (purchaseLocationSelect) {
     purchaseLocationSelect.innerHTML = "";
   }
 
-  const placeholderOption = document.createElement("option");
-  placeholderOption.value = "";
-  placeholderOption.textContent = locations.length
-    ? "Choose a location"
-    : "No locations added yet";
-  locationSelect.appendChild(placeholderOption);
-  if (purchaseLocationSelect) {
-    purchaseLocationSelect.appendChild(placeholderOption.cloneNode(true));
-  }
-
   if (!locations.length) {
-    locationSelect.disabled = true;
+    locationList.className = "checkbox-list checkbox-list-large empty-state";
+    locationList.textContent = "No locations added yet.";
     if (purchaseLocationSelect) {
+      const placeholderOption = document.createElement("option");
+      placeholderOption.value = "";
+      placeholderOption.textContent = "No locations added yet";
+      purchaseLocationSelect.appendChild(placeholderOption);
       purchaseLocationSelect.disabled = true;
     }
     locationEmptyState.classList.remove("hidden");
     return;
   }
 
-  locationSelect.disabled = false;
+  locationList.className = "checkbox-list checkbox-list-large";
   if (purchaseLocationSelect) {
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = "Choose a location";
+    purchaseLocationSelect.appendChild(placeholderOption);
     purchaseLocationSelect.disabled = false;
   }
   locationEmptyState.classList.add("hidden");
 
   locations.forEach((location) => {
-    const option = document.createElement("option");
-    option.value = location;
-    option.textContent = location;
-    locationSelect.appendChild(option);
+    const label = document.createElement("label");
+    label.className = "checkbox-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.name = "day-location";
+    checkbox.value = location;
+
+    const text = document.createElement("span");
+    text.textContent = location;
+
+    label.append(checkbox, text);
+    locationList.appendChild(label);
+
     if (purchaseLocationSelect) {
       const purchaseOption = document.createElement("option");
       purchaseOption.value = location;
@@ -2162,6 +2180,12 @@ function renderLocations() {
       purchaseLocationSelect.appendChild(purchaseOption);
     }
   });
+}
+
+function getSelectedDayLocations() {
+  return [...locationList.querySelectorAll('input[name="day-location"]:checked')].map(
+    (checkbox) => checkbox.value
+  );
 }
 
 function renderAttachmentList() {
@@ -2237,6 +2261,11 @@ function updateRecordDayStep() {
 
   newEmployeeDrawer.classList.toggle("hidden", recordDayStepIndex !== 2);
 
+  if (recordDayStepIndex === 4 && commentsText.value !== dayCommentDraft) {
+    commentsText.value = dayCommentDraft;
+    updateCommentsPreview();
+  }
+
   const progress = ((recordDayStepIndex + 1) / recordDaySteps.length) * 100;
   recordDayStepTitle.textContent = recordDayStepMeta[recordDayStepIndex].title;
   recordDayProgressBar.style.width = `${progress}%`;
@@ -2308,13 +2337,13 @@ function validateCurrentRecordDayStep() {
     }
   }
 
-  if (recordDayStepIndex === 4 && !commentsText.value.trim()) {
+  if (recordDayStepIndex === 4 && !dayCommentDraft.trim()) {
     setSaveStatus("Please add comments before continuing.", "error");
     return false;
   }
 
-  if (recordDayStepIndex === 5 && !locationSelect.value) {
-    setSaveStatus("Please choose a location before continuing.", "error");
+  if (recordDayStepIndex === 5 && !getSelectedDayLocations().length) {
+    setSaveStatus("Please choose at least one location before continuing.", "error");
     return false;
   }
 
@@ -2433,7 +2462,8 @@ function renderPurchaseReceiptList() {
 }
 
 function updateCommentsPreview() {
-  const text = commentsText.value.trim();
+  dayCommentDraft = commentsText.value;
+  const text = dayCommentDraft.trim();
 
   if (!text) {
     commentsPreview.className = "comments-preview";
@@ -2456,6 +2486,7 @@ function resetRecordDayForm() {
   editingDayOriginalDate = "";
   editingDayCreatedAt = null;
   editingDayExistingAttachments = [];
+  dayCommentDraft = "";
   updateVoiceStatus("");
   renderEmployees();
   renderHoursFields();
@@ -2491,7 +2522,7 @@ function loadDayEntryForEditing(entryId) {
   updateDayReferenceField();
   dayReferenceText.value = entry.relatedReference || "";
   commentsText.value = entry.comments || "";
-  locationSelect.value = entry.location || "";
+  dayCommentDraft = commentsText.value;
 
   renderEmployees();
   const employeeIds = new Set((entry.employees || []).map((item) => item.employeeId));
@@ -2504,6 +2535,16 @@ function loadDayEntryForEditing(entryId) {
     if (hoursInput) {
       hoursInput.value = item.hours;
     }
+  });
+
+  const selectedLocations = new Set(
+    String(entry.location || "")
+      .split("|")
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+  locationList.querySelectorAll('input[name="day-location"]').forEach((checkbox) => {
+    checkbox.checked = selectedLocations.has(checkbox.value);
   });
 
   renderAttachmentList();
@@ -2815,7 +2856,7 @@ function stopVoiceCapture() {
 }
 
 function clearComments() {
-  if (!commentsText.value.trim()) {
+  if (!dayCommentDraft.trim()) {
     return;
   }
 
@@ -2826,6 +2867,7 @@ function clearComments() {
   }
 
   commentsText.value = "";
+  dayCommentDraft = "";
   updateCommentsPreview();
   updateVoiceStatus("Comments cleared.");
 }
@@ -3394,7 +3436,7 @@ async function saveDayEntry(event) {
   const payload = {
     id: editingDayEntryId,
     date: workDateInput.value,
-    location: locationSelect.value,
+    location: getSelectedDayLocations().join(" | "),
     employees: hoursByEmployee.map((item) => ({
       employeeId: item.employeeId,
       employee: getEmployeeLabel(item.profile || { firstName: item.employeeId }),
@@ -3409,7 +3451,7 @@ async function saveDayEntry(event) {
       size: file.size,
       type: file.type,
     })),
-    comments: commentsText.value.trim(),
+    comments: dayCommentDraft.trim(),
     relatedReference:
       dayRelatedInputs.find((input) => input.checked)?.value === "yes"
         ? dayReferenceText.value.trim()

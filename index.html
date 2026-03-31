@@ -213,11 +213,11 @@
 
           <section class="wizard-step section-card section-location hidden" data-step="5">
             <p class="step-kicker">Step 6</p>
-            <h3 class="step-heading">Which location was it?</h3>
-            <label class="field-group">
-              <span>Select a location</span>
-              <select id="location-select" name="location" required></select>
-            </label>
+            <h3 class="step-heading">Which locations were worked?</h3>
+            <div class="field-group">
+              <span>Select one or more locations</span>
+              <div id="location-list" class="checkbox-list checkbox-list-large"></div>
+            </div>
             <p id="location-empty-state" class="helper-text hidden">
               Add your locations in <code>app.js</code> once you send them over.
             </p>
