@@ -492,6 +492,14 @@ function upsertStoredDayEntry(entry) {
   }
 }
 
+function deleteStoredDayEntry(entryId) {
+  const nextEntries = readStoredDayEntries().filter((entry) => entry.id !== entryId);
+  writeStoredDayEntries(nextEntries);
+  const archivedIds = readStoredArchivedIds(archivedDayIdsStorageKey);
+  archivedIds.delete(entryId);
+  writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
+}
+
 function upsertStoredPurchaseEntry(entry) {
   const entries = readStoredPurchaseEntries();
   const nextEntries = entries.filter((item) => item.id !== entry.id);
@@ -1250,6 +1258,7 @@ function renderCheckHoursEntries() {
           </div>
           <div class="entry-inline-actions">
             <button class="back-button" type="button" data-edit-day-id="${entry.id}">Edit Day</button>
+            <button class="back-button archive-button" type="button" data-delete-day-id="${entry.id}">Delete Day</button>
           </div>
         </div>
       `;
@@ -1916,6 +1925,43 @@ async function archiveSelectedDays() {
   );
   renderCheckHoursEntries();
   setCheckHoursStatus("Selected day entries were archived.", "success");
+}
+
+async function deleteDayEntry(entryId) {
+  const entry = dayEntriesCache.find((item) => item.id === entryId) || readStoredDayEntries().find((item) => item.id === entryId);
+
+  if (!entry) {
+    setCheckHoursStatus("That day could not be found to delete.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete ${formatDisplayDate(entry.date)}? This will permanently remove the day entry.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  if (canUseSupabaseSession() && isUuid(entryId)) {
+    const { error } = await supabaseClient.from("day_entries").delete().eq("id", entryId);
+
+    if (error) {
+      setCheckHoursStatus("Could not delete that day online. It was kept.", "error");
+      return;
+    }
+  }
+
+  deleteStoredDayEntry(entryId);
+  removeRecordedDayDate(entry.date);
+  dayEntriesCache = dayEntriesCache.filter((item) => item.id !== entryId);
+
+  if (editingDayEntryId === entryId) {
+    resetRecordDayForm();
+  }
+
+  renderCheckHoursEntries();
+  setCheckHoursStatus("Day entry deleted.", "success");
 }
 
 function setSignedInEmail(email) {
@@ -3676,6 +3722,12 @@ checkHoursList.addEventListener("change", (event) => {
 archivedSearchInput.addEventListener("input", renderArchivedItems);
 checkHoursList.addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-edit-day-id]");
+  const deleteButton = event.target.closest("[data-delete-day-id]");
+
+  if (deleteButton) {
+    deleteDayEntry(deleteButton.dataset.deleteDayId);
+    return;
+  }
 
   if (!editButton) {
     return;
