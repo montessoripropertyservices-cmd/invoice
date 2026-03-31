@@ -2468,8 +2468,12 @@ function validateCurrentRecordDayStep() {
   }
 
   if (recordDayStepIndex === 4 && !dayCommentDraft.trim()) {
-    setSaveStatus("Please add comments before continuing.", "error");
-    return false;
+    const confirmed = window.confirm("No Comment?");
+
+    if (!confirmed) {
+      setSaveStatus("Add a comment if you want it included before continuing.", "warning");
+      return false;
+    }
   }
 
   if (recordDayStepIndex === 5 && !getSelectedDayLocations().length) {
