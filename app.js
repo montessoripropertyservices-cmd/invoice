@@ -1912,15 +1912,6 @@ function buildSelectedDaysReport(entries) {
 
   const dayBlocks = entries
     .map((entry) => {
-      const employees = dedupeEntryEmployees(entry.employees || [])
-        .map((item) => {
-          const label =
-            item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
-          return escapeHtml(
-            `- ${label}: ${item.hours} hours x $${Number(item.rate || 0).toFixed(2)} = $${getEntryEmployeeCost(item).toFixed(2)}`
-          );
-        })
-        .join("<br>");
       const attachments = (entry.attachments || [])
         .map((item) => {
           if (item.url) {
@@ -1936,15 +1927,13 @@ function buildSelectedDaysReport(entries) {
         escapeHtml(
           `------------------------- ${formatDisplayDate(entry.date)} -------------------------`
         ),
-        escapeHtml(`Location: ${entry.location || ""}`),
+        escapeHtml(`Location: ${formatLocationDisplay(entry.location) || "None"}`),
         escapeHtml(`Ticket #: ${entry.relatedReference || "None"}`),
         escapeHtml(`Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`),
         escapeHtml(`Total Day: $${getEntryTotalCost(entry).toFixed(2)}`),
-        escapeHtml(`Comment: ${entry.comments || ""}`),
-        "Attachments:",
-        attachments || "- None",
-        "People:",
-        employees || "- None",
+        entry.comments ? escapeHtml(`Comment: ${entry.comments}`) : "",
+        attachments ? "Attachments:" : "",
+        attachments || "",
       ].join("<br>");
     })
     .join("<br><br>");
