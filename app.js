@@ -500,6 +500,18 @@ function deleteStoredDayEntry(entryId) {
   writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
 }
 
+function replaceEditedDayEntry(previousEntryId, nextEntry) {
+  if (previousEntryId && previousEntryId !== nextEntry.id) {
+    deleteStoredDayEntry(previousEntryId);
+  }
+
+  upsertStoredDayEntry(nextEntry);
+  dayEntriesCache = dayEntriesCache
+    .filter((entry) => entry.id !== previousEntryId && entry.id !== nextEntry.id)
+    .concat(nextEntry)
+    .sort((left, right) => right.date.localeCompare(left.date));
+}
+
 function upsertStoredPurchaseEntry(entry) {
   const entries = readStoredPurchaseEntries();
   const nextEntries = entries.filter((item) => item.id !== entry.id);
@@ -3532,13 +3544,14 @@ async function saveDayEntry(event) {
   }
 
   try {
+    const previousEntryId = editingDayEntryId;
     const saveResult = await saveEntryToSupabase(payload);
     const savedEntry = buildLocalDayEntry(
       { ...payload, attachments: saveResult.attachments || payload.attachments },
       saveResult
     );
     localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
-    upsertStoredDayEntry(savedEntry);
+    replaceEditedDayEntry(previousEntryId, savedEntry);
     if (editingDayOriginalDate && editingDayOriginalDate !== payload.date) {
       removeRecordedDayDate(editingDayOriginalDate);
     }
@@ -3564,9 +3577,10 @@ async function saveDayEntry(event) {
       return;
     }
 
+    const previousEntryId = editingDayEntryId;
     const savedEntry = buildLocalDayEntry(payload, { id: null });
     localStorage.setItem("latestDayEntry", JSON.stringify(savedEntry, null, 2));
-    upsertStoredDayEntry(savedEntry);
+    replaceEditedDayEntry(previousEntryId, savedEntry);
     if (editingDayOriginalDate && editingDayOriginalDate !== payload.date) {
       removeRecordedDayDate(editingDayOriginalDate);
     }
