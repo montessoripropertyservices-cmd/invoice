@@ -675,13 +675,28 @@ function getEntryTotalHours(entry) {
   return dedupeEntryEmployees(entry.employees || []).reduce((sum, item) => sum + Number(item.hours || 0), 0);
 }
 
-function getEntryEmployeeCost(item) {
-  const rate = Number(item.rate ?? getEmployeeById(item.employeeId || "")?.rate ?? 0);
+function shouldUseLiveEmployeeRates(entry) {
+  return Boolean(entry && !entry.archivedAt && !entry.quickbooksInvoiceNumber);
+}
+
+function getEntryEmployeeRate(item, entry) {
+  if (shouldUseLiveEmployeeRates(entry)) {
+    return Number(getEmployeeById(item.employeeId || "")?.rate ?? item.rate ?? 0);
+  }
+
+  return Number(item.rate ?? getEmployeeById(item.employeeId || "")?.rate ?? 0);
+}
+
+function getEntryEmployeeCost(item, entry) {
+  const rate = getEntryEmployeeRate(item, entry);
   return Number(item.hours || 0) * rate;
 }
 
 function getEntryTotalCost(entry) {
-  return dedupeEntryEmployees(entry.employees || []).reduce((sum, item) => sum + getEntryEmployeeCost(item), 0);
+  return dedupeEntryEmployees(entry.employees || []).reduce(
+    (sum, item) => sum + getEntryEmployeeCost(item, entry),
+    0
+  );
 }
 
 function formatDaySummary(entry) {
@@ -1305,7 +1320,8 @@ function renderCheckHoursEntries() {
         .map((item) => {
           const label =
             item.employee || getEmployeeLabel(getEmployeeById(item.employeeId || "") || { firstName: "" });
-          return `${label}: ${item.hours}h x $${Number(item.rate || 0).toFixed(2)} = $${getEntryEmployeeCost(item).toFixed(2)}`;
+          const liveRate = getEntryEmployeeRate(item, entry);
+          return `${label}: ${item.hours}h x $${liveRate.toFixed(2)} = $${getEntryEmployeeCost(item, entry).toFixed(2)}`;
         })
         .join("<br />");
       const attachments = (entry.attachments || [])
