@@ -15,6 +15,30 @@ function cleanBaseUrl(value) {
   return value.replace(/\/+$/, "");
 }
 
+function getSetCookieHeaders(headers) {
+  if (typeof headers.getSetCookie === "function") {
+    return headers.getSetCookie();
+  }
+
+  const cookieHeader = headers.get("set-cookie");
+  return cookieHeader ? [cookieHeader] : [];
+}
+
+function appendCookies(cookieJar, headers) {
+  getSetCookieHeaders(headers).forEach((cookieValue) => {
+    const firstPart = cookieValue.split(";")[0];
+    const separatorIndex = firstPart.indexOf("=");
+
+    if (separatorIndex > 0) {
+      cookieJar.set(firstPart.slice(0, separatorIndex), firstPart.slice(separatorIndex + 1));
+    }
+  });
+}
+
+function getCookieHeader(cookieJar) {
+  return [...cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join("; ");
+}
+
 function extractUsefulLinks(html, baseUrl) {
   const links = [];
   const seen = new Set();
@@ -65,6 +89,93 @@ function extractAppScripts(html, baseUrl) {
   return scripts.slice(0, 20);
 }
 
+function asText(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    return value.display || value.name || value.label || value.title || value.value || "";
+  }
+
+  return String(value);
+}
+
+function getIncludedResource(included, relationship) {
+  const data = relationship?.data;
+
+  if (!data || Array.isArray(data)) {
+    return null;
+  }
+
+  return included.find((item) => item.type === data.type && String(item.id) === String(data.id)) || null;
+}
+
+function normalizeTickets(payload, baseUrl) {
+  const items = Array.isArray(payload?.data) ? payload.data : [];
+  const included = Array.isArray(payload?.included) ? payload.included : [];
+
+  return items.slice(0, 100).map((item) => {
+    const attributes = item.attributes || item;
+    const site = getIncludedResource(included, item.relationships?.site);
+    const location =
+      asText(attributes.site) ||
+      asText(attributes.site_name) ||
+      asText(attributes.location) ||
+      asText(site?.attributes?.name);
+    const number =
+      asText(attributes.reference) ||
+      asText(attributes.reference_number) ||
+      asText(attributes.work_order_number) ||
+      asText(attributes.number) ||
+      asText(attributes.identifier) ||
+      String(item.id || "");
+    const title =
+      asText(attributes.title) ||
+      asText(attributes.summary) ||
+      asText(attributes.name) ||
+      asText(attributes.description) ||
+      "Work Order";
+
+    return {
+      id: String(item.id || number),
+      number,
+      title,
+      location,
+      status: asText(attributes.status || attributes.state || attributes.workflow_state),
+      priority: asText(attributes.priority || attributes.work_order_priority),
+      createdAt: asText(attributes.created_at),
+      dueAt: asText(attributes.due_at || attributes.due_date || attributes.target_date),
+      url: `${baseUrl}/work-order/${encodeURIComponent(item.id || number)}`,
+      raw: attributes,
+    };
+  });
+}
+
+async function fetchJson(url, options = {}) {
+  const result = await fetch(url, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.headers || {}),
+    },
+  });
+  const text = await result.text();
+  let data = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_error) {
+    data = { raw: text };
+  }
+
+  return { result, data, text };
+}
+
 export default async function handler(request, response) {
   if (request.method !== "GET") {
     return response.status(405).json({ ok: false, message: "Method not allowed" });
@@ -83,7 +194,8 @@ export default async function handler(request, response) {
   }
 
   try {
-    const siteResponse = await fetch(baseUrl, {
+    const workOrderPageUrl = `${baseUrl}/work-order?sort=-created_at`;
+    const siteResponse = await fetch(workOrderPageUrl, {
       headers: {
         Accept: "text/html,application/xhtml+xml",
         "User-Agent": "VillaInvoiceTicketSync/1.0",
@@ -93,20 +205,76 @@ export default async function handler(request, response) {
     const html = await siteResponse.text();
     const scripts = extractAppScripts(html, baseUrl);
     const usefulLinks = extractUsefulLinks(html, baseUrl);
+    const cookieJar = new Map();
+
+    appendCookies(cookieJar, siteResponse.headers);
+
+    const loginResponse = await fetchJson(`${baseUrl}/api/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: getCookieHeader(cookieJar),
+      },
+      body: JSON.stringify({ username, password }),
+      redirect: "manual",
+    });
+
+    appendCookies(cookieJar, loginResponse.result.headers);
+
+    if (!loginResponse.result.ok) {
+      return response.status(401).json({
+        ok: false,
+        mode: "auth",
+        message: "Expansive FM login failed. Check EXPANSIVEFM_USERNAME and EXPANSIVEFM_PASSWORD in Vercel.",
+        status: loginResponse.result.status,
+        detail: loginResponse.data?.message || loginResponse.text,
+        scripts,
+        usefulLinks,
+      });
+    }
+
+    const ticketUrl = `${baseUrl}/api/work_order?sort=-created_at`;
+    const ticketResponse = await fetchJson(ticketUrl, {
+      headers: {
+        Cookie: getCookieHeader(cookieJar),
+      },
+    });
+
+    appendCookies(cookieJar, ticketResponse.result.headers);
+
+    if (!ticketResponse.result.ok) {
+      return response.status(502).json({
+        ok: false,
+        mode: "tickets",
+        message: "Logged in to Expansive FM, but could not read work orders yet.",
+        status: ticketResponse.result.status,
+        detail: ticketResponse.data?.message || ticketResponse.text,
+        workOrderPageUrl,
+        ticketUrl,
+        scripts,
+        usefulLinks,
+      });
+    }
+
+    const tickets = normalizeTickets(ticketResponse.data, baseUrl);
 
     return response.status(200).json({
       ok: true,
-      mode: "discovery",
-      message:
-        "Connected to Expansive FM. The site is a JavaScript app, so the next step is identifying its login/API calls from the app bundle.",
+      mode: tickets.length ? "tickets" : "tickets-empty",
+      message: tickets.length
+        ? `Loaded ${tickets.length} Expansive FM work orders.`
+        : "Logged in to Expansive FM, but no work orders were returned by the current filter.",
       baseUrl,
+      workOrderPageUrl,
+      ticketUrl,
       checkedAt: new Date().toISOString(),
       usernameConfigured: Boolean(username),
       passwordConfigured: Boolean(password),
-      status: siteResponse.status,
+      status: ticketResponse.result.status,
       scripts,
       usefulLinks,
-      tickets: [],
+      meta: ticketResponse.data?.meta || null,
+      tickets,
     });
   } catch (error) {
     return response.status(500).json({

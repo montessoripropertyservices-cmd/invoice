@@ -1490,13 +1490,108 @@ function setTicketViewMode(nextMode) {
   }
 }
 
-function renderTicketsDiscovery(data) {
-  ticketDiscoveryData = data;
-  const searchTerms = ticketSearchInput.value
+function getTicketSearchTerms() {
+  return ticketSearchInput.value
     .toLowerCase()
     .split(/\s+/)
     .map((term) => term.trim())
     .filter(Boolean);
+}
+
+function ticketMatchesSearch(ticket, terms) {
+  if (!terms.length) {
+    return true;
+  }
+
+  const haystack = [
+    ticket.number,
+    ticket.title,
+    ticket.location,
+    ticket.status,
+    ticket.priority,
+    ticket.createdAt,
+    ticket.dueAt,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return terms.every((term) => haystack.includes(term));
+}
+
+function renderTicketCard(ticket) {
+  return `
+    <article class="entry-card ticket-card">
+      <div class="entry-meta">
+        <h3>${ticket.number || ticket.id || "Ticket"}</h3>
+        <p>${ticket.title || "No title"}</p>
+        ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
+        ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
+        ${ticket.priority ? `<p class="entry-pill">Priority: ${ticket.priority}</p>` : ""}
+        ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
+        ${ticket.dueAt ? `<p>Due: ${formatDisplayDate(ticket.dueAt.slice(0, 10))}</p>` : ""}
+        <a class="ticket-open-link" href="${ticket.url}" target="_blank" rel="noreferrer">
+          Open in Expansive FM
+        </a>
+      </div>
+    </article>
+  `;
+}
+
+function renderTicketGroups(tickets) {
+  if (!tickets.length) {
+    return '<div class="entry-list empty-state">No tickets match that search.</div>';
+  }
+
+  if (ticketViewMode === "location") {
+    const groups = new Map();
+
+    tickets.forEach((ticket) => {
+      const groupName = ticket.location || "No location";
+      groups.set(groupName, [...(groups.get(groupName) || []), ticket]);
+    });
+
+    return [...groups.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(
+        ([locationName, groupTickets]) => `
+          <section class="ticket-group">
+            <h3>${locationName}</h3>
+            <div class="entry-list">
+              ${groupTickets.map(renderTicketCard).join("")}
+            </div>
+          </section>
+        `
+      )
+      .join("");
+  }
+
+  return tickets
+    .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")))
+    .map(renderTicketCard)
+    .join("");
+}
+
+function renderTicketsDiscovery(data) {
+  ticketDiscoveryData = data;
+  const searchTerms = getTicketSearchTerms();
+  const tickets = (data.tickets || []).filter((ticket) => ticketMatchesSearch(ticket, searchTerms));
+
+  if ((data.tickets || []).length) {
+    const viewLabel = ticketViewMode === "location" ? "Tickets by Location" : "Tickets by Time";
+    ticketsList.dataset.loaded = "true";
+    ticketsList.className = "entry-list";
+    ticketsList.innerHTML = `
+      <article class="entry-card">
+        <div class="entry-meta">
+          <h3>${viewLabel}</h3>
+          <p>${tickets.length} of ${data.tickets.length} tickets shown.</p>
+        </div>
+      </article>
+      ${renderTicketGroups(tickets)}
+    `;
+    return;
+  }
+
   const scriptItems = (data.scripts || [])
     .filter((url) => {
       if (!searchTerms.length) {
@@ -1581,7 +1676,7 @@ async function syncTickets() {
     }
 
     renderTicketsDiscovery(data);
-    setTicketsStatus("Expansive FM connection checked. Discovery details loaded.", "success");
+    setTicketsStatus(data.message || "Expansive FM tickets checked.", "success");
   } catch (error) {
     console.error(error);
     setTicketsStatus("Could not reach the ticket sync service.", "error");
