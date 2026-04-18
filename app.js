@@ -220,7 +220,7 @@ let ticketViewMode = "time";
 let ticketDiscoveryData = null;
 let ticketFilterOpen = false;
 let openTicketActionId = "";
-let selectedDayTicket = null;
+let selectedDayTickets = [];
 let currentScreenName = null;
 
 function canUseSupabaseSession() {
@@ -1677,7 +1677,7 @@ function renderSelectedDayTicket() {
     return;
   }
 
-  if (!selectedDayTicket) {
+  if (!selectedDayTickets.length) {
     dayTicketSelected.classList.add("hidden");
     dayTicketSelected.innerHTML = "";
     return;
@@ -1685,9 +1685,39 @@ function renderSelectedDayTicket() {
 
   dayTicketSelected.classList.remove("hidden");
   dayTicketSelected.innerHTML = `
-    <strong>Selected Ticket # ${selectedDayTicket.number || selectedDayTicket.id || "Unknown"}</strong>
-    <span>${getTicketDescription(selectedDayTicket)}</span>
+    <strong>${selectedDayTickets.length} selected ticket${selectedDayTickets.length === 1 ? "" : "s"}</strong>
+    ${selectedDayTickets
+      .map(
+        (ticket) => `
+          <span>
+            <b>Ticket # ${ticket.number || ticket.id || "Unknown"}:</b>
+            ${getTicketDescription(ticket)}
+          </span>
+        `
+      )
+      .join("")}
   `;
+}
+
+function getTicketKey(ticket) {
+  return String(ticket?.id || ticket?.number || "").trim();
+}
+
+function getSelectedDayTicketNumbers() {
+  return selectedDayTickets
+    .map((ticket) => ticket.number || ticket.id || "")
+    .filter(Boolean)
+    .join(", ");
+}
+
+function getSelectedDayTicketDescriptions() {
+  return selectedDayTickets
+    .map((ticket) => `Ticket # ${ticket.number || ticket.id || "Unknown"}: ${getTicketDescription(ticket)}`)
+    .join("\n");
+}
+
+function syncDayTicketReferenceText() {
+  dayReferenceText.value = getSelectedDayTicketNumbers();
 }
 
 function renderDayTicketPicker() {
@@ -1719,7 +1749,11 @@ function renderDayTicketPicker() {
   dayTicketList.className = "entry-list ticket-picker-list";
   dayTicketList.innerHTML = visibleTickets
     .map(
-      (ticket) => `
+      (ticket) => {
+        const ticketKey = getTicketKey(ticket);
+        const isSelected = selectedDayTickets.some((item) => getTicketKey(item) === ticketKey);
+
+        return `
         <article class="entry-card ticket-picker-card">
           <div class="entry-meta">
             <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
@@ -1730,15 +1764,16 @@ function renderDayTicketPicker() {
           </div>
           <div class="entry-inline-actions">
             <button
-              class="submit-button"
+              class="${isSelected ? "back-button archive-button" : "submit-button"}"
               type="button"
-              data-day-ticket-select="${ticket.id || ticket.number || ""}"
+              data-day-ticket-select="${ticketKey}"
             >
-              Select This Ticket
+              ${isSelected ? "Remove This Ticket" : "Add This Ticket"}
             </button>
           </div>
         </article>
-      `
+      `;
+      }
     )
     .join("");
   renderSelectedDayTicket();
@@ -1754,9 +1789,19 @@ function selectDayTicket(ticketId) {
     return;
   }
 
-  selectedDayTicket = ticket;
-  dayReferenceText.value = ticket.number || ticket.id || "";
-  setDayTicketStatus(`Ticket # ${dayReferenceText.value} selected.`, "success");
+  const ticketKey = getTicketKey(ticket);
+  const existingIndex = selectedDayTickets.findIndex((item) => getTicketKey(item) === ticketKey);
+
+  if (existingIndex >= 0) {
+    selectedDayTickets.splice(existingIndex, 1);
+    setDayTicketStatus(`Ticket # ${ticket.number || ticket.id || "Unknown"} removed.`, "warning");
+  } else {
+    selectedDayTickets.push(ticket);
+    setDayTicketStatus(`Ticket # ${ticket.number || ticket.id || "Unknown"} added.`, "success");
+  }
+
+  syncDayTicketReferenceText();
+  renderDayTicketPicker();
   renderSelectedDayTicket();
 }
 
@@ -3231,13 +3276,13 @@ function updateDayReferenceField() {
 
   if (!isRelated) {
     dayReferenceText.value = "";
-    selectedDayTicket = null;
+    selectedDayTickets = [];
     renderSelectedDayTicket();
     setDayTicketStatus("");
   }
 
   if (isManual) {
-    selectedDayTicket = null;
+    selectedDayTickets = [];
     dayReferenceText.readOnly = false;
     renderSelectedDayTicket();
     setDayTicketStatus("");
@@ -3342,8 +3387,8 @@ function validateCurrentRecordDayStep() {
       return false;
     }
 
-    if (referenceMode === "expansive" && !selectedDayTicket) {
-      setSaveStatus("Please choose an Expansive ticket before continuing.", "error");
+    if (referenceMode === "expansive" && !selectedDayTickets.length) {
+      setSaveStatus("Please choose at least one Expansive ticket before continuing.", "error");
       return false;
     }
   }
@@ -3530,7 +3575,7 @@ function resetRecordDayForm() {
   editingDayOriginalDate = "";
   editingDayCreatedAt = null;
   editingDayExistingAttachments = [];
-  selectedDayTicket = null;
+  selectedDayTickets = [];
   dayCommentDraft = "";
   updateVoiceStatus("");
   renderEmployees();
@@ -3571,13 +3616,24 @@ function loadDayEntryForEditing(entryId) {
   });
   updateDayReferenceField();
   dayReferenceText.value = entry.relatedReference || "";
-  selectedDayTicket = entry.relatedDescription
-    ? {
-        id: entry.relatedReference || "saved-ticket",
-        number: entry.relatedReference || "",
-        title: entry.relatedDescription,
-      }
-    : null;
+  selectedDayTickets =
+    entry.relatedDescription && entry.relatedReference
+      ? entry.relatedReference
+          .split(",")
+          .map((reference, index) => {
+            const number = reference.trim();
+            const descriptionLine = String(entry.relatedDescription || "")
+              .split("\n")
+              .find((line) => line.includes(number));
+            const fallbackDescription = String(entry.relatedDescription || "").split("\n")[index] || "";
+            return {
+              id: number,
+              number,
+              title: (descriptionLine || fallbackDescription).replace(/^Ticket\s*#?\s*[^:]+:\s*/i, ""),
+            };
+          })
+          .filter((ticket) => ticket.number)
+      : [];
   renderSelectedDayTicket();
   commentsText.value = entry.comments || "";
   dayCommentDraft = commentsText.value;
@@ -4672,8 +4728,8 @@ async function saveDayEntry(event) {
     relatedReference:
       getDayReferenceMode() !== "no" ? dayReferenceText.value.trim() : "",
     relatedDescription:
-      getDayReferenceMode() === "expansive" && selectedDayTicket
-        ? getTicketDescription(selectedDayTicket)
+      getDayReferenceMode() === "expansive" && selectedDayTickets.length
+        ? getSelectedDayTicketDescriptions()
         : "",
     createdAt: editingDayCreatedAt,
     archivedAt: null,
