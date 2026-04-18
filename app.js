@@ -187,6 +187,9 @@ let editingDayEntryId = null;
 let editingDayOriginalDate = "";
 let editingDayCreatedAt = null;
 let editingDayExistingAttachments = [];
+let editingPurchaseEntryId = null;
+let editingPurchaseCreatedAt = null;
+let editingPurchaseExistingReceipts = [];
 let currentScreenName = null;
 
 function canUseSupabaseSession() {
@@ -558,6 +561,19 @@ function upsertStoredPurchaseEntry(entry) {
   }
 }
 
+function replaceEditedPurchaseEntry(previousEntryId, nextEntry) {
+  if (previousEntryId && previousEntryId !== nextEntry.id) {
+    const nextEntries = readStoredPurchaseEntries().filter((entry) => entry.id !== previousEntryId);
+    writeStoredPurchaseEntries(nextEntries);
+  }
+
+  upsertStoredPurchaseEntry(nextEntry);
+  purchaseEntriesCache = purchaseEntriesCache
+    .filter((entry) => entry.id !== previousEntryId && entry.id !== nextEntry.id)
+    .concat(nextEntry)
+    .sort((left, right) => right.date.localeCompare(left.date));
+}
+
 function archiveStoredDayEntries(entryIds, quickbooksInvoiceNumber = "") {
   const entryIdSet = new Set(entryIds);
   const nextEntries = readStoredDayEntries().map((entry) =>
@@ -575,10 +591,16 @@ function archiveStoredDayEntries(entryIds, quickbooksInvoiceNumber = "") {
   writeStoredArchivedIds(archivedDayIdsStorageKey, archivedIds);
 }
 
-function archiveStoredPurchaseEntries(entryIds) {
+function archiveStoredPurchaseEntries(entryIds, quickbooksInvoiceNumber = "") {
   const entryIdSet = new Set(entryIds);
   const nextEntries = readStoredPurchaseEntries().map((entry) =>
-    entryIdSet.has(entry.id) ? { ...entry, archivedAt: new Date().toISOString() } : entry
+    entryIdSet.has(entry.id)
+      ? {
+          ...entry,
+          archivedAt: new Date().toISOString(),
+          quickbooksInvoiceNumber: quickbooksInvoiceNumber || entry.quickbooksInvoiceNumber || "",
+        }
+      : entry
   );
   writeStoredPurchaseEntries(nextEntries);
   const archivedIds = readStoredArchivedIds(archivedReceiptIdsStorageKey);
@@ -625,15 +647,16 @@ function buildLocalDayEntry(payload, saveResult) {
 
 function buildLocalPurchaseEntry(payload, saveResult) {
   return {
-    id: saveResult.id || `purchase-${payload.date}-${Date.now()}`,
+    id: saveResult.id || payload.id || `purchase-${payload.date}-${Date.now()}`,
     date: payload.date,
     location: payload.location || "",
     relatedReference: payload.relatedReference,
     receipts: payload.receipts,
     total: Number(payload.total || 0),
     analysisText: payload.analysisText || "",
-    createdAt: new Date().toISOString(),
-    archivedAt: null,
+    quickbooksInvoiceNumber: payload.quickbooksInvoiceNumber || "",
+    createdAt: payload.createdAt || saveResult.createdAt || new Date().toISOString(),
+    archivedAt: payload.archivedAt || null,
   };
 }
 
@@ -730,6 +753,7 @@ function formatPurchaseSummary(entry) {
     `Date: ${formatDisplayDate(entry.date)}`,
     `Location: ${formatLocationDisplay(entry.location) || "None"}`,
     `Reference: ${entry.relatedReference || "None"}`,
+    `QuickBooks Invoice #: ${entry.quickbooksInvoiceNumber || "None"}`,
     `Total: ${formatCurrency(entry.total)}`,
     `Receipt images: ${attachmentCount}`,
     `Receipt links: ${receiptLinks || "None"}`,
@@ -1394,8 +1418,12 @@ function renderCheckReceiptsEntries() {
               <p>${entry.location || "No location"}</p>
               <p class="entry-pill">Total Receipt: ${formatCurrency(entry.total)}</p>
               ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
+              ${entry.quickbooksInvoiceNumber ? `<p>QuickBooks Invoice #: ${entry.quickbooksInvoiceNumber}</p>` : ""}
               <div class="entry-attachments"><strong>Receipts</strong><span>${receipts || "None"}</span></div>
             </div>
+          </div>
+          <div class="entry-inline-actions">
+            <button class="back-button" type="button" data-edit-receipt-id="${entry.id}">Edit Receipt</button>
           </div>
         </label>
       `;
@@ -1425,7 +1453,15 @@ function buildArchivedSearchText(item) {
   }
 
   const receipts = (item.receipts || []).map((receipt) => receipt.name || "").join(" ");
-  return [item.date, item.location, item.relatedReference, item.analysisText, receipts, "receipt"]
+  return [
+    item.date,
+    item.location,
+    item.relatedReference,
+    item.quickbooksInvoiceNumber,
+    item.analysisText,
+    receipts,
+    "receipt",
+  ]
     .join(" ")
     .toLowerCase();
 }
@@ -1506,8 +1542,13 @@ function renderArchivedItems() {
             <input type="checkbox" data-archived-kind="receipt" data-archived-id="${item.id}" />
             <div class="entry-meta">
               <h3>${formatDisplayDate(item.date)}</h3>
-              <p class="entry-pill">Archived Receipt</p>
+              <p class="entry-pill">Invoiced Receipt</p>
               ${item.relatedReference ? `<p>Ticket / Invoice: ${item.relatedReference}</p>` : ""}
+              ${
+                item.quickbooksInvoiceNumber
+                  ? `<p>QuickBooks Invoice #: ${item.quickbooksInvoiceNumber}</p>`
+                  : ""
+              }
               <p class="entry-pill">Total Receipt: ${formatCurrency(item.total)}</p>
               <div class="entry-attachments"><strong>Receipts</strong><span>${receipts || "None"}</span></div>
             </div>
@@ -1563,19 +1604,33 @@ async function loadArchivedItems() {
       nextItems = [...nextItems.filter((item) => !(item.kind === "day" && isUuid(item.id))), ...remoteDays];
     }
 
-    const receiptResult = await supabaseClient
-      .from("purchase_entries")
-      .select("id, purchase_date, location, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at")
-      .not("archived_at", "is", null)
-      .order("purchase_date", { ascending: false });
+    const receiptQueryVariants = [
+      "id, purchase_date, location, related_reference, quickbooks_invoice_number, receipt_total, receipt_files, receipt_text, archived_at, created_at",
+      "id, purchase_date, location, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at",
+    ];
+    let receiptData = null;
 
-    if (!receiptResult.error && Array.isArray(receiptResult.data)) {
-      const remoteReceipts = receiptResult.data.map((entry) => ({
+    for (const selectClause of receiptQueryVariants) {
+      const receiptResult = await supabaseClient
+        .from("purchase_entries")
+        .select(selectClause)
+        .not("archived_at", "is", null)
+        .order("purchase_date", { ascending: false });
+
+      if (!receiptResult.error) {
+        receiptData = receiptResult.data;
+        break;
+      }
+    }
+
+    if (Array.isArray(receiptData)) {
+      const remoteReceipts = receiptData.map((entry) => ({
         kind: "receipt",
         id: entry.id,
         date: entry.purchase_date,
         location: entry.location || "",
         relatedReference: entry.related_reference || "",
+        quickbooksInvoiceNumber: entry.quickbooks_invoice_number || "",
         receipts: Array.isArray(entry.receipt_files) ? entry.receipt_files : [],
         total: Number(entry.receipt_total || 0),
         analysisText: entry.receipt_text || "",
@@ -1749,6 +1804,8 @@ async function loadCheckReceiptsEntries() {
 
   if (supabaseClient && currentSession?.user) {
     const queryVariants = [
+      "id, purchase_date, location, related_reference, quickbooks_invoice_number, receipt_total, receipt_files, receipt_text, archived_at, created_at",
+      "id, purchase_date, location, related_reference, quickbooks_invoice_number, receipt_total, receipt_files, created_at",
       "id, purchase_date, location, related_reference, receipt_total, receipt_files, receipt_text, archived_at, created_at",
       "id, purchase_date, location, related_reference, receipt_total, receipt_files, created_at",
       "id, purchase_date, related_reference, receipt_total, receipt_files, created_at",
@@ -1788,6 +1845,8 @@ async function loadCheckReceiptsEntries() {
             date: entry.purchase_date,
             location: entry.location || localEntry?.location || "",
             relatedReference: entry.related_reference || localEntry?.relatedReference || "",
+            quickbooksInvoiceNumber:
+              entry.quickbooks_invoice_number || localEntry?.quickbooksInvoiceNumber || "",
             receipts:
               (Array.isArray(entry.receipt_files) && entry.receipt_files.length
                 ? entry.receipt_files
@@ -1859,7 +1918,20 @@ async function archiveSelectedReceipts() {
   const selectedEntries = getSelectedReceiptEntries();
 
   if (!selectedEntries.length) {
-    setCheckReceiptsStatus("Please select at least one recorded receipt to archive.", "error");
+    setCheckReceiptsStatus("Please select at least one recorded receipt to invoice.", "error");
+    return;
+  }
+
+  const invoiceNumber = window.prompt("Invoice #");
+
+  if (invoiceNumber === null) {
+    return;
+  }
+
+  const trimmedInvoiceNumber = invoiceNumber.trim();
+
+  if (!trimmedInvoiceNumber) {
+    setCheckReceiptsStatus("Please enter an Invoice # before recording invoiced receipts.", "error");
     return;
   }
 
@@ -1870,24 +1942,32 @@ async function archiveSelectedReceipts() {
   if (canUseSupabaseSession() && onlineIds.length) {
     const { error } = await supabaseClient
       .from("purchase_entries")
-      .update({ archived_at: archivedAt })
+      .update({ archived_at: archivedAt, quickbooks_invoice_number: trimmedInvoiceNumber })
       .in("id", onlineIds);
 
     if (error) {
+      const message = `${error.message || ""} ${error.details || ""}`.toLowerCase();
       setCheckReceiptsStatus(
-        "Could not archive the selected receipts online. They were kept active.",
+        message.includes("quickbooks_invoice_number")
+          ? "Supabase is missing the QuickBooks invoice field for receipts. Run the latest supabase/schema.sql, then try again."
+          : "Could not record the selected receipts as invoiced online. They were kept active.",
         "error"
       );
       return;
     }
   }
 
-  archiveStoredPurchaseEntries(selectedIds);
+  archiveStoredPurchaseEntries(selectedIds, trimmedInvoiceNumber);
   purchaseEntriesCache = purchaseEntriesCache.map((entry) =>
-    selectedIds.includes(entry.id) ? { ...entry, archivedAt } : entry
+    selectedIds.includes(entry.id)
+      ? { ...entry, archivedAt, quickbooksInvoiceNumber: trimmedInvoiceNumber }
+      : entry
   );
   renderCheckReceiptsEntries();
-  setCheckReceiptsStatus("Selected receipt entries were archived.", "success");
+  setCheckReceiptsStatus(
+    `Selected receipts were recorded as invoiced under QuickBooks Invoice # ${trimmedInvoiceNumber}.`,
+    "success"
+  );
 }
 
 function getSelectedCheckHoursEntries() {
@@ -2637,7 +2717,11 @@ function validateCurrentRecordPurchaseStep() {
     return false;
   }
 
-  if (recordPurchaseStepIndex === 3 && !purchaseReceiptInput.files.length) {
+  if (
+    recordPurchaseStepIndex === 3 &&
+    !purchaseReceiptInput.files.length &&
+    !(editingPurchaseExistingReceipts || []).length
+  ) {
     setPurchaseSaveStatus("Please add at least one receipt image before continuing.", "error");
     return false;
   }
@@ -2673,8 +2757,9 @@ function goToPreviousRecordPurchaseStep() {
 
 function renderPurchaseReceiptList() {
   const receipts = [...purchaseReceiptInput.files];
+  const existingReceipts = editingPurchaseExistingReceipts || [];
 
-  if (!receipts.length) {
+  if (!receipts.length && !existingReceipts.length) {
     purchaseReceiptList.className = "attachment-list empty-state";
     purchaseReceiptList.textContent = "No receipt images selected yet.";
     return;
@@ -2682,6 +2767,13 @@ function renderPurchaseReceiptList() {
 
   purchaseReceiptList.className = "attachment-list";
   purchaseReceiptList.innerHTML = "";
+
+  existingReceipts.forEach((receipt) => {
+    const item = document.createElement("div");
+    item.className = "attachment-item";
+    item.textContent = receipt.url ? `${receipt.name || "Receipt"} (already uploaded)` : receipt.name || "Receipt";
+    purchaseReceiptList.appendChild(item);
+  });
 
   receipts.forEach((file) => {
     const item = document.createElement("div");
@@ -2976,6 +3068,9 @@ function resetRecordPurchaseForm() {
   recordPurchaseForm.classList.remove("hidden");
   recordPurchaseStepIndex = 0;
   receiptAnalysisText = "";
+  editingPurchaseEntryId = null;
+  editingPurchaseCreatedAt = null;
+  editingPurchaseExistingReceipts = [];
   purchaseSavedPanel.classList.add("hidden");
   purchaseSaveStatus.classList.add("hidden");
   recordPurchaseSaveButton.classList.remove("hidden");
@@ -2986,6 +3081,41 @@ function resetRecordPurchaseForm() {
   updatePurchaseReferenceField();
   updateRecordPurchaseStep();
   recordPurchaseStepTitle.textContent = recordPurchaseStepMeta[recordPurchaseStepIndex].title;
+}
+
+function loadPurchaseEntryForEditing(entryId) {
+  const entry = purchaseEntriesCache.find((item) => item.id === entryId);
+
+  if (!entry) {
+    setCheckReceiptsStatus("That receipt could not be loaded for editing.", "error");
+    return;
+  }
+
+  resetRecordPurchaseForm();
+  editingPurchaseEntryId = entry.id;
+  editingPurchaseCreatedAt = entry.createdAt || null;
+  editingPurchaseExistingReceipts = Array.isArray(entry.receipts) ? [...entry.receipts] : [];
+
+  document.getElementById("purchase-date").value = entry.date || "";
+  purchaseLocationSelect.value = entry.location || "";
+  const isRelated = Boolean(entry.relatedReference);
+  purchaseRelatedInputs.forEach((input) => {
+    input.checked = input.value === (isRelated ? "yes" : "no");
+  });
+  updatePurchaseReferenceField();
+  purchaseReferenceText.value = entry.relatedReference || "";
+  receiptTotalInput.value = Number(entry.total || 0).toFixed(2);
+  receiptAnalysisText = entry.analysisText || "";
+  receiptAnalysisOutput.className = receiptAnalysisText
+    ? "receipt-analysis-output"
+    : "receipt-analysis-output empty-state";
+  receiptAnalysisOutput.textContent = receiptAnalysisText || "No analysis yet.";
+  renderPurchaseReceiptList();
+  recordPurchaseStepIndex = 0;
+  updateRecordPurchaseStep();
+  setPurchaseSaveStatus(`Editing receipt from ${formatDisplayDate(entry.date)}. Save when you are done.`, "warning");
+  showScreen("record-purchase");
+  focusCurrentRecordPurchaseStep();
 }
 
 function startAnotherPurchase() {
@@ -3491,10 +3621,108 @@ async function saveEntryToSupabase(payload) {
 async function savePurchaseToSupabase(payload) {
   if (!supabaseClient) {
     return {
-      id: null,
+      id: payload.id || null,
       receipts: payload.receipts,
+      createdAt: payload.createdAt || null,
       mode: "local-only",
       message: "Saved in this browser. Add the purchase table in Supabase to save online.",
+    };
+  }
+
+  if (payload.id && isUuid(payload.id)) {
+    const updateVariants = [
+      {
+        purchase_date: payload.date,
+        location: payload.location,
+        related_reference: payload.relatedReference,
+        quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
+        receipt_total: payload.total,
+        receipt_files: payload.receipts,
+        receipt_text: payload.analysisText,
+      },
+      {
+        purchase_date: payload.date,
+        location: payload.location,
+        related_reference: payload.relatedReference,
+        quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
+        receipt_total: payload.total,
+        receipt_text: payload.analysisText,
+      },
+      {
+        purchase_date: payload.date,
+        receipt_total: payload.total,
+      },
+    ];
+
+    let updateError = null;
+
+    for (const updatePayload of updateVariants) {
+      const result = await supabaseClient
+        .from("purchase_entries")
+        .update(updatePayload)
+        .eq("id", payload.id);
+
+      if (!result.error) {
+        updateError = null;
+        break;
+      }
+
+      updateError = result.error;
+    }
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    let uploadedReceipts = [...(editingPurchaseExistingReceipts || [])];
+    const receiptFiles = [...purchaseReceiptInput.files];
+
+    if (receiptFiles.length) {
+      const nextReceipts = [...uploadedReceipts];
+
+      for (const file of receiptFiles) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+        const path = `${currentSession.user.id}/${payload.id}/${Date.now()}-${safeName}`;
+
+        const { error: uploadError } = await supabaseClient.storage
+          .from("purchase-receipts")
+          .upload(path, file, { upsert: false });
+
+        if (uploadError) {
+          nextReceipts.push({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          });
+          continue;
+        }
+
+        const { data: publicData } = supabaseClient.storage
+          .from("purchase-receipts")
+          .getPublicUrl(path);
+
+        nextReceipts.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: publicData.publicUrl,
+        });
+      }
+
+      uploadedReceipts = nextReceipts;
+    }
+
+    await supabaseClient
+      .from("purchase_entries")
+      .update({ receipt_files: uploadedReceipts })
+      .eq("id", payload.id);
+
+    return {
+      id: payload.id,
+      receipts: uploadedReceipts,
+      createdAt: payload.createdAt || null,
+      mode: "supabase",
+      message: "Updated in Supabase and in this browser.",
     };
   }
 
@@ -3503,6 +3731,7 @@ async function savePurchaseToSupabase(payload) {
       purchase_date: payload.date,
       location: payload.location,
       related_reference: payload.relatedReference,
+      quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
       receipt_total: payload.total,
       receipt_files: payload.receipts,
       receipt_text: payload.analysisText,
@@ -3511,6 +3740,7 @@ async function savePurchaseToSupabase(payload) {
       purchase_date: payload.date,
       location: payload.location,
       related_reference: payload.relatedReference,
+      quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
       receipt_total: payload.total,
       receipt_text: payload.analysisText,
     },
@@ -3589,6 +3819,7 @@ async function savePurchaseToSupabase(payload) {
   return {
     id: purchaseEntry.id,
     receipts: uploadedReceipts,
+    createdAt: payload.createdAt || new Date().toISOString(),
     mode: "supabase",
     message: "Saved to Supabase and to this browser.",
   };
@@ -3611,6 +3842,7 @@ function getPurchaseSaveErrorMessage(error) {
     message.includes("receipt_total") ||
     message.includes("receipt_files") ||
     message.includes("receipt_text") ||
+    message.includes("quickbooks_invoice_number") ||
     message.includes("related_reference")
   ) {
     return "Supabase is missing the latest purchase columns. Run the updated SQL in supabase/schema.sql, then try again.";
@@ -3793,6 +4025,7 @@ async function savePurchaseEntry(event) {
   }
 
   const payload = {
+    id: editingPurchaseEntryId,
     date: document.getElementById("purchase-date").value,
     location: purchaseLocationSelect.value,
     relatedReference:
@@ -3806,16 +4039,20 @@ async function savePurchaseEntry(event) {
     })),
     total: Number(receiptTotalInput.value),
     analysisText: receiptAnalysisText,
+    quickbooksInvoiceNumber: "",
+    createdAt: editingPurchaseCreatedAt,
+    archivedAt: null,
   };
 
   try {
+    const previousEntryId = editingPurchaseEntryId;
     const saveResult = await savePurchaseToSupabase(payload);
     const savedPurchase = buildLocalPurchaseEntry(
       { ...payload, receipts: saveResult.receipts || payload.receipts },
       saveResult
     );
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
-    upsertStoredPurchaseEntry(savedPurchase);
+    replaceEditedPurchaseEntry(previousEntryId, savedPurchase);
     recordPurchaseForm.classList.add("hidden");
     recordPurchaseStepTitle.textContent = "Purchase Recorded";
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
@@ -3829,9 +4066,10 @@ async function savePurchaseEntry(event) {
     loadCheckReceiptsEntries();
   } catch (error) {
     console.error(error);
+    const previousEntryId = editingPurchaseEntryId;
     const savedPurchase = buildLocalPurchaseEntry(payload, { id: null });
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
-    upsertStoredPurchaseEntry(savedPurchase);
+    replaceEditedPurchaseEntry(previousEntryId, savedPurchase);
     recordPurchaseForm.classList.add("hidden");
     recordPurchaseStepTitle.textContent = "Purchase Recorded";
     purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
@@ -3906,6 +4144,16 @@ selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
 archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
 retrieveArchivedButton.addEventListener("click", retrieveSelectedArchivedItems);
+checkReceiptsList.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-receipt-id]");
+
+  if (!editButton) {
+    return;
+  }
+
+  event.preventDefault();
+  loadPurchaseEntryForEditing(editButton.dataset.editReceiptId);
+});
 checkHoursList.addEventListener("change", (event) => {
   if (event.target.matches('input[type="checkbox"][data-entry-id]')) {
     updateSelectAllDaysButton();

@@ -32,6 +32,7 @@ create table if not exists public.purchase_entries (
   purchase_date date not null,
   location text not null default '',
   related_reference text not null default '',
+  quickbooks_invoice_number text not null default '',
   receipt_total numeric(10,2) not null check (receipt_total >= 0),
   receipt_files jsonb not null default '[]'::jsonb,
   receipt_text text not null default '',
@@ -93,6 +94,9 @@ add column if not exists related_reference text default '';
 
 alter table public.purchase_entries
 add column if not exists location text default '';
+
+alter table public.purchase_entries
+add column if not exists quickbooks_invoice_number text default '';
 
 alter table public.purchase_entries
 add column if not exists receipt_total numeric(10,2) default 0;
