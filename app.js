@@ -129,10 +129,6 @@ const ticketSiteFilterField = document.getElementById("ticket-site-filter-field"
 const ticketSiteFilter = document.getElementById("ticket-site-filter");
 const ticketsStatus = document.getElementById("tickets-status");
 const ticketsList = document.getElementById("tickets-list");
-const ticketActionsModal = document.getElementById("ticket-actions-modal");
-const ticketActionsTitle = document.getElementById("ticket-actions-title");
-const ticketActionsDescription = document.getElementById("ticket-actions-description");
-const closeTicketActionsButton = document.getElementById("close-ticket-actions-button");
 const archivedSearchInput = document.getElementById("archived-search-input");
 const archivedItemsEyebrow = document.getElementById("archived-items-eyebrow");
 const archivedItemsTitle = document.getElementById("archived-items-title");
@@ -218,6 +214,7 @@ let archivedItemsFilter = "day";
 let ticketViewMode = "time";
 let ticketDiscoveryData = null;
 let ticketFilterOpen = false;
+let openTicketActionId = "";
 let selectedDayTicket = null;
 let currentScreenName = null;
 
@@ -1548,11 +1545,17 @@ function getSelectedTicketSites() {
 }
 
 function getTicketSiteLabel(ticket) {
-  return String(ticket.location || ticket.status || "No site").trim() || "No site";
+  return getTicketDisplayLocation(ticket) || "No site";
+}
+
+function getTicketDisplayLocation(ticket) {
+  const locationValue = String(ticket.location || "").trim();
+  const statusValue = String(ticket.status || "").trim();
+  return locationValue && locationValue !== statusValue ? locationValue : "";
 }
 
 function getTicketSiteCandidates(ticket) {
-  return [ticket.location, ticket.status]
+  return [getTicketDisplayLocation(ticket)]
     .map((value) => String(value || "").trim())
     .filter(Boolean);
 }
@@ -1716,7 +1719,7 @@ function renderDayTicketPicker() {
           <div class="entry-meta">
             <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
             <p class="ticket-description">${getTicketDescription(ticket)}</p>
-            ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
+            ${getTicketDisplayLocation(ticket) ? `<p class="entry-pill">Site: ${getTicketDisplayLocation(ticket)}</p>` : ""}
             ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
             ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
           </div>
@@ -1758,23 +1761,6 @@ function findTicketById(ticketId) {
   );
 }
 
-function openTicketActions(ticketId) {
-  const ticket = findTicketById(ticketId);
-
-  if (!ticket || !ticketActionsModal) {
-    return;
-  }
-
-  ticketActionsTitle.textContent = `Ticket # ${ticket.number || ticket.id || "Unknown"}`;
-  ticketActionsDescription.textContent = getTicketDescription(ticket);
-  ticketActionsModal.classList.remove("hidden");
-  requestAnimationFrame(() => closeTicketActionsButton.focus({ preventScroll: true }));
-}
-
-function closeTicketActions() {
-  ticketActionsModal.classList.add("hidden");
-}
-
 async function loadTicketsForDayPicker() {
   if (getAvailableTickets().length) {
     renderDayTicketPicker();
@@ -1813,12 +1799,16 @@ async function loadTicketsForDayPicker() {
 }
 
 function renderTicketCard(ticket) {
+  const ticketId = String(ticket.id || ticket.number || "");
+  const isActionsOpen = openTicketActionId === ticketId;
+  const locationLabel = getTicketDisplayLocation(ticket);
+
   return `
     <article class="entry-card ticket-card">
       <div class="entry-meta">
         <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
         <p class="ticket-description">${ticket.title || "No title"}</p>
-        ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
+        ${locationLabel ? `<p class="entry-pill">Site: ${locationLabel}</p>` : ""}
         ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
         ${ticket.priority ? `<p class="entry-pill">Priority: ${ticket.priority}</p>` : ""}
         ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
@@ -1828,10 +1818,19 @@ function renderTicketCard(ticket) {
         <button
           class="ticket-actions-button"
           type="button"
-          data-ticket-actions="${ticket.id || ticket.number || ""}"
+          data-ticket-actions="${ticketId}"
         >
-          Actions
+          ${isActionsOpen ? "Hide Actions" : "Actions"}
         </button>
+      </div>
+      <div class="ticket-actions-inline ${isActionsOpen ? "" : "hidden"}">
+        <p class="step-kicker">Ticket Actions</p>
+        <div class="ticket-actions-grid">
+          <button class="submit-button" type="button" data-ticket-action="start">Start Service</button>
+          <button class="submit-button" type="button" data-ticket-action="complete">Mark as Completed</button>
+          <button class="submit-button" type="button" data-ticket-action="engineer">Change Engineer</button>
+        </div>
+        <p class="helper-text">Preview only. No changes are sent to Expansive yet.</p>
       </div>
     </article>
   `;
@@ -4801,18 +4800,14 @@ ticketsList.addEventListener("click", (event) => {
     return;
   }
 
-  openTicketActions(actionsButton.dataset.ticketActions);
-});
-closeTicketActionsButton.addEventListener("click", closeTicketActions);
-ticketActionsModal.addEventListener("click", (event) => {
-  if (event.target === ticketActionsModal) {
-    closeTicketActions();
+  openTicketActionId =
+    openTicketActionId === actionsButton.dataset.ticketActions
+      ? ""
+      : actionsButton.dataset.ticketActions;
+
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
   }
-});
-ticketActionsModal.querySelectorAll("[data-ticket-action]").forEach((button) => {
-  button.addEventListener("click", () => {
-    ticketActionsDescription.textContent = `${button.textContent.trim()} is ready for the next phase. No changes were sent yet.`;
-  });
 });
 ticketSearchInput.addEventListener("input", () => {
   if (ticketDiscoveryData) {

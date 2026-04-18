@@ -115,10 +115,30 @@ function asText(value) {
   }
 
   if (typeof value === "object") {
-    return value.display || value.name || value.label || value.title || value.value || "";
+    return (
+      value.display ||
+      value.display_name ||
+      value.name ||
+      value.label ||
+      value.title ||
+      value.site_name ||
+      value.value ||
+      ""
+    );
   }
 
   return String(value);
+}
+
+function asIncludedText(resource) {
+  const attributes = resource?.attributes || {};
+  return (
+    asText(attributes.name) ||
+    asText(attributes.display_name) ||
+    asText(attributes.title) ||
+    asText(attributes.label) ||
+    asText(attributes.site_name)
+  );
 }
 
 function getIncludedResource(included, relationship) {
@@ -131,18 +151,62 @@ function getIncludedResource(included, relationship) {
   return included.find((item) => item.type === data.type && String(item.id) === String(data.id)) || null;
 }
 
+function getIncludedResources(included, relationship) {
+  const data = relationship?.data;
+
+  if (!Array.isArray(data)) {
+    const singleResource = getIncludedResource(included, relationship);
+    return singleResource ? [singleResource] : [];
+  }
+
+  return data
+    .map((item) => included.find((resource) => resource.type === item.type && String(resource.id) === String(item.id)))
+    .filter(Boolean);
+}
+
+function getRelationshipText(included, relationships, names) {
+  for (const name of names) {
+    const resources = getIncludedResources(included, relationships?.[name]);
+    const text = resources.map(asIncludedText).filter(Boolean).join(", ");
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function getTicketLocation(attributes, relationships, included) {
+  return (
+    asText(attributes.site) ||
+    asText(attributes.site_name) ||
+    asText(attributes.siteName) ||
+    asText(attributes.site_display_name) ||
+    getRelationshipText(included, relationships, [
+      "site",
+      "sites",
+      "location",
+      "locations",
+      "property",
+      "properties",
+      "building",
+      "facility",
+    ]) ||
+    asText(attributes.location) ||
+    asText(attributes.location_name) ||
+    asText(attributes.property)
+  );
+}
+
 function normalizeTickets(payload, baseUrl) {
   const items = Array.isArray(payload?.data) ? payload.data : [];
   const included = Array.isArray(payload?.included) ? payload.included : [];
 
   return items.slice(0, 100).map((item) => {
     const attributes = item.attributes || item;
-    const site = getIncludedResource(included, item.relationships?.site);
-    const location =
-      asText(attributes.site) ||
-      asText(attributes.site_name) ||
-      asText(attributes.location) ||
-      asText(site?.attributes?.name);
+    const relationships = item.relationships || {};
+    const location = getTicketLocation(attributes, relationships, included);
     const number =
       asText(attributes.reference) ||
       asText(attributes.reference_number) ||

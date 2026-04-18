@@ -601,24 +601,6 @@ input[type="file"]::file-selector-button {
   box-shadow: 0 24px 60px rgba(5, 7, 10, 0.26);
 }
 
-.ticket-actions-modal {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
-  background: rgba(5, 7, 10, 0.68);
-  overflow-y: auto;
-  z-index: 1000;
-}
-
-.ticket-actions-modal.hidden {
-  display: none;
-}
-
 .voice-stop-button {
   min-width: 220px;
   min-height: 76px;
@@ -1319,6 +1301,20 @@ input[type="file"]::file-selector-button {
   box-shadow: 0 14px 24px rgba(31, 120, 255, 0.24);
 }
 
+.ticket-actions-inline {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: #f4f9ff;
+  border: 2px solid rgba(31, 120, 255, 0.18);
+}
+
+.ticket-actions-inline .submit-button {
+  min-height: 72px;
+  font-size: 1.25rem;
+}
+
 .ticket-picker {
   display: grid;
   gap: 16px;
@@ -1354,28 +1350,6 @@ input[type="file"]::file-selector-button {
 
 .selected-ticket-summary span {
   font-size: 1.15rem;
-  line-height: 1.45;
-}
-
-.ticket-actions-card {
-  display: grid;
-  gap: 18px;
-  width: min(100%, 620px);
-  max-height: calc(100dvh - 36px);
-  overflow-y: auto;
-  margin: auto;
-  background: #ffffff;
-  color: var(--ink);
-}
-
-.ticket-actions-title {
-  margin: 0;
-  font-size: clamp(2rem, 7vw, 3.6rem);
-}
-
-.ticket-actions-description {
-  margin: 0;
-  font-size: 1.3rem;
   line-height: 1.45;
 }
 
@@ -1498,19 +1472,8 @@ input[type="file"]::file-selector-button {
     grid-template-columns: 1fr;
   }
 
-  .ticket-actions-modal {
-    align-items: flex-start;
-    padding: calc(16px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
-  }
-
-  .ticket-actions-card {
-    width: 100%;
-    max-height: calc(100dvh - 32px);
-    padding: 22px 16px;
-  }
-
   .ticket-actions-grid .submit-button,
-  #close-ticket-actions-button {
+  .ticket-actions-inline .submit-button {
     width: 100%;
     min-height: 72px;
     font-size: 1.25rem;
