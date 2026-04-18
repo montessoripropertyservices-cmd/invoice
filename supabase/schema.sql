@@ -6,6 +6,7 @@ create table if not exists public.day_entries (
   location text not null,
   comments text not null default '',
   related_reference text not null default '',
+  related_description text not null default '',
   quickbooks_invoice_number text not null default '',
   attachments jsonb not null default '[]'::jsonb,
   archived_at timestamptz,
@@ -58,6 +59,9 @@ add column if not exists comments text default '';
 
 alter table public.day_entries
 add column if not exists related_reference text default '';
+
+alter table public.day_entries
+add column if not exists related_description text default '';
 
 alter table public.day_entries
 add column if not exists quickbooks_invoice_number text default '';

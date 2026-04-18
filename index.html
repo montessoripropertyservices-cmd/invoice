@@ -164,19 +164,43 @@
                 <span>No</span>
               </label>
               <label class="choice-card">
-                <input type="radio" name="day-related" value="yes" />
-                <span>Yes</span>
+                <input type="radio" name="day-related" value="manual" />
+                <span>Type #</span>
+              </label>
+              <label class="choice-card">
+                <input type="radio" name="day-related" value="expansive" />
+                <span>Expansive Ticket</span>
               </label>
             </div>
 
             <label id="day-reference-field" class="field-group hidden">
-              <span>Invoice or ticket reference</span>
+              <span>Ticket #</span>
               <input
                 id="day-reference-text"
                 type="text"
                 placeholder="Type the invoice or ticket number"
               />
             </label>
+
+            <div id="day-ticket-picker" class="ticket-picker hidden">
+              <label class="field-group field-group-large">
+                <span>Search Expansive tickets</span>
+                <input
+                  id="day-ticket-search"
+                  type="search"
+                  placeholder="Type ticket number, location, or keyword"
+                  autocomplete="off"
+                />
+              </label>
+              <button id="load-day-tickets-button" class="submit-button" type="button">
+                Load Tickets
+              </button>
+              <p id="day-ticket-picker-status" class="helper-text" aria-live="polite"></p>
+              <div id="day-ticket-selected" class="selected-ticket-summary hidden"></div>
+              <div id="day-ticket-list" class="entry-list ticket-picker-list empty-state">
+                Load tickets to choose one.
+              </div>
+            </div>
           </section>
 
           <section class="wizard-step section-card section-employees hidden" data-step="2">
@@ -631,6 +655,20 @@ No analysis yet.
           <button id="voice-stop-button" class="submit-button voice-stop-button" type="button">
             Stop
           </button>
+        </div>
+      </div>
+
+      <div id="ticket-actions-modal" class="voice-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-actions-title">
+        <div class="voice-modal-card ticket-actions-card">
+          <p class="step-kicker">Ticket Actions</p>
+          <h3 id="ticket-actions-title" class="ticket-actions-title">Ticket</h3>
+          <p id="ticket-actions-description" class="ticket-actions-description"></p>
+          <div class="ticket-actions-grid">
+            <button class="submit-button" type="button" data-ticket-action="start">Start Service</button>
+            <button class="submit-button" type="button" data-ticket-action="complete">Mark as Completed</button>
+            <button class="submit-button" type="button" data-ticket-action="engineer">Change Engineer</button>
+          </div>
+          <button id="close-ticket-actions-button" class="back-button" type="button">Close</button>
         </div>
       </div>
     </main>

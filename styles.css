@@ -644,7 +644,7 @@ input[type="file"]::file-selector-button {
 
 .choice-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 18px;
   width: 100%;
 }
@@ -1231,6 +1231,78 @@ input[type="file"]::file-selector-button {
   font-size: 1.2rem;
   font-weight: 800;
   text-decoration: none;
+}
+
+.ticket-actions-button {
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: 14px 22px;
+  background: #1f78ff;
+  color: #ffffff;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 14px 24px rgba(31, 120, 255, 0.24);
+}
+
+.ticket-picker {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.ticket-picker-list {
+  width: 100%;
+  max-height: min(58vh, 680px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.ticket-picker-card {
+  text-align: left;
+}
+
+.selected-ticket-summary {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: #eaf3ff;
+  border: 2px solid rgba(31, 120, 255, 0.22);
+  color: #12345f;
+  text-align: left;
+}
+
+.selected-ticket-summary strong {
+  font-size: 1.4rem;
+}
+
+.selected-ticket-summary span {
+  font-size: 1.15rem;
+  line-height: 1.45;
+}
+
+.ticket-actions-card {
+  max-width: min(92vw, 620px);
+}
+
+.ticket-actions-title {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3.6rem);
+}
+
+.ticket-actions-description {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.45;
+}
+
+.ticket-actions-grid {
+  display: grid;
+  gap: 14px;
+  width: 100%;
 }
 
 .ticket-group {

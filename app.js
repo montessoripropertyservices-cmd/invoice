@@ -59,6 +59,12 @@ const workDateStatus = document.getElementById("work-date-status");
 const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"]')];
 const dayReferenceField = document.getElementById("day-reference-field");
 const dayReferenceText = document.getElementById("day-reference-text");
+const dayTicketPicker = document.getElementById("day-ticket-picker");
+const dayTicketSearchInput = document.getElementById("day-ticket-search");
+const loadDayTicketsButton = document.getElementById("load-day-tickets-button");
+const dayTicketPickerStatus = document.getElementById("day-ticket-picker-status");
+const dayTicketSelected = document.getElementById("day-ticket-selected");
+const dayTicketList = document.getElementById("day-ticket-list");
 const commentsText = document.getElementById("comments-text");
 const commentsPreview = document.getElementById("comments-preview");
 const voiceCommentButton = document.getElementById("voice-comment-button");
@@ -119,6 +125,10 @@ const ticketsByTimeButton = document.getElementById("tickets-by-time-button");
 const ticketsByLocationButton = document.getElementById("tickets-by-location-button");
 const ticketsStatus = document.getElementById("tickets-status");
 const ticketsList = document.getElementById("tickets-list");
+const ticketActionsModal = document.getElementById("ticket-actions-modal");
+const ticketActionsTitle = document.getElementById("ticket-actions-title");
+const ticketActionsDescription = document.getElementById("ticket-actions-description");
+const closeTicketActionsButton = document.getElementById("close-ticket-actions-button");
 const archivedSearchInput = document.getElementById("archived-search-input");
 const archivedItemsEyebrow = document.getElementById("archived-items-eyebrow");
 const archivedItemsTitle = document.getElementById("archived-items-title");
@@ -203,6 +213,7 @@ let editingPurchaseExistingReceipts = [];
 let archivedItemsFilter = "day";
 let ticketViewMode = "time";
 let ticketDiscoveryData = null;
+let selectedDayTicket = null;
 let currentScreenName = null;
 
 function canUseSupabaseSession() {
@@ -216,6 +227,7 @@ const employeeProfilesStorageKey = "employeeProfiles";
 const archivedDayIdsStorageKey = "archivedDayIds";
 const archivedReceiptIdsStorageKey = "archivedReceiptIds";
 const deletedDayIdsStorageKey = "deletedDayIds";
+const ticketDiscoveryStorageKey = "expansiveTicketDiscovery";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -677,6 +689,7 @@ function buildLocalDayEntry(payload, saveResult) {
     location: payload.location,
     comments: payload.comments,
     relatedReference: payload.relatedReference,
+    relatedDescription: payload.relatedDescription || "",
     quickbooksInvoiceNumber: payload.quickbooksInvoiceNumber || "",
     employees: payload.employees,
     attachments: payload.attachments,
@@ -777,6 +790,7 @@ function formatDaySummary(entry) {
     `Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`,
     `Total Day: ${formatCurrency(getEntryTotalCost(entry))}`,
     `Ticket #: ${entry.relatedReference || "None"}`,
+    `Ticket Description: ${entry.relatedDescription || "None"}`,
     `QuickBooks Invoice #: ${entry.quickbooksInvoiceNumber || "None"}`,
     `Comment: ${entry.comments || "None"}`,
     `Attachment Links: ${attachmentLinks || "None"}`,
@@ -798,6 +812,27 @@ function formatPurchaseSummary(entry) {
     `Receipt images: ${attachmentCount}`,
     `Receipt links: ${receiptLinks || "None"}`,
   ].join("\n");
+}
+
+function readStoredTicketDiscovery() {
+  try {
+    const rawValue = localStorage.getItem(ticketDiscoveryStorageKey);
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStoredTicketDiscovery(data) {
+  try {
+    localStorage.setItem(ticketDiscoveryStorageKey, JSON.stringify(data));
+  } catch (_error) {
+    // Ticket sync still works without local caching.
+  }
+}
+
+function getAvailableTickets() {
+  return ticketDiscoveryData?.tickets || readStoredTicketDiscovery()?.tickets || [];
 }
 
 function getArchivedDayIds() {
@@ -1408,6 +1443,7 @@ function renderCheckHoursEntries() {
               <p class="entry-pill">Total Hours: ${getEntryTotalHours(entry).toFixed(2)}</p>
               <p class="entry-pill">Total Day: $${getEntryTotalCost(entry).toFixed(2)}</p>
               ${entry.relatedReference ? `<p>Ticket #: ${entry.relatedReference}</p>` : ""}
+              ${entry.relatedDescription ? `<p>Ticket Description: ${entry.relatedDescription}</p>` : ""}
               ${entry.comments ? `<p>Comment: ${entry.comments}</p>` : ""}
               <div class="entry-employees"><strong>People</strong><span>${employees}</span></div>
               <div class="entry-attachments"><strong>Attachments</strong><span>${attachments || "None"}</span></div>
@@ -1518,6 +1554,186 @@ function ticketMatchesSearch(ticket, terms) {
   return terms.every((term) => haystack.includes(term));
 }
 
+function getTicketDescription(ticket) {
+  return (
+    ticket.title ||
+    ticket.raw?.description ||
+    ticket.raw?.summary ||
+    ticket.raw?.name ||
+    "No description"
+  );
+}
+
+function setDayTicketStatus(message, tone = "warning") {
+  if (!dayTicketPickerStatus) {
+    return;
+  }
+
+  dayTicketPickerStatus.textContent = message || "";
+  dayTicketPickerStatus.className = `helper-text ${tone}`;
+  dayTicketPickerStatus.classList.toggle("hidden", !message);
+}
+
+function getDayReferenceMode() {
+  return dayRelatedInputs.find((input) => input.checked)?.value || "no";
+}
+
+function getDayTicketSearchTerms() {
+  return String(dayTicketSearchInput?.value || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+}
+
+function renderSelectedDayTicket() {
+  if (!dayTicketSelected) {
+    return;
+  }
+
+  if (!selectedDayTicket) {
+    dayTicketSelected.classList.add("hidden");
+    dayTicketSelected.innerHTML = "";
+    return;
+  }
+
+  dayTicketSelected.classList.remove("hidden");
+  dayTicketSelected.innerHTML = `
+    <strong>Selected Ticket # ${selectedDayTicket.number || selectedDayTicket.id || "Unknown"}</strong>
+    <span>${getTicketDescription(selectedDayTicket)}</span>
+  `;
+}
+
+function renderDayTicketPicker() {
+  if (!dayTicketList) {
+    return;
+  }
+
+  const tickets = getAvailableTickets();
+
+  if (!tickets.length) {
+    dayTicketList.className = "entry-list ticket-picker-list empty-state";
+    dayTicketList.textContent = "No tickets loaded yet. Press Load Tickets.";
+    renderSelectedDayTicket();
+    return;
+  }
+
+  const terms = getDayTicketSearchTerms();
+  const visibleTickets = tickets
+    .filter((ticket) => ticketMatchesSearch(ticket, terms))
+    .slice(0, 30);
+
+  if (!visibleTickets.length) {
+    dayTicketList.className = "entry-list ticket-picker-list empty-state";
+    dayTicketList.textContent = "No tickets match that search.";
+    renderSelectedDayTicket();
+    return;
+  }
+
+  dayTicketList.className = "entry-list ticket-picker-list";
+  dayTicketList.innerHTML = visibleTickets
+    .map(
+      (ticket) => `
+        <article class="entry-card ticket-picker-card">
+          <div class="entry-meta">
+            <h3>Ticket # ${ticket.number || ticket.id || "Unknown"}</h3>
+            <p>${getTicketDescription(ticket)}</p>
+            ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
+            ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
+            ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
+          </div>
+          <div class="entry-inline-actions">
+            <button
+              class="submit-button"
+              type="button"
+              data-day-ticket-select="${ticket.id || ticket.number || ""}"
+            >
+              Select This Ticket
+            </button>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+  renderSelectedDayTicket();
+}
+
+function selectDayTicket(ticketId) {
+  const ticket = getAvailableTickets().find(
+    (item) => String(item.id) === String(ticketId) || String(item.number) === String(ticketId)
+  );
+
+  if (!ticket) {
+    setDayTicketStatus("That ticket could not be selected. Try loading tickets again.", "error");
+    return;
+  }
+
+  selectedDayTicket = ticket;
+  dayReferenceText.value = ticket.number || ticket.id || "";
+  setDayTicketStatus(`Ticket # ${dayReferenceText.value} selected.`, "success");
+  renderSelectedDayTicket();
+}
+
+function findTicketById(ticketId) {
+  return getAvailableTickets().find(
+    (item) => String(item.id) === String(ticketId) || String(item.number) === String(ticketId)
+  );
+}
+
+function openTicketActions(ticketId) {
+  const ticket = findTicketById(ticketId);
+
+  if (!ticket || !ticketActionsModal) {
+    return;
+  }
+
+  ticketActionsTitle.textContent = `Ticket # ${ticket.number || ticket.id || "Unknown"}`;
+  ticketActionsDescription.textContent = getTicketDescription(ticket);
+  ticketActionsModal.classList.remove("hidden");
+  closeTicketActionsButton.focus();
+}
+
+function closeTicketActions() {
+  ticketActionsModal.classList.add("hidden");
+}
+
+async function loadTicketsForDayPicker() {
+  if (getAvailableTickets().length) {
+    renderDayTicketPicker();
+    setDayTicketStatus("Tickets are ready. Search or select one below.", "success");
+    return;
+  }
+
+  loadDayTicketsButton.disabled = true;
+  setDayTicketStatus("Loading Expansive tickets...", "warning");
+
+  try {
+    const result = await fetch("/api/sync-tickets", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    const data = await result.json();
+
+    if (!result.ok || !data.ok || !(data.tickets || []).length) {
+      setDayTicketStatus(data.message || "No tickets could be loaded.", "error");
+      renderDayTicketPicker();
+      return;
+    }
+
+    ticketDiscoveryData = data;
+    writeStoredTicketDiscovery(data);
+    renderDayTicketPicker();
+    setDayTicketStatus(`${data.tickets.length} tickets loaded.`, "success");
+  } catch (error) {
+    console.error(error);
+    setDayTicketStatus("Could not reach the ticket sync service.", "error");
+  } finally {
+    loadDayTicketsButton.disabled = false;
+  }
+}
+
 function renderTicketCard(ticket) {
   return `
     <article class="entry-card ticket-card">
@@ -1529,9 +1745,15 @@ function renderTicketCard(ticket) {
         ${ticket.priority ? `<p class="entry-pill">Priority: ${ticket.priority}</p>` : ""}
         ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
         ${ticket.dueAt ? `<p>Due: ${formatDisplayDate(ticket.dueAt.slice(0, 10))}</p>` : ""}
-        <a class="ticket-open-link" href="${ticket.url}" target="_blank" rel="noreferrer">
-          Open in Expansive FM
-        </a>
+      </div>
+      <div class="entry-inline-actions">
+        <button
+          class="ticket-actions-button"
+          type="button"
+          data-ticket-actions="${ticket.id || ticket.number || ""}"
+        >
+          Actions
+        </button>
       </div>
     </article>
   `;
@@ -1676,6 +1898,7 @@ async function syncTickets() {
     }
 
     renderTicketsDiscovery(data);
+    writeStoredTicketDiscovery(data);
     setTicketsStatus(data.message || "Expansive FM tickets checked.", "success");
   } catch (error) {
     console.error(error);
@@ -1696,6 +1919,7 @@ function buildArchivedSearchText(item) {
       item.date,
       item.location,
       item.relatedReference,
+      item.relatedDescription,
       item.quickbooksInvoiceNumber,
       item.comments,
       employees,
@@ -1773,6 +1997,7 @@ function renderArchivedItems() {
                 <p class="entry-pill">Invoiced Day</p>
                 <p>${item.location || ""}</p>
                 ${item.relatedReference ? `<p>Ticket #: ${item.relatedReference}</p>` : ""}
+                ${item.relatedDescription ? `<p>Ticket Description: ${item.relatedDescription}</p>` : ""}
                 ${
                   item.quickbooksInvoiceNumber
                     ? `<p>QuickBooks Invoice #: ${item.quickbooksInvoiceNumber}</p>`
@@ -1831,13 +2056,23 @@ async function loadArchivedItems() {
   let nextItems = [...localArchivedDays, ...localArchivedReceipts];
 
   if (canUseSupabaseSession()) {
-    const dayResult = await supabaseClient
-      .from("day_entries")
-      .select(
-        "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)"
-      )
-      .not("archived_at", "is", null)
-      .order("work_date", { ascending: false });
+    const archivedDayQueryVariants = [
+      "id, work_date, location, comments, related_reference, related_description, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
+      "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
+    ];
+    let dayResult = { data: null, error: null };
+
+    for (const selectClause of archivedDayQueryVariants) {
+      dayResult = await supabaseClient
+        .from("day_entries")
+        .select(selectClause)
+        .not("archived_at", "is", null)
+        .order("work_date", { ascending: false });
+
+      if (!dayResult.error) {
+        break;
+      }
+    }
 
     if (!dayResult.error && Array.isArray(dayResult.data)) {
       const remoteDays = dayResult.data.map((entry) => ({
@@ -1847,6 +2082,7 @@ async function loadArchivedItems() {
         location: entry.location,
         comments: entry.comments || "",
         relatedReference: entry.related_reference || "",
+        relatedDescription: entry.related_description || "",
         quickbooksInvoiceNumber: entry.quickbooks_invoice_number || "",
         attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
         employees: dedupeEntryEmployees(
@@ -1975,6 +2211,7 @@ async function loadCheckHoursEntries() {
 
   if (canUseSupabaseSession()) {
     const queryVariants = [
+      "id, work_date, location, comments, related_reference, related_description, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
       "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_id, employee_name, first_name, last_name, hours, hourly_rate, total_pay)",
       "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, archived_at, created_at, day_entry_employees(employee_name, hours)",
       "id, work_date, location, comments, related_reference, quickbooks_invoice_number, attachments, created_at, day_entry_employees(employee_name, hours)",
@@ -2020,6 +2257,7 @@ async function loadCheckHoursEntries() {
             location: entry.location || localEntry?.location || "",
             comments: entry.comments || localEntry?.comments || "",
             relatedReference: entry.related_reference || localEntry?.relatedReference || "",
+            relatedDescription: entry.related_description || localEntry?.relatedDescription || "",
             quickbooksInvoiceNumber:
               entry.quickbooks_invoice_number || localEntry?.quickbooksInvoiceNumber || "",
             attachments:
@@ -2307,6 +2545,7 @@ function buildSelectedDaysReport(entries) {
         ),
         escapeHtml(`Location: ${formatLocationDisplay(entry.location) || "None"}`),
         escapeHtml(`Ticket #: ${entry.relatedReference || "None"}`),
+        entry.relatedDescription ? escapeHtml(`Ticket Description: ${entry.relatedDescription}`) : "",
         escapeHtml(`Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`),
         escapeHtml(`Total Day: $${getEntryTotalCost(entry).toFixed(2)}`),
         entry.comments ? escapeHtml(`Comment: ${entry.comments}`) : "",
@@ -2784,12 +3023,32 @@ function renderAttachmentList() {
 }
 
 function updateDayReferenceField() {
-  const isRelated = dayRelatedInputs.find((input) => input.checked)?.value === "yes";
+  const referenceMode = getDayReferenceMode();
+  const isManual = referenceMode === "manual";
+  const isExpansive = referenceMode === "expansive";
+  const isRelated = isManual || isExpansive;
+
   dayReferenceField.classList.toggle("hidden", !isRelated);
+  dayTicketPicker.classList.toggle("hidden", !isExpansive);
+  dayReferenceText.readOnly = isExpansive;
   dayReferenceText.required = isRelated;
 
   if (!isRelated) {
     dayReferenceText.value = "";
+    selectedDayTicket = null;
+    renderSelectedDayTicket();
+    setDayTicketStatus("");
+  }
+
+  if (isManual) {
+    selectedDayTicket = null;
+    dayReferenceText.readOnly = false;
+    renderSelectedDayTicket();
+    setDayTicketStatus("");
+  }
+
+  if (isExpansive) {
+    renderDayTicketPicker();
   }
 }
 
@@ -2879,10 +3138,16 @@ function validateCurrentRecordDayStep() {
   }
 
   if (recordDayStepIndex === 1) {
-    const isRelated = dayRelatedInputs.find((input) => input.checked)?.value === "yes";
+    const referenceMode = getDayReferenceMode();
+    const isRelated = referenceMode !== "no";
 
     if (isRelated && !dayReferenceText.value.trim()) {
-      setSaveStatus("Please enter the invoice or ticket reference before continuing.", "error");
+      setSaveStatus("Please select or enter the ticket number before continuing.", "error");
+      return false;
+    }
+
+    if (referenceMode === "expansive" && !selectedDayTicket) {
+      setSaveStatus("Please choose an Expansive ticket before continuing.", "error");
       return false;
     }
   }
@@ -3069,6 +3334,7 @@ function resetRecordDayForm() {
   editingDayOriginalDate = "";
   editingDayCreatedAt = null;
   editingDayExistingAttachments = [];
+  selectedDayTicket = null;
   dayCommentDraft = "";
   updateVoiceStatus("");
   renderEmployees();
@@ -3105,10 +3371,18 @@ function loadDayEntryForEditing(entryId) {
   workDateInput.value = entry.date || "";
   const isRelated = Boolean(entry.relatedReference);
   dayRelatedInputs.forEach((input) => {
-    input.checked = input.value === (isRelated ? "yes" : "no");
+    input.checked = input.value === (isRelated ? (entry.relatedDescription ? "expansive" : "manual") : "no");
   });
   updateDayReferenceField();
   dayReferenceText.value = entry.relatedReference || "";
+  selectedDayTicket = entry.relatedDescription
+    ? {
+        id: entry.relatedReference || "saved-ticket",
+        number: entry.relatedReference || "",
+        title: entry.relatedDescription,
+      }
+    : null;
+  renderSelectedDayTicket();
   commentsText.value = entry.comments || "";
   dayCommentDraft = commentsText.value;
 
@@ -3610,12 +3884,14 @@ async function saveEntryToSupabase(payload) {
         location: payload.location,
         comments: payload.comments,
         related_reference: payload.relatedReference,
+        related_description: payload.relatedDescription,
         attachments: payload.attachments,
       },
       {
         work_date: payload.date,
         location: payload.location,
         comments: payload.comments,
+        related_reference: payload.relatedReference,
       },
       {
         work_date: payload.date,
@@ -3749,12 +4025,14 @@ async function saveEntryToSupabase(payload) {
       location: payload.location,
       comments: payload.comments,
       related_reference: payload.relatedReference,
+      related_description: payload.relatedDescription,
       attachments: payload.attachments,
     },
     {
       work_date: payload.date,
       location: payload.location,
       comments: payload.comments,
+      related_reference: payload.relatedReference,
     },
     {
       work_date: payload.date,
@@ -4196,8 +4474,10 @@ async function saveDayEntry(event) {
     })),
     comments: dayCommentDraft.trim(),
     relatedReference:
-      dayRelatedInputs.find((input) => input.checked)?.value === "yes"
-        ? dayReferenceText.value.trim()
+      getDayReferenceMode() !== "no" ? dayReferenceText.value.trim() : "",
+    relatedDescription:
+      getDayReferenceMode() === "expansive" && selectedDayTicket
+        ? getTicketDescription(selectedDayTicket)
         : "",
     createdAt: editingDayCreatedAt,
     archivedAt: null,
@@ -4411,6 +4691,37 @@ archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
 syncTicketsButton.addEventListener("click", syncTickets);
 ticketsByTimeButton.addEventListener("click", () => setTicketViewMode("time"));
 ticketsByLocationButton.addEventListener("click", () => setTicketViewMode("location"));
+loadDayTicketsButton.addEventListener("click", loadTicketsForDayPicker);
+dayTicketSearchInput.addEventListener("input", renderDayTicketPicker);
+dayTicketList.addEventListener("click", (event) => {
+  const selectButton = event.target.closest("[data-day-ticket-select]");
+
+  if (!selectButton) {
+    return;
+  }
+
+  selectDayTicket(selectButton.dataset.dayTicketSelect);
+});
+ticketsList.addEventListener("click", (event) => {
+  const actionsButton = event.target.closest("[data-ticket-actions]");
+
+  if (!actionsButton) {
+    return;
+  }
+
+  openTicketActions(actionsButton.dataset.ticketActions);
+});
+closeTicketActionsButton.addEventListener("click", closeTicketActions);
+ticketActionsModal.addEventListener("click", (event) => {
+  if (event.target === ticketActionsModal) {
+    closeTicketActions();
+  }
+});
+ticketActionsModal.querySelectorAll("[data-ticket-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    ticketActionsDescription.textContent = `${button.textContent.trim()} is ready for the next phase. No changes were sent yet.`;
+  });
+});
 ticketSearchInput.addEventListener("input", () => {
   if (ticketDiscoveryData) {
     renderTicketsDiscovery(ticketDiscoveryData);
@@ -4486,6 +4797,7 @@ updateCommentsPreview();
 updateMagicLinkButton();
 updateDayReferenceField();
 updatePurchaseReferenceField();
+ticketDiscoveryData = readStoredTicketDiscovery();
 setTicketViewMode("time");
 setupSpeechRecognition();
 updateRecordDayStep();
