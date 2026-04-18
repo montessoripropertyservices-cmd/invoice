@@ -113,6 +113,9 @@ const checkReceiptsStatus = document.getElementById("check-receipts-status");
 const checkReceiptsDashboard = document.getElementById("check-receipts-dashboard");
 const checkReceiptsList = document.getElementById("check-receipts-list");
 const archivedSearchInput = document.getElementById("archived-search-input");
+const archivedItemsEyebrow = document.getElementById("archived-items-eyebrow");
+const archivedItemsTitle = document.getElementById("archived-items-title");
+const archivedSearchLabel = document.getElementById("archived-search-label");
 const retrieveArchivedButton = document.getElementById("retrieve-archived-button");
 const archivedItemsStatus = document.getElementById("archived-items-status");
 const archivedItemsList = document.getElementById("archived-items-list");
@@ -190,6 +193,7 @@ let editingDayExistingAttachments = [];
 let editingPurchaseEntryId = null;
 let editingPurchaseCreatedAt = null;
 let editingPurchaseExistingReceipts = [];
+let archivedItemsFilter = "day";
 let currentScreenName = null;
 
 function canUseSupabaseSession() {
@@ -254,6 +258,25 @@ function setArchivedItemsStatus(message, tone) {
 
 function setSettingsStatus(message, tone) {
   setStatusMessage(settingsStatus, message, tone);
+}
+
+function setArchivedItemsFilter(filterValue = "day") {
+  archivedItemsFilter = filterValue === "receipt" ? "receipt" : "day";
+
+  if (archivedItemsFilter === "receipt") {
+    archivedItemsEyebrow.textContent = "Invoiced Receipts";
+    archivedItemsTitle.textContent = "Search and Retrieve Receipts";
+    archivedSearchLabel.textContent = "Search invoiced receipts";
+    archivedSearchInput.placeholder =
+      "Search by date, location, QuickBooks invoice, ticket, receipt file name";
+    return;
+  }
+
+  archivedItemsEyebrow.textContent = "Invoiced Days";
+  archivedItemsTitle.textContent = "Search and Retrieve Days";
+  archivedSearchLabel.textContent = "Search invoiced days";
+  archivedSearchInput.placeholder =
+    "Search by date, location, QuickBooks invoice, comment, ticket, employee, file name";
 }
 
 function showScreen(screenName) {
@@ -1474,6 +1497,10 @@ function renderArchivedItems() {
     .filter(Boolean);
 
   const visibleItems = archivedItemsCache.filter((item) => {
+    if (item.kind !== archivedItemsFilter) {
+      return false;
+    }
+
     if (!terms.length) {
       return true;
     }
@@ -1484,7 +1511,10 @@ function renderArchivedItems() {
 
   if (!visibleItems.length) {
     archivedItemsList.className = "entry-list empty-state";
-    archivedItemsList.textContent = "No invoiced days or archived receipts match that search.";
+    archivedItemsList.textContent =
+      archivedItemsFilter === "receipt"
+        ? "No invoiced receipts match that search."
+        : "No invoiced days match that search.";
     return;
   }
 
@@ -4087,6 +4117,10 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 
     if (screenName === "record-day") {
       maybeStartFreshRecordDay();
+    }
+
+    if (screenName === "archived-items") {
+      setArchivedItemsFilter(button.dataset.archivedFilter || "day");
     }
 
     showScreen(screenName);

@@ -108,6 +108,14 @@
           <button class="action-button" type="button" data-screen="archived-items">
             Invoiced Days
           </button>
+          <button
+            class="action-button"
+            type="button"
+            data-screen="archived-items"
+            data-archived-filter="receipt"
+          >
+            Invoiced Receipts
+          </button>
           <button class="action-button" type="button" data-screen="settings">
             Settings
           </button>
@@ -509,8 +517,8 @@ No analysis yet.
       <section class="form-card hidden" id="archived-items-screen">
         <div class="section-head">
           <div>
-            <p class="eyebrow">Invoiced Days</p>
-            <h2>Search and Retrieve</h2>
+            <p id="archived-items-eyebrow" class="eyebrow">Invoiced Days</p>
+            <h2 id="archived-items-title">Search and Retrieve</h2>
           </div>
           <div class="section-actions">
             <button class="back-button" type="button" data-screen="home">Back</button>
@@ -518,7 +526,7 @@ No analysis yet.
         </div>
 
         <label class="field-group field-group-large">
-          <span>Search invoiced days and archived receipts</span>
+          <span id="archived-search-label">Search invoiced days</span>
           <input
             id="archived-search-input"
             type="text"
