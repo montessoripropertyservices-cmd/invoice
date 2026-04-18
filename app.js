@@ -121,8 +121,12 @@ const checkReceiptsDashboard = document.getElementById("check-receipts-dashboard
 const checkReceiptsList = document.getElementById("check-receipts-list");
 const syncTicketsButton = document.getElementById("sync-tickets-button");
 const ticketSearchInput = document.getElementById("ticket-search-input");
+const ticketsFilterButton = document.getElementById("tickets-filter-button");
+const ticketsFilterPanel = document.getElementById("tickets-filter-panel");
 const ticketsByTimeButton = document.getElementById("tickets-by-time-button");
 const ticketsByLocationButton = document.getElementById("tickets-by-location-button");
+const ticketSiteFilterField = document.getElementById("ticket-site-filter-field");
+const ticketSiteFilter = document.getElementById("ticket-site-filter");
 const ticketsStatus = document.getElementById("tickets-status");
 const ticketsList = document.getElementById("tickets-list");
 const ticketActionsModal = document.getElementById("ticket-actions-modal");
@@ -213,6 +217,7 @@ let editingPurchaseExistingReceipts = [];
 let archivedItemsFilter = "day";
 let ticketViewMode = "time";
 let ticketDiscoveryData = null;
+let ticketFilterOpen = false;
 let selectedDayTicket = null;
 let currentScreenName = null;
 
@@ -1520,10 +1525,83 @@ function setTicketViewMode(nextMode) {
   ticketViewMode = nextMode === "location" ? "location" : "time";
   ticketsByTimeButton.classList.toggle("primary", ticketViewMode === "time");
   ticketsByLocationButton.classList.toggle("primary", ticketViewMode === "location");
+  ticketSiteFilterField.classList.toggle("hidden", ticketViewMode !== "location");
 
   if (ticketDiscoveryData) {
     renderTicketsDiscovery(ticketDiscoveryData);
   }
+}
+
+function toggleTicketFilterPanel() {
+  ticketFilterOpen = !ticketFilterOpen;
+  ticketsFilterPanel.classList.toggle("hidden", !ticketFilterOpen);
+  ticketsFilterButton.classList.toggle("primary", ticketFilterOpen);
+  ticketsFilterButton.textContent = ticketFilterOpen ? "Hide Filter" : "Filter";
+
+  if (ticketFilterOpen && ticketViewMode === "location") {
+    ticketSiteFilter.focus();
+  }
+}
+
+function getSelectedTicketSites() {
+  return [...ticketSiteFilter.selectedOptions].map((option) => option.value);
+}
+
+function getTicketSiteLabel(ticket) {
+  return String(ticket.location || ticket.status || "No site").trim() || "No site";
+}
+
+function getTicketSiteCandidates(ticket) {
+  return [ticket.location, ticket.status]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function getTicketGroupLabel(ticket) {
+  const selectedSites = getSelectedTicketSites();
+  const candidates = getTicketSiteCandidates(ticket);
+  const selectedMatch = selectedSites.find((site) => candidates.includes(site));
+  return selectedMatch || getTicketSiteLabel(ticket);
+}
+
+function escapeTicketFilterValue(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function updateTicketSiteFilterOptions(tickets) {
+  const selectedSites = new Set(getSelectedTicketSites());
+  const siteNames = [...new Set(tickets.flatMap(getTicketSiteCandidates))].sort((left, right) =>
+    left.localeCompare(right)
+  );
+
+  ticketSiteFilter.innerHTML = siteNames
+    .map((siteName) => {
+      const safeSiteName = escapeTicketFilterValue(siteName);
+      return `<option value="${safeSiteName}" ${selectedSites.has(siteName) ? "selected" : ""}>${safeSiteName}</option>`;
+    })
+    .join("");
+
+  if (!siteNames.length) {
+    ticketSiteFilter.innerHTML = '<option value="">No sites found</option>';
+  }
+}
+
+function filterTicketsBySelectedSites(tickets) {
+  const selectedSites = getSelectedTicketSites();
+
+  if (ticketViewMode !== "location" || !selectedSites.length) {
+    return tickets;
+  }
+
+  return tickets.filter((ticket) => {
+    const candidates = getTicketSiteCandidates(ticket);
+    return selectedSites.some((site) => candidates.includes(site));
+  });
 }
 
 function getTicketSearchTerms() {
@@ -1768,7 +1846,7 @@ function renderTicketGroups(tickets) {
     const groups = new Map();
 
     tickets.forEach((ticket) => {
-      const groupName = ticket.location || "No location";
+      const groupName = getTicketGroupLabel(ticket);
       groups.set(groupName, [...(groups.get(groupName) || []), ticket]);
     });
 
@@ -1796,17 +1874,25 @@ function renderTicketGroups(tickets) {
 function renderTicketsDiscovery(data) {
   ticketDiscoveryData = data;
   const searchTerms = getTicketSearchTerms();
-  const tickets = (data.tickets || []).filter((ticket) => ticketMatchesSearch(ticket, searchTerms));
+  const allTickets = data.tickets || [];
+  updateTicketSiteFilterOptions(allTickets);
+  const searchedTickets = allTickets.filter((ticket) => ticketMatchesSearch(ticket, searchTerms));
+  const tickets = filterTicketsBySelectedSites(searchedTickets);
 
-  if ((data.tickets || []).length) {
+  if (allTickets.length) {
     const viewLabel = ticketViewMode === "location" ? "Tickets by Location" : "Tickets by Time";
+    const siteCount = getSelectedTicketSites().length;
+    const filterLabel =
+      ticketViewMode === "location" && siteCount
+        ? `${tickets.length} of ${searchedTickets.length} searched tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
+        : `${tickets.length} of ${allTickets.length} tickets shown.`;
     ticketsList.dataset.loaded = "true";
     ticketsList.className = "entry-list";
     ticketsList.innerHTML = `
       <article class="entry-card">
         <div class="entry-meta">
           <h3>${viewLabel}</h3>
-          <p>${tickets.length} of ${data.tickets.length} tickets shown.</p>
+          <p>${filterLabel}</p>
         </div>
       </article>
       ${renderTicketGroups(tickets)}
@@ -4689,8 +4775,14 @@ selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
 archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
 syncTicketsButton.addEventListener("click", syncTickets);
+ticketsFilterButton.addEventListener("click", toggleTicketFilterPanel);
 ticketsByTimeButton.addEventListener("click", () => setTicketViewMode("time"));
 ticketsByLocationButton.addEventListener("click", () => setTicketViewMode("location"));
+ticketSiteFilter.addEventListener("change", () => {
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
+  }
+});
 loadDayTicketsButton.addEventListener("click", loadTicketsForDayPicker);
 dayTicketSearchInput.addEventListener("input", renderDayTicketPicker);
 dayTicketList.addEventListener("click", (event) => {

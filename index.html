@@ -561,13 +561,24 @@ No analysis yet.
           />
         </label>
 
-        <div class="ticket-organize-grid">
-          <button id="tickets-by-time-button" class="action-button" type="button">
-            By Time
-          </button>
-          <button id="tickets-by-location-button" class="action-button" type="button">
-            By Location
-          </button>
+        <button id="tickets-filter-button" class="action-button ticket-filter-button" type="button">
+          Filter
+        </button>
+
+        <div id="tickets-filter-panel" class="ticket-filter-panel hidden">
+          <div class="ticket-organize-grid">
+            <button id="tickets-by-time-button" class="action-button primary" type="button">
+              By Time
+            </button>
+            <button id="tickets-by-location-button" class="action-button" type="button">
+              By Location
+            </button>
+          </div>
+
+          <label id="ticket-site-filter-field" class="field-group field-group-large hidden">
+            <span>Choose site locations</span>
+            <select id="ticket-site-filter" multiple size="6"></select>
+          </label>
         </div>
 
         <div class="hours-toolbar ticket-toolbar">
