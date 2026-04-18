@@ -1768,7 +1768,7 @@ function openTicketActions(ticketId) {
   ticketActionsTitle.textContent = `Ticket # ${ticket.number || ticket.id || "Unknown"}`;
   ticketActionsDescription.textContent = getTicketDescription(ticket);
   ticketActionsModal.classList.remove("hidden");
-  closeTicketActionsButton.focus();
+  requestAnimationFrame(() => closeTicketActionsButton.focus({ preventScroll: true }));
 }
 
 function closeTicketActions() {
