@@ -1271,6 +1271,23 @@ input[type="file"]::file-selector-button {
   word-break: break-word;
 }
 
+.ticket-site-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: #edf8f0;
+  color: #1d5c3d;
+  border: 2px solid rgba(77, 155, 102, 0.24);
+  font-size: clamp(1.2rem, 4vw, 1.75rem);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .ticket-card .ticket-description,
 .ticket-picker-card .ticket-description {
   font-size: clamp(1.8rem, 6vw, 3rem);

@@ -1752,13 +1752,14 @@ function renderDayTicketPicker() {
       (ticket) => {
         const ticketKey = getTicketKey(ticket);
         const isSelected = selectedDayTickets.some((item) => getTicketKey(item) === ticketKey);
+        const locationLabel = getTicketDisplayLocation(ticket);
 
         return `
         <article class="entry-card ticket-picker-card">
           <div class="entry-meta">
+            ${locationLabel ? `<p class="ticket-site-pill">Site: ${locationLabel}</p>` : ""}
             <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
             <p class="ticket-description">${getTicketDescription(ticket)}</p>
-            ${getTicketDisplayLocation(ticket) ? `<p class="entry-pill">Site: ${getTicketDisplayLocation(ticket)}</p>` : ""}
             ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
             ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
           </div>
@@ -1856,9 +1857,9 @@ function renderTicketCard(ticket) {
   return `
     <article class="entry-card ticket-card">
       <div class="entry-meta">
+        ${locationLabel ? `<p class="ticket-site-pill">Site: ${locationLabel}</p>` : ""}
         <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
         <p class="ticket-description">${ticket.title || "No title"}</p>
-        ${locationLabel ? `<p class="entry-pill">Site: ${locationLabel}</p>` : ""}
         ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
         ${ticket.priority ? `<p class="entry-pill">Priority: ${ticket.priority}</p>` : ""}
         ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
