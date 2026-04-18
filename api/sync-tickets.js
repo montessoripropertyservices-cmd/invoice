@@ -39,6 +39,22 @@ function getCookieHeader(cookieJar) {
   return [...cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join("; ");
 }
 
+function getCookieValue(cookieJar, name) {
+  const value = cookieJar.get(name);
+  return value ? decodeURIComponent(value) : "";
+}
+
+function getBrowserLikeHeaders(baseUrl, cookieJar) {
+  const xsrfToken = getCookieValue(cookieJar, "XSRF-TOKEN");
+
+  return {
+    Cookie: getCookieHeader(cookieJar),
+    Origin: baseUrl,
+    Referer: `${baseUrl}/login`,
+    ...(xsrfToken ? { "X-XSRF-TOKEN": xsrfToken } : {}),
+  };
+}
+
 function extractUsefulLinks(html, baseUrl) {
   const links = [];
   const seen = new Set();
@@ -209,11 +225,18 @@ export default async function handler(request, response) {
 
     appendCookies(cookieJar, siteResponse.headers);
 
+    const csrfResponse = await fetchJson(`${baseUrl}/api/csrf-cookie`, {
+      headers: getBrowserLikeHeaders(baseUrl, cookieJar),
+      redirect: "manual",
+    });
+
+    appendCookies(cookieJar, csrfResponse.result.headers);
+
     const loginResponse = await fetchJson(`${baseUrl}/api/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: getCookieHeader(cookieJar),
+        ...getBrowserLikeHeaders(baseUrl, cookieJar),
       },
       body: JSON.stringify({ username, password }),
       redirect: "manual",
@@ -225,7 +248,11 @@ export default async function handler(request, response) {
       return response.status(401).json({
         ok: false,
         mode: "auth",
-        message: "Expansive FM login failed. Check EXPANSIVEFM_USERNAME and EXPANSIVEFM_PASSWORD in Vercel.",
+        message:
+          csrfResponse.result.ok
+            ? "Expansive FM login failed. Check EXPANSIVEFM_USERNAME and EXPANSIVEFM_PASSWORD in Vercel."
+            : "Expansive FM login failed before authentication because the CSRF cookie could not be created.",
+        csrfStatus: csrfResponse.result.status,
         status: loginResponse.result.status,
         detail: loginResponse.data?.message || loginResponse.text,
         scripts,
@@ -235,9 +262,7 @@ export default async function handler(request, response) {
 
     const ticketUrl = `${baseUrl}/api/work_order?sort=-created_at`;
     const ticketResponse = await fetchJson(ticketUrl, {
-      headers: {
-        Cookie: getCookieHeader(cookieJar),
-      },
+      headers: getBrowserLikeHeaders(baseUrl, cookieJar),
     });
 
     appendCookies(cookieJar, ticketResponse.result.headers);
