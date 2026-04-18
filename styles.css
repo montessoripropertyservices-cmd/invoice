@@ -1219,6 +1219,14 @@ input[type="file"]::file-selector-button {
   font-size: clamp(1.8rem, 5vw, 2.6rem);
 }
 
+.ticket-card .ticket-description,
+.ticket-picker-card .ticket-description {
+  font-size: clamp(1.8rem, 6vw, 3rem);
+  line-height: 1.25;
+  font-weight: 800;
+  color: #10291c;
+}
+
 .ticket-open-link {
   display: inline-flex;
   justify-content: center;

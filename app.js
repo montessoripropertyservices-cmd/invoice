@@ -1637,7 +1637,7 @@ function renderDayTicketPicker() {
         <article class="entry-card ticket-picker-card">
           <div class="entry-meta">
             <h3>Ticket # ${ticket.number || ticket.id || "Unknown"}</h3>
-            <p>${getTicketDescription(ticket)}</p>
+            <p class="ticket-description">${getTicketDescription(ticket)}</p>
             ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
             ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
             ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
@@ -1739,7 +1739,7 @@ function renderTicketCard(ticket) {
     <article class="entry-card ticket-card">
       <div class="entry-meta">
         <h3>${ticket.number || ticket.id || "Ticket"}</h3>
-        <p>${ticket.title || "No title"}</p>
+        <p class="ticket-description">${ticket.title || "No title"}</p>
         ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
         ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
         ${ticket.priority ? `<p class="entry-pill">Priority: ${ticket.priority}</p>` : ""}
