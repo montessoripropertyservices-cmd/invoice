@@ -186,7 +186,7 @@ const staticUsers = {
   martin: {
     username: "martin",
     password: "M2026",
-    email: "montessoripropertysirvices@gmail.com",
+    email: "montessoripropertyservices@gmail.com",
     displayName: "Martin",
   },
 };
