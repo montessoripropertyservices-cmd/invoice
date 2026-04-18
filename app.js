@@ -1714,7 +1714,7 @@ function renderDayTicketPicker() {
       (ticket) => `
         <article class="entry-card ticket-picker-card">
           <div class="entry-meta">
-            <h3>Ticket # ${ticket.number || ticket.id || "Unknown"}</h3>
+            <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
             <p class="ticket-description">${getTicketDescription(ticket)}</p>
             ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
             ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
@@ -1816,7 +1816,7 @@ function renderTicketCard(ticket) {
   return `
     <article class="entry-card ticket-card">
       <div class="entry-meta">
-        <h3>${ticket.number || ticket.id || "Ticket"}</h3>
+        <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
         <p class="ticket-description">${ticket.title || "No title"}</p>
         ${ticket.location ? `<p class="entry-pill">Location: ${ticket.location}</p>` : ""}
         ${ticket.status ? `<p class="entry-pill">Status: ${ticket.status}</p>` : ""}
