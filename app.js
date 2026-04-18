@@ -32,6 +32,7 @@ const screens = {
   "check-hours": document.getElementById("check-hours-screen"),
   "selected-days": document.getElementById("selected-days-screen"),
   "check-receipts": document.getElementById("check-receipts-screen"),
+  tickets: document.getElementById("tickets-screen"),
   "archived-items": document.getElementById("archived-items-screen"),
   settings: document.getElementById("settings-screen"),
 };
@@ -112,6 +113,12 @@ const archiveReceiptsButton = document.getElementById("archive-receipts-button")
 const checkReceiptsStatus = document.getElementById("check-receipts-status");
 const checkReceiptsDashboard = document.getElementById("check-receipts-dashboard");
 const checkReceiptsList = document.getElementById("check-receipts-list");
+const syncTicketsButton = document.getElementById("sync-tickets-button");
+const ticketSearchInput = document.getElementById("ticket-search-input");
+const ticketsByTimeButton = document.getElementById("tickets-by-time-button");
+const ticketsByLocationButton = document.getElementById("tickets-by-location-button");
+const ticketsStatus = document.getElementById("tickets-status");
+const ticketsList = document.getElementById("tickets-list");
 const archivedSearchInput = document.getElementById("archived-search-input");
 const archivedItemsEyebrow = document.getElementById("archived-items-eyebrow");
 const archivedItemsTitle = document.getElementById("archived-items-title");
@@ -194,6 +201,8 @@ let editingPurchaseEntryId = null;
 let editingPurchaseCreatedAt = null;
 let editingPurchaseExistingReceipts = [];
 let archivedItemsFilter = "day";
+let ticketViewMode = "time";
+let ticketDiscoveryData = null;
 let currentScreenName = null;
 
 function canUseSupabaseSession() {
@@ -256,6 +265,10 @@ function setArchivedItemsStatus(message, tone) {
   setStatusMessage(archivedItemsStatus, message, tone);
 }
 
+function setTicketsStatus(message, tone) {
+  setStatusMessage(ticketsStatus, message, tone);
+}
+
 function setSettingsStatus(message, tone) {
   setStatusMessage(settingsStatus, message, tone);
 }
@@ -302,6 +315,10 @@ function showScreen(screenName) {
 
   if (screenName === "check-receipts") {
     loadCheckReceiptsEntries();
+  }
+
+  if (screenName === "tickets") {
+    renderTicketsPlaceholder();
   }
 
   if (screenName === "archived-items") {
@@ -1452,6 +1469,125 @@ function renderCheckReceiptsEntries() {
       `;
     })
     .join("");
+}
+
+function renderTicketsPlaceholder() {
+  if (!ticketsList || ticketsList.dataset.loaded === "true") {
+    return;
+  }
+
+  ticketsList.className = "entry-list empty-state";
+  ticketsList.textContent = "Use the big buttons or search box to organize tickets after syncing.";
+}
+
+function setTicketViewMode(nextMode) {
+  ticketViewMode = nextMode === "location" ? "location" : "time";
+  ticketsByTimeButton.classList.toggle("primary", ticketViewMode === "time");
+  ticketsByLocationButton.classList.toggle("primary", ticketViewMode === "location");
+
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
+  }
+}
+
+function renderTicketsDiscovery(data) {
+  ticketDiscoveryData = data;
+  const searchTerms = ticketSearchInput.value
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+  const scriptItems = (data.scripts || [])
+    .filter((url) => {
+      if (!searchTerms.length) {
+        return true;
+      }
+
+      return searchTerms.every((term) => url.toLowerCase().includes(term));
+    })
+    .map((url) => `<li><a href="${url}" target="_blank" rel="noreferrer">${url}</a></li>`)
+    .join("");
+  const linkItems = (data.usefulLinks || [])
+    .filter((item) => {
+      if (!searchTerms.length) {
+        return true;
+      }
+
+      const haystack = `${item.label || ""} ${item.url || ""}`.toLowerCase();
+      return searchTerms.every((term) => haystack.includes(term));
+    })
+    .map(
+      (item) =>
+        `<li><a href="${item.url}" target="_blank" rel="noreferrer">${item.label || item.url}</a></li>`
+    )
+    .join("");
+  const viewLabel = ticketViewMode === "location" ? "Organized by Location" : "Organized by Time";
+  const viewDescription =
+    ticketViewMode === "location"
+      ? "Once ticket data is available, this view will group tickets under large location headings."
+      : "Once ticket data is available, this view will sort newest and urgent tickets first.";
+
+  ticketsList.dataset.loaded = "true";
+  ticketsList.className = "entry-list";
+  ticketsList.innerHTML = `
+    <article class="entry-card">
+      <div class="entry-meta">
+        <h3>${viewLabel}</h3>
+        <p>${viewDescription}</p>
+      </div>
+    </article>
+    <article class="entry-card">
+      <div class="entry-meta">
+        <h3>Expansive FM Connected</h3>
+        <p>${data.message || "Connection checked."}</p>
+        <p class="entry-pill">Status: ${data.status || "Unknown"}</p>
+        <p class="entry-pill">Checked: ${formatDisplayDate(data.checkedAt?.slice(0, 10) || "")}</p>
+      </div>
+    </article>
+    <article class="entry-card">
+      <div class="entry-meta">
+        <h3>Next Discovery Targets</h3>
+        <p>These app files are where the ticket login/API calls are likely defined.</p>
+        <ul class="ticket-link-list">${scriptItems || "<li>No app scripts found.</li>"}</ul>
+      </div>
+    </article>
+    <article class="entry-card">
+      <div class="entry-meta">
+        <h3>Ticket-Like Links Found</h3>
+        <ul class="ticket-link-list">${linkItems || "<li>No ticket links found on the first page.</li>"}</ul>
+      </div>
+    </article>
+  `;
+}
+
+async function syncTickets() {
+  syncTicketsButton.disabled = true;
+  setTicketsStatus("Checking Expansive FM connection...", "warning");
+
+  try {
+    const result = await fetch("/api/sync-tickets", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    const data = await result.json();
+
+    if (!result.ok || !data.ok) {
+      setTicketsStatus(data.message || "Ticket sync failed.", "error");
+      ticketsList.className = "entry-list empty-state";
+      ticketsList.textContent = data.detail || "No ticket data loaded.";
+      return;
+    }
+
+    renderTicketsDiscovery(data);
+    setTicketsStatus("Expansive FM connection checked. Discovery details loaded.", "success");
+  } catch (error) {
+    console.error(error);
+    setTicketsStatus("Could not reach the ticket sync service.", "error");
+  } finally {
+    syncTicketsButton.disabled = false;
+  }
 }
 
 function buildArchivedSearchText(item) {
@@ -4177,6 +4313,14 @@ archiveDaysButton.addEventListener("click", archiveSelectedDays);
 selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
 emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
 archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
+syncTicketsButton.addEventListener("click", syncTickets);
+ticketsByTimeButton.addEventListener("click", () => setTicketViewMode("time"));
+ticketsByLocationButton.addEventListener("click", () => setTicketViewMode("location"));
+ticketSearchInput.addEventListener("input", () => {
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
+  }
+});
 retrieveArchivedButton.addEventListener("click", retrieveSelectedArchivedItems);
 checkReceiptsList.addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-edit-receipt-id]");
@@ -4247,6 +4391,7 @@ updateCommentsPreview();
 updateMagicLinkButton();
 updateDayReferenceField();
 updatePurchaseReferenceField();
+setTicketViewMode("time");
 setupSpeechRecognition();
 updateRecordDayStep();
 updateRecordPurchaseStep();
