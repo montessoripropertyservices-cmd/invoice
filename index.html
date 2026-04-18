@@ -81,6 +81,41 @@
             <button id="static-login-button" class="back-button" type="button">
               Sign In
             </button>
+            <button id="reset-password-button" class="back-button" type="button">
+              Reset Password
+            </button>
+          </div>
+        </form>
+
+        <form id="password-reset-form" class="auth-form hidden">
+          <label class="field-group field-group-large">
+            <span>New password</span>
+            <input
+              id="new-password"
+              name="newPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Enter new password"
+              required
+            />
+          </label>
+
+          <label class="field-group field-group-large">
+            <span>Confirm password</span>
+            <input
+              id="confirm-new-password"
+              name="confirmNewPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Enter it again"
+              required
+            />
+          </label>
+
+          <div class="form-actions">
+            <button id="save-new-password-button" class="submit-button" type="submit">
+              Save New Password
+            </button>
           </div>
         </form>
 

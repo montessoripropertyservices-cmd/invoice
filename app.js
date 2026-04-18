@@ -150,6 +150,10 @@ const authStatus = document.getElementById("auth-status");
 const signOutButton = document.getElementById("sign-out-button");
 const magicLinkButton = document.getElementById("magic-link-button");
 const staticLoginButton = document.getElementById("static-login-button");
+const resetPasswordButton = document.getElementById("reset-password-button");
+const passwordResetForm = document.getElementById("password-reset-form");
+const newPasswordInput = document.getElementById("new-password");
+const confirmNewPasswordInput = document.getElementById("confirm-new-password");
 const sessionEmailTargets = [
   document.getElementById("session-email"),
   document.getElementById("record-day-session-email"),
@@ -188,6 +192,7 @@ const staticUsers = {
 };
 
 let currentSession = null;
+let passwordRecoveryMode = false;
 let speechRecognition = null;
 let speechSessionActive = false;
 let speechBaseText = "";
@@ -2827,6 +2832,11 @@ function applyAuthState(session) {
   const hadSession = Boolean(currentSession?.user?.email);
   currentSession = session;
 
+  if (passwordRecoveryMode && session?.user?.email) {
+    showPasswordResetForm(session);
+    return;
+  }
+
   if (session?.user?.email) {
     if (!isAllowedEmail(session.user.email)) {
       if (supabaseClient) {
@@ -2874,12 +2884,21 @@ async function initializeAuth() {
     setAuthStatus("We could not load the login session. Please refresh and try again.", "error");
   }
 
-  applyAuthState(session);
+  if (session && isPasswordRecoveryUrl()) {
+    showPasswordResetForm(session);
+  } else {
+    applyAuthState(session);
+  }
   await loadRecordedDayDates();
   await checkPurchaseSupabaseReady();
   await loadEmployeeProfilesFromSupabase();
 
-  supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
+  supabaseClient.auth.onAuthStateChange((event, nextSession) => {
+    if (event === "PASSWORD_RECOVERY") {
+      showPasswordResetForm(nextSession);
+      return;
+    }
+
     applyAuthState(nextSession);
     loadRecordedDayDates();
     checkPurchaseSupabaseReady();
@@ -2975,6 +2994,98 @@ function updateAuthDebugEmail() {
   authDebugEmail.textContent = matchedUser
     ? `Trying email: ${matchedUser.email}`
     : "";
+}
+
+function getAuthUsernameEmail() {
+  const username = authUsernameInput.value.trim().toLowerCase();
+  return staticUsers[username]?.email || "";
+}
+
+function isPasswordRecoveryUrl() {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  return hashParams.get("type") === "recovery" || searchParams.get("type") === "recovery";
+}
+
+function showPasswordResetForm(session) {
+  passwordRecoveryMode = true;
+  currentSession = session || currentSession;
+  authScreen.classList.remove("hidden");
+  authForm.classList.add("hidden");
+  passwordResetForm.classList.remove("hidden");
+  Object.values(screens).forEach((element) => element.classList.add("hidden"));
+  developerCreditCard.classList.add("hidden");
+  setSignedInEmail(currentSession?.user?.email || "Password reset");
+  setAuthStatus("Enter your new password to finish the reset.", "warning");
+  requestAnimationFrame(() => newPasswordInput.focus({ preventScroll: true }));
+}
+
+function hidePasswordResetForm() {
+  passwordRecoveryMode = false;
+  passwordResetForm.classList.add("hidden");
+  authForm.classList.remove("hidden");
+  passwordResetForm.reset();
+}
+
+async function requestPasswordReset() {
+  if (!supabaseClient) {
+    setAuthStatus("Supabase is not configured yet.", "error");
+    return;
+  }
+
+  const email = getAuthUsernameEmail();
+
+  if (!email) {
+    setAuthStatus("Type your username first, then press Reset Password.", "error");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: magicLinkRedirectTo,
+  });
+
+  if (error) {
+    console.error(error);
+    setAuthStatus(`We could not send the password reset email. Supabase says: ${error.message}`, "error");
+    return;
+  }
+
+  setAuthStatus("Password reset email sent. Open it, then this page will ask for the new password.", "success");
+}
+
+async function saveNewPassword(event) {
+  event.preventDefault();
+
+  if (!supabaseClient) {
+    setAuthStatus("Supabase is not configured yet.", "error");
+    return;
+  }
+
+  const newPassword = newPasswordInput.value;
+  const confirmPassword = confirmNewPasswordInput.value;
+
+  if (newPassword.length < 6) {
+    setAuthStatus("Use at least 6 characters for the new password.", "error");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    setAuthStatus("The two passwords do not match.", "error");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.updateUser({ password: newPassword });
+
+  if (error) {
+    console.error(error);
+    setAuthStatus(`Could not change the password. Supabase says: ${error.message}`, "error");
+    return;
+  }
+
+  window.history.replaceState({}, document.title, `${window.location.origin}${window.location.pathname}`);
+  hidePasswordResetForm();
+  applyAuthState(data.user ? { ...currentSession, user: data.user } : currentSession);
+  setAuthStatus("Password changed. You are signed in.", "success");
 }
 
 async function signOut() {
@@ -4737,6 +4848,8 @@ purchaseReceiptInput.addEventListener("change", () => {
 });
 authForm.addEventListener("submit", sendMagicLink);
 staticLoginButton.addEventListener("click", signInWithStaticCredentials);
+resetPasswordButton.addEventListener("click", requestPasswordReset);
+passwordResetForm.addEventListener("submit", saveNewPassword);
 signOutButton.addEventListener("click", signOut);
 authPinInput.addEventListener("input", updateMagicLinkButton);
 authUsernameInput.addEventListener("input", updateAuthDebugEmail);
