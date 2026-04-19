@@ -1948,6 +1948,10 @@ function renderTicketCard(ticket) {
   const locationLabel = getTicketDisplayLocation(ticket);
   const compactStatus = String(ticket.status || "").trim().toLowerCase();
   const isCompactTicket = compactStatus === "closed" || compactStatus === "works approval";
+  const ticketStatusClass =
+    compactStatus === "service pending" || compactStatus === "engineer assigned"
+      ? "ticket-card-attention"
+      : "";
 
   if (isCompactTicket) {
     const isExpanded = openTicketActionId === `compact-${ticketId}`;
@@ -1971,7 +1975,7 @@ function renderTicketCard(ticket) {
   }
 
   return `
-    <article class="entry-card ticket-card ${isSelected ? "ticket-card-selected" : ""}">
+    <article class="entry-card ticket-card ${ticketStatusClass} ${isSelected ? "ticket-card-selected" : ""}">
       <div class="entry-meta">
         ${locationLabel ? `<p class="ticket-site-pill">Site: ${locationLabel}</p>` : ""}
         <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
