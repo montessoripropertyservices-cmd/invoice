@@ -128,6 +128,7 @@ const ticketsByLocationButton = document.getElementById("tickets-by-location-but
 const ticketStatusFilter = document.getElementById("ticket-status-filter");
 const ticketSiteFilterField = document.getElementById("ticket-site-filter-field");
 const ticketSiteFilter = document.getElementById("ticket-site-filter");
+const resetTicketFiltersButton = document.getElementById("reset-ticket-filters-button");
 const ticketsStatus = document.getElementById("tickets-status");
 const ticketsList = document.getElementById("tickets-list");
 const archivedSearchInput = document.getElementById("archived-search-input");
@@ -1560,6 +1561,24 @@ function getSelectedTicketSites() {
 function getSelectedTicketStatuses() {
   const selectedStatuses = [...ticketStatusFilter.selectedOptions].map((option) => option.value);
   return selectedStatuses.length ? selectedStatuses : defaultVisibleTicketStatuses;
+}
+
+function resetTicketFilters() {
+  ticketSearchInput.value = "";
+  [...ticketStatusFilter.options].forEach((option) => {
+    option.selected = defaultVisibleTicketStatuses.includes(option.value);
+  });
+  [...ticketSiteFilter.options].forEach((option) => {
+    option.selected = false;
+  });
+  selectedTicketActionIds.clear();
+  openTicketActionId = "";
+  setTicketViewMode("time");
+  setTicketsStatus("Filters reset.", "success");
+
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
+  }
 }
 
 function getTicketSiteLabel(ticket) {
@@ -5032,6 +5051,7 @@ syncTicketsButton.addEventListener("click", syncTickets);
 ticketsFilterButton.addEventListener("click", toggleTicketFilterPanel);
 ticketsByTimeButton.addEventListener("click", () => setTicketViewMode("time"));
 ticketsByLocationButton.addEventListener("click", () => setTicketViewMode("location"));
+resetTicketFiltersButton.addEventListener("click", resetTicketFilters);
 ticketSiteFilter.addEventListener("change", () => {
   if (ticketDiscoveryData) {
     renderTicketsDiscovery(ticketDiscoveryData);

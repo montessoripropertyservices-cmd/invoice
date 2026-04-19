@@ -899,6 +899,15 @@ input[type="file"]::file-selector-button {
   padding: 12px;
 }
 
+.ticket-reset-filter-button {
+  width: 100%;
+  min-height: 72px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #f2f3f5, #dfe5ea);
+  color: #293241;
+}
+
 .ticket-toolbar {
   justify-content: center;
 }
