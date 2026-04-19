@@ -1950,20 +1950,21 @@ function renderTicketCard(ticket) {
   const isCompactTicket = compactStatus === "closed" || compactStatus === "works approval";
 
   if (isCompactTicket) {
+    const isExpanded = openTicketActionId === `compact-${ticketId}`;
+
     return `
-      <article class="entry-card ticket-card ticket-card-compact ${isSelected ? "ticket-card-selected" : ""}">
-        <div class="ticket-compact-row">
+      <article class="entry-card ticket-card ticket-card-compact">
+        <button class="ticket-compact-row" type="button" data-ticket-compact="${ticketId}">
           <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
           <p class="ticket-status-pill">Status: ${ticket.status}</p>
-        </div>
-        <div class="entry-inline-actions">
-          <button
-            class="${isSelected ? "back-button ticket-selected-button" : "submit-button"}"
-            type="button"
-            data-ticket-select="${ticketId}"
-          >
-            ${isSelected ? "Selected" : "Select Ticket"}
-          </button>
+          <span class="ticket-expand-hint">${isExpanded ? "Hide Details" : "Show Details"}</span>
+        </button>
+        <div class="entry-meta ticket-compact-details ${isExpanded ? "" : "hidden"}">
+          ${locationLabel ? `<p class="ticket-site-pill">Site: ${locationLabel}</p>` : ""}
+          <p class="ticket-description">${ticket.title || "No title"}</p>
+          ${ticket.priority ? `<p class="entry-pill">Priority: ${ticket.priority}</p>` : ""}
+          ${ticket.createdAt ? `<p>Created: ${formatDisplayDate(ticket.createdAt.slice(0, 10))}</p>` : ""}
+          ${ticket.dueAt ? `<p>Due: ${formatDisplayDate(ticket.dueAt.slice(0, 10))}</p>` : ""}
         </div>
       </article>
     `;
@@ -5096,10 +5097,21 @@ dayTicketList.addEventListener("click", (event) => {
   selectDayTicket(selectButton.dataset.dayTicketSelect);
 });
 ticketsList.addEventListener("click", (event) => {
+  const compactButton = event.target.closest("[data-ticket-compact]");
   const selectButton = event.target.closest("[data-ticket-select]");
   const actionsButton = event.target.closest("[data-ticket-actions]");
   const bulkActionButton = event.target.closest("[data-ticket-bulk-action]");
   const actionButton = event.target.closest("[data-ticket-action]");
+
+  if (compactButton) {
+    const compactId = `compact-${compactButton.dataset.ticketCompact}`;
+    openTicketActionId = openTicketActionId === compactId ? "" : compactId;
+
+    if (ticketDiscoveryData) {
+      renderTicketsDiscovery(ticketDiscoveryData);
+    }
+    return;
+  }
 
   if (selectButton) {
     toggleTicketActionSelection(selectButton.dataset.ticketSelect);

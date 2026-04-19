@@ -1319,6 +1319,7 @@ input[type="file"]::file-selector-button {
 .ticket-card-compact {
   gap: 12px;
   padding: 14px;
+  border-width: 2px;
 }
 
 .ticket-compact-row {
@@ -1327,6 +1328,29 @@ input[type="file"]::file-selector-button {
   align-items: center;
   flex-wrap: wrap;
   min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ticket-expand-hint {
+  margin-left: auto;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(143, 209, 158, 0.13);
+  color: var(--muted);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ticket-compact-details {
+  padding-top: 12px;
+  border-top: 1px solid rgba(143, 209, 158, 0.18);
 }
 
 .ticket-card .ticket-description,
@@ -1587,6 +1611,18 @@ textarea::placeholder {
 .analysis-label,
 .comments-preview {
   color: var(--ink);
+}
+
+.ticket-card {
+  background:
+    linear-gradient(180deg, rgba(21, 40, 31, 0.98), rgba(8, 17, 13, 0.98));
+  border: 2px solid rgba(143, 209, 158, 0.22);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.32);
+}
+
+.ticket-card-compact {
+  background:
+    linear-gradient(180deg, rgba(19, 34, 28, 0.98), rgba(10, 20, 16, 0.98));
 }
 
 .hours-summary-card {
