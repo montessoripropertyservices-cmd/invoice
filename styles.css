@@ -1323,6 +1323,41 @@ input[type="file"]::file-selector-button {
   box-shadow: 0 14px 24px rgba(31, 120, 255, 0.24);
 }
 
+.ticket-card-selected {
+  border-color: rgba(31, 120, 255, 0.44);
+  box-shadow:
+    0 18px 34px rgba(31, 120, 255, 0.14),
+    inset 0 0 0 3px rgba(31, 120, 255, 0.12);
+}
+
+.ticket-selected-button {
+  background: #eaf3ff;
+  color: #174f9f;
+  border: 2px solid rgba(31, 120, 255, 0.24);
+}
+
+.ticket-selected-actions {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #eaf3ff, #f4f9ff);
+  border: 2px solid rgba(31, 120, 255, 0.22);
+  box-shadow: 0 18px 34px rgba(31, 120, 255, 0.12);
+}
+
+.ticket-selected-actions h3 {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+}
+
+.ticket-pause-button {
+  min-height: 72px;
+  background: linear-gradient(135deg, #fff0c2, #ffd978);
+  color: #543800;
+  font-weight: 900;
+}
+
 .ticket-actions-inline {
   display: grid;
   gap: 16px;

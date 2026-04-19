@@ -220,6 +220,7 @@ let ticketViewMode = "time";
 let ticketDiscoveryData = null;
 let ticketFilterOpen = false;
 let openTicketActionId = "";
+let selectedTicketActionIds = new Set();
 let selectedDayTickets = [];
 let currentScreenName = null;
 
@@ -1703,6 +1704,59 @@ function getTicketKey(ticket) {
   return String(ticket?.id || ticket?.number || "").trim();
 }
 
+function getSelectedTicketActionItems() {
+  return getAvailableTickets().filter((ticket) => selectedTicketActionIds.has(getTicketKey(ticket)));
+}
+
+function isTicketStarted(ticket) {
+  const status = String(ticket?.status || "").toLowerCase();
+  return /start|progress|assigned|route|working|service/.test(status);
+}
+
+function renderSelectedTicketActions() {
+  const selectedTickets = getSelectedTicketActionItems();
+
+  if (!selectedTickets.length) {
+    return "";
+  }
+
+  const hasStartedTicket = selectedTickets.some(isTicketStarted);
+  const ticketList = selectedTickets
+    .map((ticket) => `#${ticket.number || ticket.id || "Unknown"}`)
+    .join(", ");
+
+  return `
+    <article class="ticket-selected-actions">
+      <div class="entry-meta">
+        <p class="step-kicker">Selected Tickets</p>
+        <h3>${selectedTickets.length} selected</h3>
+        <p>${ticketList}</p>
+      </div>
+      <div class="ticket-actions-grid">
+        <button class="submit-button" type="button" data-ticket-bulk-action="start">Start Service</button>
+        ${hasStartedTicket ? `<button class="back-button ticket-pause-button" type="button" data-ticket-bulk-action="pause">Pause Service</button>` : ""}
+        <button class="submit-button" type="button" data-ticket-bulk-action="complete">Mark as Completed</button>
+        <button class="submit-button" type="button" data-ticket-bulk-action="engineer">Change Engineer</button>
+      </div>
+      <p class="helper-text">Preview only. These actions will apply to all selected tickets when we connect the Expansive update API.</p>
+    </article>
+  `;
+}
+
+function toggleTicketActionSelection(ticketId) {
+  if (selectedTicketActionIds.has(ticketId)) {
+    selectedTicketActionIds.delete(ticketId);
+  } else {
+    selectedTicketActionIds.add(ticketId);
+  }
+
+  openTicketActionId = "";
+
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
+  }
+}
+
 function getSelectedDayTicketNumbers() {
   return selectedDayTickets
     .map((ticket) => ticket.number || ticket.id || "")
@@ -1852,10 +1906,11 @@ async function loadTicketsForDayPicker() {
 function renderTicketCard(ticket) {
   const ticketId = String(ticket.id || ticket.number || "");
   const isActionsOpen = openTicketActionId === ticketId;
+  const isSelected = selectedTicketActionIds.has(ticketId);
   const locationLabel = getTicketDisplayLocation(ticket);
 
   return `
-    <article class="entry-card ticket-card">
+    <article class="entry-card ticket-card ${isSelected ? "ticket-card-selected" : ""}">
       <div class="entry-meta">
         ${locationLabel ? `<p class="ticket-site-pill">Site: ${locationLabel}</p>` : ""}
         <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
@@ -1866,6 +1921,13 @@ function renderTicketCard(ticket) {
         ${ticket.dueAt ? `<p>Due: ${formatDisplayDate(ticket.dueAt.slice(0, 10))}</p>` : ""}
       </div>
       <div class="entry-inline-actions">
+        <button
+          class="${isSelected ? "back-button ticket-selected-button" : "submit-button"}"
+          type="button"
+          data-ticket-select="${ticketId}"
+        >
+          ${isSelected ? "Selected" : "Select Ticket"}
+        </button>
         <button
           class="ticket-actions-button"
           type="button"
@@ -1878,6 +1940,7 @@ function renderTicketCard(ticket) {
         <p class="step-kicker">Ticket Actions</p>
         <div class="ticket-actions-grid">
           <button class="submit-button" type="button" data-ticket-action="start">Start Service</button>
+          ${isTicketStarted(ticket) ? `<button class="back-button ticket-pause-button" type="button" data-ticket-action="pause">Pause Service</button>` : ""}
           <button class="submit-button" type="button" data-ticket-action="complete">Mark as Completed</button>
           <button class="submit-button" type="button" data-ticket-action="engineer">Change Engineer</button>
         </div>
@@ -1945,6 +2008,7 @@ function renderTicketsDiscovery(data) {
           <p>${filterLabel}</p>
         </div>
       </article>
+      ${renderSelectedTicketActions()}
       ${renderTicketGroups(tickets)}
     `;
     return;
@@ -4964,19 +5028,38 @@ dayTicketList.addEventListener("click", (event) => {
   selectDayTicket(selectButton.dataset.dayTicketSelect);
 });
 ticketsList.addEventListener("click", (event) => {
+  const selectButton = event.target.closest("[data-ticket-select]");
   const actionsButton = event.target.closest("[data-ticket-actions]");
+  const bulkActionButton = event.target.closest("[data-ticket-bulk-action]");
+  const actionButton = event.target.closest("[data-ticket-action]");
 
-  if (!actionsButton) {
+  if (selectButton) {
+    toggleTicketActionSelection(selectButton.dataset.ticketSelect);
     return;
   }
 
-  openTicketActionId =
-    openTicketActionId === actionsButton.dataset.ticketActions
-      ? ""
-      : actionsButton.dataset.ticketActions;
+  if (bulkActionButton) {
+    setTicketsStatus(
+      `${bulkActionButton.textContent.trim()} is ready for ${selectedTicketActionIds.size} selected ticket${selectedTicketActionIds.size === 1 ? "" : "s"}. No changes were sent yet.`,
+      "warning"
+    );
+    return;
+  }
 
-  if (ticketDiscoveryData) {
-    renderTicketsDiscovery(ticketDiscoveryData);
+  if (actionButton) {
+    setTicketsStatus(`${actionButton.textContent.trim()} is ready. No changes were sent yet.`, "warning");
+    return;
+  }
+
+  if (actionsButton) {
+    openTicketActionId =
+      openTicketActionId === actionsButton.dataset.ticketActions
+        ? ""
+        : actionsButton.dataset.ticketActions;
+
+    if (ticketDiscoveryData) {
+      renderTicketsDiscovery(ticketDiscoveryData);
+    }
   }
 });
 ticketSearchInput.addEventListener("input", () => {
