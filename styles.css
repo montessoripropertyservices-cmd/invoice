@@ -1,12 +1,16 @@
 :root {
-  --bg: #08110d;
-  --panel: rgba(14, 27, 21, 0.96);
-  --panel-strong: #12241b;
-  --ink: #eef8f1;
-  --muted: #a9bbae;
-  --accent: #8fd19e;
-  --accent-deep: #9ce0ad;
-  --line: rgba(143, 209, 158, 0.22);
+  --bg: #151916;
+  --panel: rgba(54, 59, 52, 0.96);
+  --panel-strong: #363b34;
+  --ink: #eadfce;
+  --muted: #c4c9bd;
+  --accent: #728170;
+  --accent-deep: #eadfce;
+  --cream: #eadfce;
+  --forest: #151916;
+  --moss: #363b34;
+  --sage: #728170;
+  --line: rgba(234, 223, 206, 0.2);
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
   --radius-xl: 28px;
   --radius-lg: 18px;
@@ -22,9 +26,9 @@ html {
   min-height: 100%;
   background-color: var(--bg);
   background:
-    radial-gradient(circle at top left, rgba(143, 209, 158, 0.18), transparent 28%),
-    radial-gradient(circle at 85% 20%, rgba(79, 140, 255, 0.1), transparent 24%),
-    linear-gradient(180deg, #0d1b15 0%, #050a08 100%);
+    radial-gradient(circle at top left, rgba(114, 129, 112, 0.28), transparent 30%),
+    radial-gradient(circle at 85% 20%, rgba(234, 223, 206, 0.1), transparent 24%),
+    linear-gradient(180deg, #151916 0%, #0d110e 100%);
 }
 
 body {
@@ -36,9 +40,9 @@ body {
   color: var(--ink);
   background-color: var(--bg);
   background:
-    radial-gradient(circle at top left, rgba(143, 209, 158, 0.18), transparent 28%),
-    radial-gradient(circle at 85% 20%, rgba(79, 140, 255, 0.1), transparent 24%),
-    linear-gradient(180deg, #0d1b15 0%, #050a08 100%);
+    radial-gradient(circle at top left, rgba(114, 129, 112, 0.28), transparent 30%),
+    radial-gradient(circle at 85% 20%, rgba(234, 223, 206, 0.1), transparent 24%),
+    linear-gradient(180deg, #151916 0%, #0d110e 100%);
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -50,9 +54,9 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at top left, rgba(143, 209, 158, 0.18), transparent 28%),
-    radial-gradient(circle at 85% 20%, rgba(79, 140, 255, 0.1), transparent 24%),
-    linear-gradient(180deg, #0d1b15 0%, #050a08 100%);
+    radial-gradient(circle at top left, rgba(114, 129, 112, 0.28), transparent 30%),
+    radial-gradient(circle at 85% 20%, rgba(234, 223, 206, 0.1), transparent 24%),
+    linear-gradient(180deg, #151916 0%, #0d110e 100%);
   pointer-events: none;
   z-index: -1;
 }
@@ -83,7 +87,7 @@ body::before {
 .hero-card,
 .form-card {
   background: var(--panel);
-  border: 1px solid rgba(143, 209, 158, 0.24);
+  border: 1px solid rgba(234, 223, 206, 0.22);
   box-shadow: var(--shadow);
   border-radius: var(--radius-xl);
   backdrop-filter: blur(14px);
@@ -1697,6 +1701,178 @@ textarea::placeholder {
 
 .ticket-selected-actions {
   background: linear-gradient(135deg, rgba(79, 140, 255, 0.18), rgba(143, 209, 158, 0.1));
+}
+
+/* Final palette pass based on the four-color brand sample. */
+.hero-card,
+.form-card,
+.section-card,
+.field-set,
+.settings-card,
+.entry-card,
+.hours-dashboard-card,
+.hours-dashboard-mini-card,
+.hours-location-card,
+.hours-location-pie-card,
+.ticket-filter-panel,
+.ticket-actions-inline,
+.selected-ticket-summary,
+.ticket-selected-actions,
+.voice-modal-card,
+.receipt-analysis-output,
+.empty-state,
+.attachment-item,
+.choice-card,
+.checkbox-item {
+  background: rgba(54, 59, 52, 0.96);
+  border-color: rgba(234, 223, 206, 0.22);
+  color: var(--cream);
+}
+
+.section-date,
+.section-employees,
+.section-reference,
+.section-comments,
+.section-location,
+.section-hours,
+.section-attachments {
+  background:
+    radial-gradient(circle at top right, rgba(234, 223, 206, 0.1), transparent 34%),
+    rgba(54, 59, 52, 0.96);
+}
+
+.action-button {
+  background: linear-gradient(135deg, #363b34, #2a2f29);
+  color: var(--cream);
+  box-shadow: inset 0 0 0 1px rgba(234, 223, 206, 0.2);
+}
+
+.action-button.primary,
+.submit-button,
+.mic-button,
+.analysis-button,
+.voice-stop-button {
+  background: linear-gradient(135deg, var(--cream), #cfc4b2);
+  color: var(--forest);
+  box-shadow: 0 22px 34px rgba(21, 25, 22, 0.28);
+}
+
+.back-button,
+.mini-button,
+.entry-pill,
+.ticket-open-link,
+.ticket-site-pill,
+.session-pill {
+  background: rgba(234, 223, 206, 0.13);
+  color: var(--cream);
+  border-color: rgba(234, 223, 206, 0.22);
+}
+
+.wizard-progress,
+.hours-location-bar {
+  background: rgba(234, 223, 206, 0.16);
+}
+
+.wizard-progress-bar,
+.hours-location-fill {
+  background: linear-gradient(135deg, var(--sage), var(--cream));
+}
+
+input,
+select,
+textarea,
+#ticket-site-filter,
+#ticket-status-filter {
+  background: #151916;
+  color: var(--cream);
+  border-color: rgba(234, 223, 206, 0.32);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(234, 223, 206, 0.58);
+}
+
+.ticket-card {
+  background:
+    linear-gradient(180deg, rgba(54, 59, 52, 0.98), rgba(21, 25, 22, 0.98));
+  border-color: rgba(234, 223, 206, 0.22);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+}
+
+.ticket-card-compact {
+  background:
+    linear-gradient(180deg, #eadfce, #a9b69e);
+  border-color: rgba(234, 223, 206, 0.64);
+  color: var(--forest);
+}
+
+.ticket-card-attention {
+  background:
+    linear-gradient(180deg, #7e342d, #4f1d19);
+  border-color: rgba(234, 223, 206, 0.3);
+  box-shadow: 0 18px 34px rgba(48, 10, 8, 0.46);
+}
+
+.ticket-card-compact .ticket-status-pill,
+.ticket-card-compact .ticket-expand-hint,
+.ticket-card-compact .entry-pill,
+.ticket-card-compact .ticket-site-pill,
+.ticket-card-compact .ticket-number-pill,
+.ticket-card-compact .ticket-description {
+  color: var(--forest);
+}
+
+.ticket-number-pill,
+.ticket-selected-button {
+  background: rgba(234, 223, 206, 0.18);
+  color: var(--cream);
+  border-color: rgba(234, 223, 206, 0.34);
+}
+
+.ticket-status-pill {
+  background: rgba(114, 129, 112, 0.24);
+  color: var(--cream);
+  border-color: rgba(234, 223, 206, 0.2);
+}
+
+.ticket-actions-button,
+.ticket-filter-toggle {
+  background: linear-gradient(135deg, var(--sage), var(--moss));
+  color: var(--cream);
+}
+
+.archive-button,
+.ticket-reset-filter-button,
+.ticket-cancel-button,
+.clear-button,
+.ticket-return-button {
+  background: linear-gradient(135deg, #151916, #363b34);
+  color: var(--cream);
+  border: 1px solid rgba(234, 223, 206, 0.2);
+}
+
+.hours-summary-card,
+.ticket-group > h3 {
+  background: linear-gradient(135deg, rgba(114, 129, 112, 0.36), rgba(234, 223, 206, 0.12));
+  border-color: rgba(234, 223, 206, 0.22);
+  color: var(--cream);
+}
+
+.hours-location-pie-center {
+  background: #151916;
+  color: var(--cream);
+}
+
+.developer-credit {
+  background: #151916;
+  color: var(--cream);
+  border: 1px solid rgba(234, 223, 206, 0.18);
+}
+
+.developer-label,
+.developer-link {
+  color: var(--cream);
 }
 
 .hidden {
