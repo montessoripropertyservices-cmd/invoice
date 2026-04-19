@@ -60,6 +60,7 @@ const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"
 const dayReferenceField = document.getElementById("day-reference-field");
 const dayReferenceText = document.getElementById("day-reference-text");
 const dayTicketPicker = document.getElementById("day-ticket-picker");
+const dayTicketStatusFilter = document.getElementById("day-ticket-status-filter");
 const dayTicketSearchInput = document.getElementById("day-ticket-search");
 const loadDayTicketsButton = document.getElementById("load-day-tickets-button");
 const dayTicketPickerStatus = document.getElementById("day-ticket-picker-status");
@@ -234,6 +235,7 @@ const defaultVisibleTicketStatuses = [
   "works approval",
   "closed",
 ];
+const defaultDayTicketStatuses = ["works approval", "closed"];
 
 function canUseSupabaseSession() {
   return Boolean(supabaseClient && currentSession?.user);
@@ -1712,6 +1714,16 @@ function getDayTicketSearchTerms() {
     .filter(Boolean);
 }
 
+function getSelectedDayTicketStatuses() {
+  const selectedStatuses = [...dayTicketStatusFilter.selectedOptions].map((option) => option.value);
+  return selectedStatuses.length ? selectedStatuses : defaultDayTicketStatuses;
+}
+
+function ticketMatchesSelectedDayStatuses(ticket) {
+  const status = String(ticket.status || "").trim().toLowerCase();
+  return getSelectedDayTicketStatuses().includes(status);
+}
+
 function renderSelectedDayTicket() {
   if (!dayTicketSelected) {
     return;
@@ -1830,13 +1842,17 @@ function renderDayTicketPicker() {
   }
 
   const terms = getDayTicketSearchTerms();
+  const statusFilteredTickets = tickets.filter(ticketMatchesSelectedDayStatuses);
   const visibleTickets = tickets
+    .filter(ticketMatchesSelectedDayStatuses)
     .filter((ticket) => ticketMatchesSearch(ticket, terms))
     .slice(0, 30);
 
   if (!visibleTickets.length) {
     dayTicketList.className = "entry-list ticket-picker-list empty-state";
-    dayTicketList.textContent = "No tickets match that search.";
+    dayTicketList.textContent = statusFilteredTickets.length
+      ? "No tickets match that search."
+      : "No tickets match the selected statuses.";
     renderSelectedDayTicket();
     return;
   }
@@ -5093,6 +5109,7 @@ ticketStatusFilter.addEventListener("change", () => {
   }
 });
 loadDayTicketsButton.addEventListener("click", loadTicketsForDayPicker);
+dayTicketStatusFilter.addEventListener("change", renderDayTicketPicker);
 dayTicketSearchInput.addEventListener("input", renderDayTicketPicker);
 dayTicketList.addEventListener("click", (event) => {
   const selectButton = event.target.closest("[data-day-ticket-select]");

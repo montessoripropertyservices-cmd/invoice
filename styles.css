@@ -885,7 +885,8 @@ input[type="file"]::file-selector-button {
 }
 
 #ticket-site-filter,
-#ticket-status-filter {
+#ticket-status-filter,
+#day-ticket-status-filter {
   width: 100%;
   min-height: 230px;
   border: 2px solid rgba(31, 120, 255, 0.22);
@@ -899,7 +900,8 @@ input[type="file"]::file-selector-button {
 }
 
 #ticket-site-filter option,
-#ticket-status-filter option {
+#ticket-status-filter option,
+#day-ticket-status-filter option {
   padding: 12px;
 }
 
@@ -1580,7 +1582,8 @@ input,
 select,
 textarea,
 #ticket-site-filter,
-#ticket-status-filter {
+#ticket-status-filter,
+#day-ticket-status-filter {
   background: #07100c;
   color: var(--ink);
   border-color: rgba(143, 209, 158, 0.34);
@@ -1782,7 +1785,8 @@ input,
 select,
 textarea,
 #ticket-site-filter,
-#ticket-status-filter {
+#ticket-status-filter,
+#day-ticket-status-filter {
   background: #151916;
   color: var(--cream);
   border-color: rgba(234, 223, 206, 0.32);

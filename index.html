@@ -219,6 +219,19 @@
 
             <div id="day-ticket-picker" class="ticket-picker hidden">
               <label class="field-group field-group-large">
+                <span>Choose ticket statuses</span>
+                <select id="day-ticket-status-filter" multiple size="7">
+                  <option value="service pending">Service Pending</option>
+                  <option value="engineer assigned">Engineer Assigned</option>
+                  <option value="service in progress">Service in Progress</option>
+                  <option value="service paused">Service Paused</option>
+                  <option value="service incomplete">Service Incomplete</option>
+                  <option value="works approval" selected>Works Approval</option>
+                  <option value="closed" selected>Closed</option>
+                </select>
+              </label>
+
+              <label class="field-group field-group-large">
                 <span>Search Expansive tickets</span>
                 <input
                   id="day-ticket-search"
