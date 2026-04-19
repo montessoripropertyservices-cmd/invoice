@@ -223,6 +223,12 @@ let openTicketActionId = "";
 let selectedTicketActionIds = new Set();
 let selectedDayTickets = [];
 let currentScreenName = null;
+const defaultVisibleTicketStatuses = [
+  "service pending",
+  "engineer assigned",
+  "works approval",
+  "closed",
+];
 
 function canUseSupabaseSession() {
   return Boolean(supabaseClient && currentSession?.user);
@@ -1615,7 +1621,7 @@ function filterTicketsBySelectedSites(tickets) {
 
 function hasDefaultTicketStatus(ticket) {
   const status = String(ticket.status || "").trim().toLowerCase();
-  return status === "service pending" || status === "engineer assigned";
+  return defaultVisibleTicketStatuses.includes(status);
 }
 
 function getTicketSearchTerms() {
@@ -1740,6 +1746,7 @@ function renderSelectedTicketActions() {
       <div class="ticket-actions-grid">
         <button class="submit-button" type="button" data-ticket-bulk-action="start">Start Service</button>
         ${hasStartedTicket ? `<button class="back-button ticket-pause-button" type="button" data-ticket-bulk-action="pause">Pause Service</button>` : ""}
+        <button class="back-button ticket-return-button" type="button" data-ticket-bulk-action="return">Return</button>
         <button class="submit-button" type="button" data-ticket-bulk-action="complete">Mark as Completed</button>
         <button class="submit-button" type="button" data-ticket-bulk-action="engineer">Change Engineer</button>
       </div>
@@ -1946,6 +1953,7 @@ function renderTicketCard(ticket) {
         <div class="ticket-actions-grid">
           <button class="submit-button" type="button" data-ticket-action="start">Start Service</button>
           ${isTicketStarted(ticket) ? `<button class="back-button ticket-pause-button" type="button" data-ticket-action="pause">Pause Service</button>` : ""}
+          <button class="back-button ticket-return-button" type="button" data-ticket-action="return">Return</button>
           <button class="submit-button" type="button" data-ticket-action="complete">Mark as Completed</button>
           <button class="submit-button" type="button" data-ticket-action="engineer">Change Engineer</button>
         </div>
@@ -2003,8 +2011,8 @@ function renderTicketsDiscovery(data) {
     const siteCount = getSelectedTicketSites().length;
     const filterLabel =
       ticketViewMode === "location" && siteCount
-        ? `${tickets.length} of ${searchedTickets.length} searched Service Pending / Engineer Assigned tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
-        : `${tickets.length} of ${defaultStatusTickets.length} Service Pending / Engineer Assigned tickets shown.`;
+        ? `${tickets.length} of ${searchedTickets.length} searched Service Pending / Engineer Assigned / Works Approval / Closed tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
+        : `${tickets.length} of ${defaultStatusTickets.length} Service Pending / Engineer Assigned / Works Approval / Closed tickets shown.`;
     ticketsList.dataset.loaded = "true";
     ticketsList.className = "entry-list";
     ticketsList.innerHTML = `
@@ -5045,6 +5053,13 @@ ticketsList.addEventListener("click", (event) => {
   }
 
   if (bulkActionButton) {
+    if (
+      bulkActionButton.dataset.ticketBulkAction === "return" &&
+      !window.confirm("Are you Sure you want to retun this ticket?")
+    ) {
+      return;
+    }
+
     setTicketsStatus(
       `${bulkActionButton.textContent.trim()} is ready for ${selectedTicketActionIds.size} selected ticket${selectedTicketActionIds.size === 1 ? "" : "s"}. No changes were sent yet.`,
       "warning"
@@ -5053,6 +5068,13 @@ ticketsList.addEventListener("click", (event) => {
   }
 
   if (actionButton) {
+    if (
+      actionButton.dataset.ticketAction === "return" &&
+      !window.confirm("Are you Sure you want to retun this ticket?")
+    ) {
+      return;
+    }
+
     setTicketsStatus(`${actionButton.textContent.trim()} is ready. No changes were sent yet.`, "warning");
     return;
   }

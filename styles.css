@@ -1358,6 +1358,13 @@ input[type="file"]::file-selector-button {
   font-weight: 900;
 }
 
+.ticket-return-button {
+  min-height: 72px;
+  background: linear-gradient(135deg, #ffe2e2, #ffb4b4);
+  color: #651d1d;
+  font-weight: 900;
+}
+
 .ticket-actions-inline {
   display: grid;
   gap: 16px;

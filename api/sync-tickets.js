@@ -236,6 +236,10 @@ function normalizeTickets(payload, baseUrl) {
   });
 }
 
+function getPayloadItems(payload) {
+  return Array.isArray(payload?.data) ? payload.data : [];
+}
+
 async function fetchJson(url, options = {}) {
   const result = await fetch(url, {
     ...options,
@@ -254,6 +258,58 @@ async function fetchJson(url, options = {}) {
   }
 
   return { result, data, text };
+}
+
+async function fetchTicketPages(baseUrl, cookieJar) {
+  const tickets = [];
+  const seenTicketIds = new Set();
+  const pageSize = 50;
+  const maxPages = 10;
+  let lastResponse = null;
+  let lastUrl = "";
+
+  for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+    const ticketUrl = `${baseUrl}/api/work_order?sort=-created_at&page[size]=${pageSize}&page[number]=${pageNumber}`;
+    const ticketResponse = await fetchJson(ticketUrl, {
+      headers: getBrowserLikeHeaders(baseUrl, cookieJar),
+    });
+
+    appendCookies(cookieJar, ticketResponse.result.headers);
+    lastResponse = ticketResponse;
+    lastUrl = ticketUrl;
+
+    if (!ticketResponse.result.ok) {
+      return {
+        ok: false,
+        ticketUrl,
+        ticketResponse,
+        tickets,
+      };
+    }
+
+    const rawItems = getPayloadItems(ticketResponse.data);
+    const pageTickets = normalizeTickets(ticketResponse.data, baseUrl);
+
+    pageTickets.forEach((ticket) => {
+      const key = ticket.id || ticket.number;
+
+      if (!seenTicketIds.has(key)) {
+        seenTicketIds.add(key);
+        tickets.push(ticket);
+      }
+    });
+
+    if (rawItems.length < pageSize) {
+      break;
+    }
+  }
+
+  return {
+    ok: true,
+    ticketUrl: lastUrl,
+    ticketResponse: lastResponse,
+    tickets,
+  };
 }
 
 export default async function handler(request, response) {
@@ -324,14 +380,10 @@ export default async function handler(request, response) {
       });
     }
 
-    const ticketUrl = `${baseUrl}/api/work_order?sort=-created_at`;
-    const ticketResponse = await fetchJson(ticketUrl, {
-      headers: getBrowserLikeHeaders(baseUrl, cookieJar),
-    });
+    const ticketPageResult = await fetchTicketPages(baseUrl, cookieJar);
+    const { ticketUrl, ticketResponse, tickets } = ticketPageResult;
 
-    appendCookies(cookieJar, ticketResponse.result.headers);
-
-    if (!ticketResponse.result.ok) {
+    if (!ticketPageResult.ok) {
       return response.status(502).json({
         ok: false,
         mode: "tickets",
@@ -344,8 +396,6 @@ export default async function handler(request, response) {
         usefulLinks,
       });
     }
-
-    const tickets = normalizeTickets(ticketResponse.data, baseUrl);
 
     return response.status(200).json({
       ok: true,
