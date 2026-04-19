@@ -1,13 +1,13 @@
 :root {
-  --bg: #eef8f1;
-  --panel: #ffffff;
-  --panel-strong: #ffffff;
-  --ink: #1f3b2d;
-  --muted: #5e7a68;
+  --bg: #08110d;
+  --panel: rgba(14, 27, 21, 0.96);
+  --panel-strong: #12241b;
+  --ink: #eef8f1;
+  --muted: #a9bbae;
   --accent: #8fd19e;
-  --accent-deep: #4d9b66;
-  --line: rgba(77, 155, 102, 0.16);
-  --shadow: 0 24px 60px rgba(82, 140, 102, 0.12);
+  --accent-deep: #9ce0ad;
+  --line: rgba(143, 209, 158, 0.22);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
   --radius-xl: 28px;
   --radius-lg: 18px;
   --radius-md: 12px;
@@ -22,9 +22,9 @@ html {
   min-height: 100%;
   background-color: var(--bg);
   background:
-    radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
-    radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
-    linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
+    radial-gradient(circle at top left, rgba(143, 209, 158, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 20%, rgba(79, 140, 255, 0.1), transparent 24%),
+    linear-gradient(180deg, #0d1b15 0%, #050a08 100%);
 }
 
 body {
@@ -36,9 +36,9 @@ body {
   color: var(--ink);
   background-color: var(--bg);
   background:
-    radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
-    radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
-    linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
+    radial-gradient(circle at top left, rgba(143, 209, 158, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 20%, rgba(79, 140, 255, 0.1), transparent 24%),
+    linear-gradient(180deg, #0d1b15 0%, #050a08 100%);
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -50,9 +50,9 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at top left, rgba(143, 209, 158, 0.22), transparent 26%),
-    radial-gradient(circle at 85% 20%, rgba(186, 232, 198, 0.4), transparent 22%),
-    linear-gradient(180deg, #f8fffa 0%, #e8f7ec 100%);
+    radial-gradient(circle at top left, rgba(143, 209, 158, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 20%, rgba(79, 140, 255, 0.1), transparent 24%),
+    linear-gradient(180deg, #0d1b15 0%, #050a08 100%);
   pointer-events: none;
   z-index: -1;
 }
@@ -1478,6 +1478,131 @@ input[type="file"]::file-selector-button {
   background: #edf8f0;
   font-weight: 700;
   font-size: 1.05rem;
+}
+
+/* Dark theme overrides for legacy light surfaces. */
+.hero-card,
+.form-card,
+.section-card,
+.field-set,
+.settings-card,
+.entry-card,
+.hours-dashboard-card,
+.hours-dashboard-mini-card,
+.hours-location-card,
+.hours-location-pie-card,
+.ticket-filter-panel,
+.ticket-actions-inline,
+.selected-ticket-summary,
+.ticket-selected-actions,
+.voice-modal-card,
+.receipt-analysis-output,
+.empty-state,
+.attachment-item,
+.choice-card,
+.checkbox-item {
+  background: rgba(14, 27, 21, 0.94);
+  border-color: rgba(143, 209, 158, 0.22);
+  color: var(--ink);
+}
+
+.section-date,
+.section-employees,
+.section-reference,
+.section-comments,
+.section-location,
+.section-hours,
+.section-attachments {
+  background:
+    radial-gradient(circle at top right, rgba(143, 209, 158, 0.12), transparent 34%),
+    rgba(14, 27, 21, 0.94);
+}
+
+input,
+select,
+textarea,
+#ticket-site-filter,
+#ticket-status-filter {
+  background: #07100c;
+  color: var(--ink);
+  border-color: rgba(143, 209, 158, 0.34);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #7f9387;
+}
+
+.back-button,
+.mini-button,
+.entry-pill,
+.ticket-open-link,
+.ticket-site-pill,
+.session-pill {
+  background: rgba(143, 209, 158, 0.13);
+  color: var(--ink);
+  border: 1px solid rgba(143, 209, 158, 0.2);
+}
+
+.ticket-number-pill,
+.ticket-selected-button {
+  background: rgba(79, 140, 255, 0.16);
+  color: #b8d2ff;
+  border-color: rgba(79, 140, 255, 0.36);
+}
+
+.ticket-card .ticket-description,
+.ticket-picker-card .ticket-description,
+.hours-dashboard-card strong,
+.analysis-label,
+.comments-preview {
+  color: var(--ink);
+}
+
+.hours-summary-card {
+  background: linear-gradient(135deg, rgba(115, 201, 139, 0.16), rgba(79, 140, 255, 0.08));
+  border-color: rgba(143, 209, 158, 0.22);
+}
+
+.hours-location-pie-center {
+  background: #08110d;
+  color: var(--ink);
+}
+
+.hours-location-bar,
+.wizard-progress {
+  background: rgba(143, 209, 158, 0.12);
+}
+
+.ticket-group > h3 {
+  background: linear-gradient(135deg, rgba(115, 201, 139, 0.2), rgba(79, 140, 255, 0.12));
+  color: var(--accent-deep);
+}
+
+.save-status.success {
+  background: rgba(115, 201, 139, 0.2);
+  color: #b8f3c4;
+}
+
+.save-status.warning {
+  background: rgba(255, 217, 120, 0.18);
+  color: #ffe29d;
+}
+
+.save-status.error {
+  background: rgba(255, 120, 120, 0.16);
+  color: #ffb4b4;
+}
+
+.archive-button,
+.ticket-reset-filter-button,
+.ticket-cancel-button {
+  background: linear-gradient(135deg, #1f2a25, #2c3b33);
+  color: var(--ink);
+}
+
+.ticket-selected-actions {
+  background: linear-gradient(135deg, rgba(79, 140, 255, 0.18), rgba(143, 209, 158, 0.1));
 }
 
 .hidden {
