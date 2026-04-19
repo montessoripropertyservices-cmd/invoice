@@ -228,6 +228,9 @@ let currentScreenName = null;
 const defaultVisibleTicketStatuses = [
   "service pending",
   "engineer assigned",
+  "service in progress",
+  "service paused",
+  "service incomplete",
   "works approval",
   "closed",
 ];
