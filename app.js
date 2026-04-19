@@ -60,6 +60,8 @@ const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"
 const dayReferenceField = document.getElementById("day-reference-field");
 const dayReferenceText = document.getElementById("day-reference-text");
 const dayTicketPicker = document.getElementById("day-ticket-picker");
+const dayTicketFilterButton = document.getElementById("day-ticket-filter-button");
+const dayTicketFilterPanel = document.getElementById("day-ticket-filter-panel");
 const dayTicketStatusFilter = document.getElementById("day-ticket-status-filter");
 const dayTicketSearchInput = document.getElementById("day-ticket-search");
 const loadDayTicketsButton = document.getElementById("load-day-tickets-button");
@@ -222,6 +224,7 @@ let archivedItemsFilter = "day";
 let ticketViewMode = "time";
 let ticketDiscoveryData = null;
 let ticketFilterOpen = false;
+let dayTicketFilterOpen = false;
 let openTicketActionId = "";
 let selectedTicketActionIds = new Set();
 let selectedDayTickets = [];
@@ -1722,6 +1725,17 @@ function getSelectedDayTicketStatuses() {
 function ticketMatchesSelectedDayStatuses(ticket) {
   const status = String(ticket.status || "").trim().toLowerCase();
   return getSelectedDayTicketStatuses().includes(status);
+}
+
+function renderDayTicketFilterPanel() {
+  dayTicketFilterPanel.classList.toggle("hidden", !dayTicketFilterOpen);
+  dayTicketFilterButton.classList.toggle("primary", dayTicketFilterOpen);
+  dayTicketFilterButton.textContent = dayTicketFilterOpen ? "Hide Filter" : "Filter";
+}
+
+function toggleDayTicketFilterPanel() {
+  dayTicketFilterOpen = !dayTicketFilterOpen;
+  renderDayTicketFilterPanel();
 }
 
 function renderSelectedDayTicket() {
@@ -3428,6 +3442,8 @@ function updateDayReferenceField() {
   if (!isRelated) {
     dayReferenceText.value = "";
     selectedDayTickets = [];
+    dayTicketFilterOpen = false;
+    renderDayTicketFilterPanel();
     renderSelectedDayTicket();
     setDayTicketStatus("");
   }
@@ -5109,6 +5125,7 @@ ticketStatusFilter.addEventListener("change", () => {
   }
 });
 loadDayTicketsButton.addEventListener("click", loadTicketsForDayPicker);
+dayTicketFilterButton.addEventListener("click", toggleDayTicketFilterPanel);
 dayTicketStatusFilter.addEventListener("change", renderDayTicketPicker);
 dayTicketSearchInput.addEventListener("input", renderDayTicketPicker);
 dayTicketList.addEventListener("click", (event) => {
