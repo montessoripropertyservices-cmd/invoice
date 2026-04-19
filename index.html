@@ -610,6 +610,16 @@ No analysis yet.
             </button>
           </div>
 
+          <label class="field-group field-group-large">
+            <span>Choose statuses</span>
+            <select id="ticket-status-filter" multiple size="4">
+              <option value="service pending" selected>Service Pending</option>
+              <option value="engineer assigned" selected>Engineer Assigned</option>
+              <option value="works approval" selected>Works Approval</option>
+              <option value="closed" selected>Closed</option>
+            </select>
+          </label>
+
           <label id="ticket-site-filter-field" class="field-group field-group-large hidden">
             <span>Choose site locations</span>
             <select id="ticket-site-filter" multiple size="6"></select>

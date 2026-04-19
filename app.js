@@ -125,6 +125,7 @@ const ticketsFilterButton = document.getElementById("tickets-filter-button");
 const ticketsFilterPanel = document.getElementById("tickets-filter-panel");
 const ticketsByTimeButton = document.getElementById("tickets-by-time-button");
 const ticketsByLocationButton = document.getElementById("tickets-by-location-button");
+const ticketStatusFilter = document.getElementById("ticket-status-filter");
 const ticketSiteFilterField = document.getElementById("ticket-site-filter-field");
 const ticketSiteFilter = document.getElementById("ticket-site-filter");
 const ticketsStatus = document.getElementById("tickets-status");
@@ -1556,6 +1557,11 @@ function getSelectedTicketSites() {
   return [...ticketSiteFilter.selectedOptions].map((option) => option.value);
 }
 
+function getSelectedTicketStatuses() {
+  const selectedStatuses = [...ticketStatusFilter.selectedOptions].map((option) => option.value);
+  return selectedStatuses.length ? selectedStatuses : defaultVisibleTicketStatuses;
+}
+
 function getTicketSiteLabel(ticket) {
   return getTicketDisplayLocation(ticket) || "No site";
 }
@@ -1621,7 +1627,7 @@ function filterTicketsBySelectedSites(tickets) {
 
 function hasDefaultTicketStatus(ticket) {
   const status = String(ticket.status || "").trim().toLowerCase();
-  return defaultVisibleTicketStatuses.includes(status);
+  return getSelectedTicketStatuses().includes(status);
 }
 
 function getTicketSearchTerms() {
@@ -1749,6 +1755,7 @@ function renderSelectedTicketActions() {
         <button class="back-button ticket-return-button" type="button" data-ticket-bulk-action="return">Return</button>
         <button class="submit-button" type="button" data-ticket-bulk-action="complete">Mark as Completed</button>
         <button class="submit-button" type="button" data-ticket-bulk-action="engineer">Change Engineer</button>
+        <button class="back-button ticket-cancel-button" type="button" data-ticket-bulk-action="cancel">Cancel</button>
       </div>
       <p class="helper-text">Preview only. These actions will apply to all selected tickets when we connect the Expansive update API.</p>
     </article>
@@ -2011,8 +2018,8 @@ function renderTicketsDiscovery(data) {
     const siteCount = getSelectedTicketSites().length;
     const filterLabel =
       ticketViewMode === "location" && siteCount
-        ? `${tickets.length} of ${searchedTickets.length} searched Service Pending / Engineer Assigned / Works Approval / Closed tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
-        : `${tickets.length} of ${defaultStatusTickets.length} Service Pending / Engineer Assigned / Works Approval / Closed tickets shown.`;
+        ? `${tickets.length} of ${searchedTickets.length} searched tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
+        : `${tickets.length} of ${defaultStatusTickets.length} tickets shown for selected statuses.`;
     ticketsList.dataset.loaded = "true";
     ticketsList.className = "entry-list";
     ticketsList.innerHTML = `
@@ -5030,6 +5037,11 @@ ticketSiteFilter.addEventListener("change", () => {
     renderTicketsDiscovery(ticketDiscoveryData);
   }
 });
+ticketStatusFilter.addEventListener("change", () => {
+  if (ticketDiscoveryData) {
+    renderTicketsDiscovery(ticketDiscoveryData);
+  }
+});
 loadDayTicketsButton.addEventListener("click", loadTicketsForDayPicker);
 dayTicketSearchInput.addEventListener("input", renderDayTicketPicker);
 dayTicketList.addEventListener("click", (event) => {
@@ -5053,6 +5065,15 @@ ticketsList.addEventListener("click", (event) => {
   }
 
   if (bulkActionButton) {
+    if (bulkActionButton.dataset.ticketBulkAction === "cancel") {
+      selectedTicketActionIds.clear();
+      setTicketsStatus("Ticket selection cleared.", "success");
+      if (ticketDiscoveryData) {
+        renderTicketsDiscovery(ticketDiscoveryData);
+      }
+      return;
+    }
+
     if (
       bulkActionButton.dataset.ticketBulkAction === "return" &&
       !window.confirm("Are you Sure you want to retun this ticket?")
