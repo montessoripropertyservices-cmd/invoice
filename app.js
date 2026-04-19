@@ -1946,6 +1946,28 @@ function renderTicketCard(ticket) {
   const isActionsOpen = openTicketActionId === ticketId;
   const isSelected = selectedTicketActionIds.has(ticketId);
   const locationLabel = getTicketDisplayLocation(ticket);
+  const compactStatus = String(ticket.status || "").trim().toLowerCase();
+  const isCompactTicket = compactStatus === "closed" || compactStatus === "works approval";
+
+  if (isCompactTicket) {
+    return `
+      <article class="entry-card ticket-card ticket-card-compact ${isSelected ? "ticket-card-selected" : ""}">
+        <div class="ticket-compact-row">
+          <p class="ticket-number-pill">Ticket # ${ticket.number || ticket.id || "Unknown"}</p>
+          <p class="ticket-status-pill">Status: ${ticket.status}</p>
+        </div>
+        <div class="entry-inline-actions">
+          <button
+            class="${isSelected ? "back-button ticket-selected-button" : "submit-button"}"
+            type="button"
+            data-ticket-select="${ticketId}"
+          >
+            ${isSelected ? "Selected" : "Select Ticket"}
+          </button>
+        </div>
+      </article>
+    `;
+  }
 
   return `
     <article class="entry-card ticket-card ${isSelected ? "ticket-card-selected" : ""}">

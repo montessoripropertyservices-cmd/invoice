@@ -1299,6 +1299,36 @@ input[type="file"]::file-selector-button {
   word-break: break-word;
 }
 
+.ticket-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(143, 209, 158, 0.13);
+  color: var(--ink);
+  border: 1px solid rgba(143, 209, 158, 0.2);
+  font-size: clamp(1.15rem, 4vw, 1.6rem);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ticket-card-compact {
+  gap: 12px;
+  padding: 14px;
+}
+
+.ticket-compact-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .ticket-card .ticket-description,
 .ticket-picker-card .ticket-description {
   font-size: clamp(1.8rem, 6vw, 3rem);
