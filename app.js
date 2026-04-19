@@ -1613,6 +1613,11 @@ function filterTicketsBySelectedSites(tickets) {
   });
 }
 
+function hasDefaultTicketStatus(ticket) {
+  const status = String(ticket.status || "").trim().toLowerCase();
+  return status === "service pending" || status === "engineer assigned";
+}
+
 function getTicketSearchTerms() {
   return ticketSearchInput.value
     .toLowerCase()
@@ -1988,8 +1993,9 @@ function renderTicketsDiscovery(data) {
   ticketDiscoveryData = data;
   const searchTerms = getTicketSearchTerms();
   const allTickets = data.tickets || [];
-  updateTicketSiteFilterOptions(allTickets);
-  const searchedTickets = allTickets.filter((ticket) => ticketMatchesSearch(ticket, searchTerms));
+  const defaultStatusTickets = allTickets.filter(hasDefaultTicketStatus);
+  updateTicketSiteFilterOptions(defaultStatusTickets);
+  const searchedTickets = defaultStatusTickets.filter((ticket) => ticketMatchesSearch(ticket, searchTerms));
   const tickets = filterTicketsBySelectedSites(searchedTickets);
 
   if (allTickets.length) {
@@ -1997,8 +2003,8 @@ function renderTicketsDiscovery(data) {
     const siteCount = getSelectedTicketSites().length;
     const filterLabel =
       ticketViewMode === "location" && siteCount
-        ? `${tickets.length} of ${searchedTickets.length} searched tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
-        : `${tickets.length} of ${allTickets.length} tickets shown.`;
+        ? `${tickets.length} of ${searchedTickets.length} searched Service Pending / Engineer Assigned tickets shown for ${siteCount} selected site${siteCount === 1 ? "" : "s"}.`
+        : `${tickets.length} of ${defaultStatusTickets.length} Service Pending / Engineer Assigned tickets shown.`;
     ticketsList.dataset.loaded = "true";
     ticketsList.className = "entry-list";
     ticketsList.innerHTML = `
