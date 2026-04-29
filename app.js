@@ -910,6 +910,10 @@ function isRecordedDay(dateValue) {
   return Boolean(dateValue) && recordedDayDates.has(dateValue);
 }
 
+function shouldLockDayEntry(entry) {
+  return Boolean(entry && !entry.archivedAt && !entry.quickbooksInvoiceNumber);
+}
+
 function updateWorkDateLockState() {
   const selectedDate = workDateInput.value;
 
@@ -931,14 +935,29 @@ function updateWorkDateLockState() {
 }
 
 async function loadRecordedDayDates() {
-  const nextDates = new Set(readStoredRecordedDayDates());
+  const nextDates = new Set();
+  const archivedDayIds = getArchivedDayIds();
+  const deletedDayIds = getDeletedDayIds();
+
+  readStoredDayEntries()
+    .filter(
+      (entry) =>
+        shouldLockDayEntry(entry) && !archivedDayIds.has(entry.id) && !deletedDayIds.has(entry.id)
+    )
+    .forEach((entry) => {
+      if (entry.date) {
+        nextDates.add(entry.date);
+      }
+    });
 
   if (canUseSupabaseSession()) {
-    const { data, error } = await supabaseClient.from("day_entries").select("work_date");
+    const { data, error } = await supabaseClient
+      .from("day_entries")
+      .select("work_date, archived_at, quickbooks_invoice_number");
 
     if (!error && Array.isArray(data)) {
       data.forEach((entry) => {
-        if (entry.work_date) {
+        if (entry.work_date && !entry.archived_at && !entry.quickbooks_invoice_number) {
           nextDates.add(entry.work_date);
         }
       });
@@ -946,6 +965,7 @@ async function loadRecordedDayDates() {
   }
 
   recordedDayDates = nextDates;
+  writeStoredRecordedDayDates(recordedDayDates);
   updateWorkDateLockState();
 }
 
