@@ -50,6 +50,7 @@ const recordDayForm = document.getElementById("record-day-form");
 const recordDayStepTitle = document.getElementById("record-day-step-title");
 const recordDayProgressBar = document.getElementById("record-day-progress-bar");
 const recordDayPrevButton = document.getElementById("record-day-prev");
+const recordDayCancelButton = document.getElementById("record-day-cancel");
 const recordDayNextButton = document.getElementById("record-day-next");
 const recordDaySaveButton = document.getElementById("record-day-save");
 const recordDayScreen = document.getElementById("record-day-screen");
@@ -3434,10 +3435,10 @@ function updateDayReferenceField() {
   const isExpansive = referenceMode === "expansive";
   const isRelated = isManual || isExpansive;
 
-  dayReferenceField.classList.toggle("hidden", !isRelated);
+  dayReferenceField.classList.toggle("hidden", !isManual);
   dayTicketPicker.classList.toggle("hidden", !isExpansive);
-  dayReferenceText.readOnly = isExpansive;
-  dayReferenceText.required = isRelated;
+  dayReferenceText.readOnly = false;
+  dayReferenceText.required = isManual;
 
   if (!isRelated) {
     dayReferenceText.value = "";
@@ -3450,7 +3451,6 @@ function updateDayReferenceField() {
 
   if (isManual) {
     selectedDayTickets = [];
-    dayReferenceText.readOnly = false;
     renderSelectedDayTicket();
     setDayTicketStatus("");
   }
@@ -3842,6 +3842,11 @@ function startAnotherDay() {
   resetRecordDayForm();
   showScreen("record-day");
   focusCurrentRecordDayStep();
+}
+
+function cancelRecordDay() {
+  resetRecordDayForm();
+  showScreen("home");
 }
 
 function updateReceiptAnalysisStatus(message) {
@@ -5078,6 +5083,7 @@ authPinInput.addEventListener("input", updateMagicLinkButton);
 authUsernameInput.addEventListener("input", updateAuthDebugEmail);
 commentsText.addEventListener("input", updateCommentsPreview);
 recordDayPrevButton.addEventListener("click", goToPreviousRecordDayStep);
+recordDayCancelButton.addEventListener("click", cancelRecordDay);
 recordDayNextButton.addEventListener("click", goToNextRecordDayStep);
 recordDaySaveButton.addEventListener("click", () => {
   if (!validateCurrentRecordDayStep()) {
