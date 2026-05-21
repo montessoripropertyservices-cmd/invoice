@@ -2867,17 +2867,12 @@ function buildSelectedDaysReport(entries) {
         escapeHtml(`Location: ${formatLocationDisplay(entry.location) || "None"}`),
         escapeHtml(`Ticket #: ${entry.relatedReference || "None"}`),
         entry.relatedDescription ? escapeHtml(`Ticket Description: ${entry.relatedDescription}`) : "",
-        escapeHtml(`Total Hours: ${getEntryTotalHours(entry).toFixed(2)}`),
-        escapeHtml(`Total Day: $${getEntryTotalCost(entry).toFixed(2)}`),
         entry.comments ? escapeHtml(`Comment: ${entry.comments}`) : "",
         attachments ? "Attachments:" : "",
         attachments || "",
       ].join("<br>");
     })
     .join("<br><br>");
-
-  const overallHours = entries.reduce((sum, entry) => sum + getEntryTotalHours(entry), 0);
-  const overallTotal = entries.reduce((sum, entry) => sum + getEntryTotalCost(entry), 0);
 
   return [
     escapeHtml(
@@ -2887,8 +2882,6 @@ function buildSelectedDaysReport(entries) {
     dayBlocks,
     escapeHtml("------------------------- Overall Total -------------------------"),
     escapeHtml(`Days Selected: ${entries.length}`),
-    escapeHtml(`Overall Hours: ${overallHours.toFixed(2)}`),
-    escapeHtml(`Overall Day Total: $${overallTotal.toFixed(2)}`),
   ].join("<br><br>");
 }
 
