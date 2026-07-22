@@ -117,6 +117,7 @@ const checkHoursStatus = document.getElementById("check-hours-status");
 const checkHoursDashboard = document.getElementById("check-hours-dashboard");
 const checkHoursList = document.getElementById("check-hours-list");
 const selectedDaysOutput = document.getElementById("selected-days-output");
+const archiveSelectedDaysButton = document.getElementById("archive-selected-days-button");
 const copySelectedDaysButton = document.getElementById("copy-selected-days-button");
 const emailReceiptsButton = document.getElementById("email-receipts-button");
 const archiveReceiptsButton = document.getElementById("archive-receipts-button");
@@ -649,6 +650,14 @@ function replaceEditedPurchaseEntry(previousEntryId, nextEntry) {
     .filter((entry) => entry.id !== previousEntryId && entry.id !== nextEntry.id)
     .concat(nextEntry)
     .sort((left, right) => right.date.localeCompare(left.date));
+}
+
+function deleteStoredPurchaseEntry(entryId) {
+  const nextEntries = readStoredPurchaseEntries().filter((entry) => entry.id !== entryId);
+  writeStoredPurchaseEntries(nextEntries);
+  const archivedIds = readStoredArchivedIds(archivedReceiptIdsStorageKey);
+  archivedIds.delete(entryId);
+  writeStoredArchivedIds(archivedReceiptIdsStorageKey, archivedIds);
 }
 
 function archiveStoredDayEntries(entryIds, quickbooksInvoiceNumber = "") {
@@ -1545,6 +1554,7 @@ function renderCheckReceiptsEntries() {
           </div>
           <div class="entry-inline-actions">
             <button class="back-button" type="button" data-edit-receipt-id="${entry.id}">Edit Receipt</button>
+            <button class="back-button archive-button" type="button" data-delete-receipt-id="${entry.id}">Delete Receipt</button>
           </div>
         </label>
       `;
@@ -2898,6 +2908,14 @@ function showSelectedDays() {
   showScreen("selected-days");
 }
 
+async function archiveSelectedDaysFromSelectedScreen() {
+  const archived = await archiveSelectedDays();
+
+  if (archived) {
+    showScreen("check-hours");
+  }
+}
+
 async function copySelectedDaysReport() {
   const reportText = selectedDaysOutput.innerText.trim();
 
@@ -2941,20 +2959,20 @@ async function archiveSelectedDays() {
 
   if (!selectedEntries.length) {
     setCheckHoursStatus("Please select at least one recorded day to invoice.", "error");
-    return;
+    return false;
   }
 
   const invoiceNumber = window.prompt("Invoice #");
 
   if (invoiceNumber === null) {
-    return;
+    return false;
   }
 
   const trimmedInvoiceNumber = invoiceNumber.trim();
 
   if (!trimmedInvoiceNumber) {
     setCheckHoursStatus("Please enter an Invoice # before recording invoiced days.", "error");
-    return;
+    return false;
   }
 
   const selectedIds = selectedEntries.map((entry) => entry.id);
@@ -2975,7 +2993,7 @@ async function archiveSelectedDays() {
           : "Could not record the selected days as invoiced online. They were kept active.",
         "error"
       );
-      return;
+      return false;
     }
   }
 
@@ -2990,6 +3008,51 @@ async function archiveSelectedDays() {
     `Selected day entries were recorded as invoiced under QuickBooks Invoice # ${trimmedInvoiceNumber}.`,
     "success"
   );
+  return true;
+}
+
+async function deleteReceiptEntry(entryId) {
+  const entry =
+    purchaseEntriesCache.find((item) => item.id === entryId) ||
+    readStoredPurchaseEntries().find((item) => item.id === entryId);
+
+  if (!entry) {
+    setCheckReceiptsStatus("That receipt could not be found to delete.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete receipt from ${formatDisplayDate(entry.date)}? This will permanently remove the receipt entry.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  if (canUseSupabaseSession() && isUuid(entryId)) {
+    const { error } = await supabaseClient.from("purchase_entries").delete().eq("id", entryId);
+
+    if (error) {
+      deleteStoredPurchaseEntry(entryId);
+      purchaseEntriesCache = purchaseEntriesCache.filter((item) => item.id !== entryId);
+      renderCheckReceiptsEntries();
+      setCheckReceiptsStatus(
+        "Supabase blocked the online delete, but the receipt is hidden on this device. Run the latest SQL to make deletes permanent online.",
+        "warning"
+      );
+      return;
+    }
+  }
+
+  deleteStoredPurchaseEntry(entryId);
+  purchaseEntriesCache = purchaseEntriesCache.filter((item) => item.id !== entryId);
+
+  if (editingPurchaseEntryId === entryId) {
+    resetRecordPurchaseForm();
+  }
+
+  renderCheckReceiptsEntries();
+  setCheckReceiptsStatus("Receipt deleted.", "success");
 }
 
 async function deleteDayEntry(entryId) {
@@ -5123,6 +5186,7 @@ voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
 analyzeReceiptButton.addEventListener("click", analyzeReceipt);
 showDaysButton.addEventListener("click", showSelectedDays);
+archiveSelectedDaysButton.addEventListener("click", archiveSelectedDaysFromSelectedScreen);
 copySelectedDaysButton.addEventListener("click", copySelectedDaysReport);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
 selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
@@ -5233,6 +5297,13 @@ ticketSearchInput.addEventListener("input", () => {
 retrieveArchivedButton.addEventListener("click", retrieveSelectedArchivedItems);
 checkReceiptsList.addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-edit-receipt-id]");
+  const deleteButton = event.target.closest("[data-delete-receipt-id]");
+
+  if (deleteButton) {
+    event.preventDefault();
+    deleteReceiptEntry(deleteButton.dataset.deleteReceiptId);
+    return;
+  }
 
   if (!editButton) {
     return;
