@@ -745,12 +745,6 @@ async function ensureScheduleTicketsLoaded() {
     return;
   }
 
-  if (getAvailableTickets().length) {
-    renderScheduleScreen();
-    setScheduleStatus("Showing cached Expansive tickets for scheduling.", "success");
-    return;
-  }
-
   setScheduleStatus("Loading Expansive tickets for the schedule...", "warning");
 
   try {
