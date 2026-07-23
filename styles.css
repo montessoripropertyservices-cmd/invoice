@@ -1683,6 +1683,24 @@ input[type="file"]::file-selector-button {
   min-height: 100%;
 }
 
+.schedule-ticket-card.schedule-ticket-card-variant-0 {
+  background:
+    linear-gradient(180deg, rgba(62, 77, 65, 0.98), rgba(43, 56, 46, 0.98));
+  border-color: rgba(196, 224, 199, 0.3);
+}
+
+.schedule-ticket-card.schedule-ticket-card-variant-1 {
+  background:
+    linear-gradient(180deg, rgba(80, 72, 52, 0.98), rgba(58, 50, 35, 0.98));
+  border-color: rgba(234, 212, 171, 0.28);
+}
+
+.schedule-ticket-card.schedule-ticket-card-variant-2 {
+  background:
+    linear-gradient(180deg, rgba(62, 70, 84, 0.98), rgba(42, 48, 60, 0.98));
+  border-color: rgba(184, 204, 234, 0.28);
+}
+
 .schedule-task-card {
   text-align: left;
 }

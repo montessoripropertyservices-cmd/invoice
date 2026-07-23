@@ -955,13 +955,14 @@ function renderScheduleTicketResults() {
 
   scheduleTicketResults.className = "entry-list schedule-ticket-results";
   scheduleTicketResults.innerHTML = visibleTickets
-    .map((ticket) => {
+    .map((ticket, index) => {
       const ticketKey = getTicketKey(ticket);
       const isAdded = scheduledTicketIds.has(ticketKey);
       const locationLabel = getTicketDisplayLocation(ticket);
+      const colorClass = `schedule-ticket-card-variant-${index % 3}`;
 
       return `
-        <article class="entry-card ticket-picker-card schedule-ticket-card">
+        <article class="entry-card ticket-picker-card schedule-ticket-card ${colorClass}">
           <div class="entry-meta">
             ${locationLabel ? `<p class="ticket-site-pill">Site: ${escapeTicketFilterValue(locationLabel)}</p>` : ""}
             <p class="ticket-number-pill">Ticket # ${escapeTicketFilterValue(ticket.number || ticket.id || "Unknown")}</p>
