@@ -1501,6 +1501,51 @@ input[type="file"]::file-selector-button {
   justify-content: flex-end;
 }
 
+.schedule-calendar-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.schedule-calendar-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cream);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.schedule-calendar-legend-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(243, 236, 223, 0.16);
+  background: linear-gradient(180deg, rgba(56, 62, 56, 0.98), rgba(42, 47, 42, 0.98));
+}
+
+.schedule-calendar-legend-swatch.is-past {
+  background: linear-gradient(180deg, rgba(118, 121, 116, 0.95), rgba(100, 103, 99, 0.95));
+}
+
+.schedule-calendar-legend-swatch.is-open {
+  background: linear-gradient(180deg, rgba(234, 231, 224, 0.98), rgba(221, 216, 206, 0.98));
+  border-color: rgba(243, 236, 223, 0.4);
+}
+
+.schedule-calendar-legend-swatch.is-scheduled {
+  background: linear-gradient(180deg, rgba(94, 112, 90, 0.98), rgba(66, 79, 63, 0.98));
+  border-color: rgba(203, 220, 197, 0.34);
+}
+
+.schedule-calendar-legend-swatch.is-selected {
+  background: linear-gradient(180deg, rgba(82, 92, 85, 0.98), rgba(60, 69, 63, 0.98));
+  border-color: #2d84ff;
+  box-shadow: 0 0 0 3px rgba(45, 132, 255, 0.18);
+}
+
 .schedule-calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
