@@ -260,11 +260,11 @@ async function fetchJson(url, options = {}) {
   return { result, data, text };
 }
 
-async function fetchTicketPages(baseUrl, cookieJar) {
+async function fetchTicketPages(baseUrl, cookieJar, options = {}) {
   const tickets = [];
   const seenTicketIds = new Set();
   const pageSize = 50;
-  const maxPages = 10;
+  const maxPages = Math.min(Math.max(Number(options.maxPages || 10), 1), 40);
   let lastResponse = null;
   let lastUrl = "";
 
@@ -330,6 +330,10 @@ export default async function handler(request, response) {
   }
 
   try {
+    const requestedPages = Math.min(
+      Math.max(Number(request.query?.pages || request.query?.maxPages || 10), 1),
+      40
+    );
     const workOrderPageUrl = `${baseUrl}/work-order?sort=-created_at`;
     const siteResponse = await fetch(workOrderPageUrl, {
       headers: {
@@ -380,7 +384,9 @@ export default async function handler(request, response) {
       });
     }
 
-    const ticketPageResult = await fetchTicketPages(baseUrl, cookieJar);
+    const ticketPageResult = await fetchTicketPages(baseUrl, cookieJar, {
+      maxPages: requestedPages,
+    });
     const { ticketUrl, ticketResponse, tickets } = ticketPageResult;
 
     if (!ticketPageResult.ok) {
@@ -407,6 +413,7 @@ export default async function handler(request, response) {
       workOrderPageUrl,
       ticketUrl,
       checkedAt: new Date().toISOString(),
+      requestedPages,
       usernameConfigured: Boolean(username),
       passwordConfigured: Boolean(password),
       status: ticketResponse.result.status,

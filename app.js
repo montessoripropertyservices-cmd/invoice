@@ -118,6 +118,7 @@ const scheduleCustomPanel = document.getElementById("schedule-custom-panel");
 const scheduleCustomText = document.getElementById("schedule-custom-text");
 const scheduleAddCustomTaskButton = document.getElementById("schedule-add-custom-task");
 const scheduleCancelCustomTaskButton = document.getElementById("schedule-cancel-custom-task");
+const scheduleFetchOlderButton = document.getElementById("schedule-fetch-older-button");
 const scheduleTasksPanel = document.getElementById("schedule-tasks-panel");
 const scheduleTasksList = document.getElementById("schedule-tasks-list");
 const recordPurchaseForm = document.getElementById("record-purchase-form");
@@ -271,6 +272,7 @@ let scheduleCalendarMonth = "";
 let dismissedScheduleImportDate = "";
 let scheduleTicketsLoading = false;
 let editingScheduleCustomTaskId = "";
+let scheduleTicketPageDepth = 10;
 let currentScreenName = null;
 const defaultVisibleTicketStatuses = [
   "service pending",
@@ -862,8 +864,9 @@ function renderScheduleScreen() {
   renderScheduleTicketResults();
 }
 
-async function fetchTicketDiscoveryData() {
-  const result = await fetch("/api/sync-tickets", {
+async function fetchTicketDiscoveryData(options = {}) {
+  const pageDepth = Math.max(1, Number(options.pages || scheduleTicketPageDepth || 10));
+  const result = await fetch(`/api/sync-tickets?pages=${encodeURIComponent(pageDepth)}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -913,6 +916,24 @@ async function ensureScheduleTicketsLoaded() {
     );
   } finally {
     scheduleTicketsLoading = false;
+  }
+}
+
+async function fetchOlderScheduleTickets() {
+  if (scheduleTicketsLoading) {
+    return;
+  }
+
+  scheduleTicketPageDepth = Math.min(scheduleTicketPageDepth + 10, 40);
+  setScheduleStatus(`Loading older tickets up to ${scheduleTicketPageDepth} pages...`, "warning");
+
+  try {
+    const data = await fetchTicketDiscoveryData({ pages: scheduleTicketPageDepth });
+    renderScheduleScreen();
+    setScheduleStatus(data.message || "Older Expansive tickets loaded.", "success");
+  } catch (error) {
+    console.error(error);
+    setScheduleStatus(error?.message || "Could not load older Expansive tickets.", "error");
   }
 }
 
@@ -1020,6 +1041,23 @@ function importScheduleIntoDay() {
 function updateSelectedScheduleDate(dateValue) {
   scheduleSelectedDate = dateValue;
   writeStoredScheduleSelectedDate(scheduleSelectedDate);
+}
+
+async function openScheduledDate(dateValue) {
+  if (!dateValue) {
+    return;
+  }
+
+  scheduleDateInput.value = dateValue;
+  updateSelectedScheduleDate(dateValue);
+  syncScheduleCalendarToDate(dateValue);
+  renderScheduleScreen();
+
+  await ensureScheduleTicketsLoaded();
+
+  requestAnimationFrame(() => {
+    scheduleDayPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 }
 
 function goToSchedulePage(nextPage) {
@@ -1232,10 +1270,7 @@ async function handleScheduleDateChange() {
     return;
   }
 
-  updateSelectedScheduleDate(nextDate);
-  syncScheduleCalendarToDate(nextDate);
-  renderScheduleScreen();
-  await ensureScheduleTicketsLoaded();
+  await openScheduledDate(nextDate);
 }
 
 function setArchivedItemsFilter(filterValue = "day") {
@@ -6082,11 +6117,24 @@ scheduleCalendarGrid.addEventListener("click", async (event) => {
     return;
   }
 
-  scheduleDateInput.value = selectedDate;
-  updateSelectedScheduleDate(selectedDate);
-  syncScheduleCalendarToDate(selectedDate);
-  renderScheduleScreen();
-  await ensureScheduleTicketsLoaded();
+  await openScheduledDate(selectedDate);
+});
+scheduleCalendarGrid.addEventListener("touchend", async (event) => {
+  const dayButton = event.target.closest("[data-schedule-calendar-date]");
+
+  if (!dayButton) {
+    return;
+  }
+
+  event.preventDefault();
+  const selectedDate = String(dayButton.dataset.scheduleCalendarDate || "").trim();
+
+  if (!selectedDate || selectedDate < getTomorrowIsoDate()) {
+    setScheduleStatus("Please choose a future day after July 23, 2026.", "warning");
+    return;
+  }
+
+  await openScheduledDate(selectedDate);
 });
 scheduleTaskTypeInputs.forEach((input) =>
   input.addEventListener("change", () => {
@@ -6190,6 +6238,7 @@ scheduleTicketResults.addEventListener("touchend", (event) => {
 scheduleEditDayButton.addEventListener("click", editSelectedScheduledDay);
 scheduleDeleteDayButton.addEventListener("click", deleteScheduledDay);
 scheduleCancelCustomTaskButton.addEventListener("click", clearScheduleCustomTaskEdit);
+scheduleFetchOlderButton.addEventListener("click", fetchOlderScheduleTickets);
 workDateInput.addEventListener("input", updateWorkDateLockState);
 workDateInput.addEventListener("change", updateWorkDateLockState);
 dayScheduleImportButton.addEventListener("click", importScheduleIntoDay);
