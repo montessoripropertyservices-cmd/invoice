@@ -97,6 +97,7 @@ const scheduleTaskTypeInputs = [...document.querySelectorAll('input[name="schedu
 const scheduleTicketPanel = document.getElementById("schedule-ticket-panel");
 const scheduleSiteFilter = document.getElementById("schedule-site-filter");
 const scheduleTicketSearchInput = document.getElementById("schedule-ticket-search");
+const scheduleDateSortSelect = document.getElementById("schedule-date-sort");
 const schedulePagePrevButton = document.getElementById("schedule-page-prev");
 const schedulePageJump = document.getElementById("schedule-page-jump");
 const schedulePageNextButton = document.getElementById("schedule-page-next");
@@ -396,6 +397,7 @@ function getEmptyScheduleDayState() {
     tasks: [],
     ticketSite: "",
     ticketSearch: "",
+    ticketSort: "desc",
     ticketPage: 1,
   };
 }
@@ -450,6 +452,7 @@ function getScheduleDayState(dateValue) {
       : [],
     ticketSite: String(storedValue.ticketSite || "").trim(),
     ticketSearch: String(storedValue.ticketSearch || "").trim(),
+    ticketSort: storedValue.ticketSort === "asc" ? "asc" : "desc",
     ticketPage: Math.max(1, Number(storedValue.ticketPage || 1)),
   };
 }
@@ -508,6 +511,7 @@ function getScheduleTicketSearchTerms() {
 function getScheduleFilteredTickets() {
   const selectedSite = String(scheduleSiteFilter.value || "").trim();
   const searchTerms = getScheduleTicketSearchTerms();
+  const ticketSort = scheduleSelectedDate ? getScheduleDayState(scheduleSelectedDate).ticketSort : "desc";
 
   return getAvailableTickets()
     .filter((ticket) => {
@@ -518,7 +522,13 @@ function getScheduleFilteredTickets() {
       return getTicketSiteCandidates(ticket).includes(selectedSite);
     })
     .filter((ticket) => ticketMatchesSearch(ticket, searchTerms))
-    .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+    .sort((left, right) => {
+      const leftDate = String(left.createdAt || "");
+      const rightDate = String(right.createdAt || "");
+      return ticketSort === "asc"
+        ? leftDate.localeCompare(rightDate)
+        : rightDate.localeCompare(leftDate);
+    });
 }
 
 function renderScheduleSiteOptions() {
@@ -704,6 +714,7 @@ function renderScheduleScreen() {
   scheduleDayTitle.textContent = formatDisplayDate(scheduleSelectedDate);
   scheduleDaySummary.textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"} scheduled for this day.`;
   scheduleTicketSearchInput.value = dayState.ticketSearch;
+  scheduleDateSortSelect.value = dayState.ticketSort;
   renderScheduleSiteOptions();
   renderScheduleTasks();
   renderScheduleTicketResults();
@@ -5721,6 +5732,17 @@ scheduleTicketSearchInput.addEventListener("input", () => {
 
   saveScheduleDayState(scheduleSelectedDate, {
     ticketSearch: scheduleTicketSearchInput.value,
+    ticketPage: 1,
+  });
+  renderScheduleTicketResults();
+});
+scheduleDateSortSelect.addEventListener("change", () => {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  saveScheduleDayState(scheduleSelectedDate, {
+    ticketSort: scheduleDateSortSelect.value === "asc" ? "asc" : "desc",
     ticketPage: 1,
   });
   renderScheduleTicketResults();
