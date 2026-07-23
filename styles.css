@@ -1571,10 +1571,9 @@ input[type="file"]::file-selector-button {
   gap: 10px;
   padding: 14px;
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(28, 33, 29, 0.98), rgba(16, 20, 17, 0.98));
-  border: 1px solid rgba(243, 236, 223, 0.16);
-  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28);
+  background: rgba(24, 28, 25, 0.98);
+  border: 1px solid rgba(243, 236, 223, 0.14);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24);
 }
 
 .schedule-page-toolbar {
@@ -1599,11 +1598,15 @@ input[type="file"]::file-selector-button {
   min-height: 74px;
   font-size: 1.2rem;
   text-align: center;
+  background: #101411;
+  color: var(--cream);
+  border-color: rgba(243, 236, 223, 0.24);
 }
 
 .schedule-page-status {
   color: var(--cream);
   font-weight: 700;
+  opacity: 0.92;
 }
 
 .schedule-ticket-results {
@@ -1637,6 +1640,25 @@ input[type="file"]::file-selector-button {
 .schedule-day-actions .back-button,
 .schedule-day-actions .submit-button {
   border: 1px solid rgba(243, 236, 223, 0.18);
+}
+
+.schedule-page-floating .back-button {
+  background: #202620;
+  color: var(--cream);
+}
+
+.schedule-page-floating .submit-button {
+  background: linear-gradient(135deg, #e7dcc8, #d5c7b0);
+  color: #111611;
+  box-shadow: none;
+}
+
+.schedule-page-floating .submit-button:disabled,
+.schedule-page-floating .back-button:disabled {
+  background: #2a302b;
+  color: rgba(243, 236, 223, 0.5);
+  border-color: rgba(243, 236, 223, 0.1);
+  opacity: 1;
 }
 
 .ticket-picker-list {
