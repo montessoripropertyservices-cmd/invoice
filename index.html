@@ -602,7 +602,7 @@ No analysis yet.
 
         <p id="schedule-status" class="save-status hidden" aria-live="polite"></p>
 
-        <section class="section-card section-date">
+        <section id="schedule-picker-panel" class="section-card section-date">
           <p class="step-kicker">Choose a day</p>
           <h3 class="step-heading">Select a future date</h3>
           <label class="field-group field-group-large">
@@ -611,7 +611,7 @@ No analysis yet.
           </label>
         </section>
 
-        <section class="section-card section-location">
+        <section id="schedule-calendar-panel" class="section-card section-location">
           <div class="schedule-calendar-head">
             <div>
               <p class="step-kicker">Calendar</p>
@@ -642,6 +642,9 @@ No analysis yet.
           <h3 id="schedule-day-title" class="step-heading">No date selected</h3>
           <p id="schedule-day-summary" class="helper-text">Choose a future day to start planning.</p>
           <div class="entry-inline-actions schedule-day-actions">
+            <button id="schedule-back-to-calendar-button" class="back-button" type="button">
+              Back to Calendar
+            </button>
             <button id="schedule-edit-day-button" class="submit-button" type="button">Edit This Day</button>
             <button id="schedule-delete-day-button" class="back-button archive-button" type="button">
               Delete Scheduled Day

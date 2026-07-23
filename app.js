@@ -93,6 +93,8 @@ const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
 const scheduleStatus = document.getElementById("schedule-status");
 const scheduleDateInput = document.getElementById("schedule-date");
+const schedulePickerPanel = document.getElementById("schedule-picker-panel");
+const scheduleCalendarPanel = document.getElementById("schedule-calendar-panel");
 const scheduleCalendarTitle = document.getElementById("schedule-calendar-title");
 const scheduleCalendarPrevButton = document.getElementById("schedule-calendar-prev");
 const scheduleCalendarNextButton = document.getElementById("schedule-calendar-next");
@@ -101,6 +103,7 @@ const scheduleCalendarSummary = document.getElementById("schedule-calendar-summa
 const scheduleDayPanel = document.getElementById("schedule-day-panel");
 const scheduleDayTitle = document.getElementById("schedule-day-title");
 const scheduleDaySummary = document.getElementById("schedule-day-summary");
+const scheduleBackToCalendarButton = document.getElementById("schedule-back-to-calendar-button");
 const scheduleEditDayButton = document.getElementById("schedule-edit-day-button");
 const scheduleDeleteDayButton = document.getElementById("schedule-delete-day-button");
 const scheduleTaskBuilder = document.getElementById("schedule-task-builder");
@@ -273,6 +276,7 @@ let dismissedScheduleImportDate = "";
 let scheduleTicketsLoading = false;
 let editingScheduleCustomTaskId = "";
 let scheduleTicketPageDepth = 10;
+let scheduleDayOpened = false;
 let currentScreenName = null;
 const defaultVisibleTicketStatuses = [
   "service pending",
@@ -840,7 +844,12 @@ function renderScheduleScreen() {
   scheduleAddCustomTaskButton.textContent = editingScheduleCustomTaskId ? "Save Custom Task" : "Add Custom Task";
   renderScheduleCalendar();
 
+  const hasOpenDay = scheduleDayOpened && isFutureScheduleDate(scheduleSelectedDate);
+  schedulePickerPanel.classList.toggle("hidden", hasOpenDay);
+  scheduleCalendarPanel.classList.toggle("hidden", hasOpenDay);
+
   if (!isFutureScheduleDate(scheduleSelectedDate)) {
+    scheduleDayOpened = false;
     hideScheduleStatus();
     scheduleDayPanel.classList.add("hidden");
     scheduleTaskBuilder.classList.add("hidden");
@@ -1048,6 +1057,7 @@ async function openScheduledDate(dateValue) {
     return;
   }
 
+  scheduleDayOpened = true;
   scheduleDateInput.value = dateValue;
   updateSelectedScheduleDate(dateValue);
   syncScheduleCalendarToDate(dateValue);
@@ -1057,6 +1067,14 @@ async function openScheduledDate(dateValue) {
 
   requestAnimationFrame(() => {
     scheduleDayPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function closeScheduledDateView() {
+  scheduleDayOpened = false;
+  renderScheduleScreen();
+  requestAnimationFrame(() => {
+    scheduleCalendarPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
@@ -1322,6 +1340,7 @@ function showScreen(screenName) {
   }
 
   if (screenName === "schedule") {
+    scheduleDayOpened = false;
     renderScheduleScreen();
     ensureScheduleTicketsLoaded();
   }
@@ -6237,6 +6256,7 @@ scheduleTicketResults.addEventListener("touchend", (event) => {
 });
 scheduleEditDayButton.addEventListener("click", editSelectedScheduledDay);
 scheduleDeleteDayButton.addEventListener("click", deleteScheduledDay);
+scheduleBackToCalendarButton.addEventListener("click", closeScheduledDateView);
 scheduleCancelCustomTaskButton.addEventListener("click", clearScheduleCustomTaskEdit);
 scheduleFetchOlderButton.addEventListener("click", fetchOlderScheduleTickets);
 workDateInput.addEventListener("input", updateWorkDateLockState);
@@ -6481,6 +6501,7 @@ if (!isFutureScheduleDate(scheduleSelectedDate)) {
   writeStoredScheduleSelectedDate("");
 }
 scheduleCalendarMonth = getMonthKey(scheduleSelectedDate || getTomorrowIsoDate());
+scheduleDayOpened = false;
 ticketDiscoveryData = readStoredTicketDiscovery();
 renderScheduleScreen();
 setTicketViewMode("time");
