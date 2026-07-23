@@ -191,6 +191,20 @@
               <input id="work-date" name="workDate" type="date" required />
             </label>
             <p id="work-date-status" class="helper-text hidden" aria-live="polite"></p>
+            <div id="day-schedule-import" class="schedule-import-card hidden">
+              <p class="entry-pill">Scheduled Day Found</p>
+              <p id="day-schedule-import-summary" class="helper-text">
+                This day has scheduled tasks ready to import.
+              </p>
+              <div class="entry-inline-actions schedule-import-actions">
+                <button id="day-schedule-import-button" class="submit-button" type="button">
+                  Import Schedule
+                </button>
+                <button id="day-schedule-skip-button" class="back-button" type="button">
+                  Keep Blank
+                </button>
+              </div>
+            </div>
           </section>
 
           <section class="wizard-step section-card section-reference hidden" data-step="1">
@@ -597,6 +611,32 @@ No analysis yet.
           </label>
         </section>
 
+        <section class="section-card section-location">
+          <div class="schedule-calendar-head">
+            <div>
+              <p class="step-kicker">Calendar</p>
+              <h3 id="schedule-calendar-title" class="step-heading">Scheduled Days</h3>
+            </div>
+            <div class="schedule-calendar-nav">
+              <button id="schedule-calendar-prev" class="back-button" type="button">Previous</button>
+              <button id="schedule-calendar-next" class="submit-button" type="button">Next</button>
+            </div>
+          </div>
+          <div class="schedule-calendar-weekdays" aria-hidden="true">
+            <span>Sun</span>
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+          </div>
+          <div id="schedule-calendar-grid" class="schedule-calendar-grid"></div>
+          <p id="schedule-calendar-summary" class="helper-text">
+            Tap a scheduled day to review its saved tasks.
+          </p>
+        </section>
+
         <section id="schedule-day-panel" class="section-card section-location hidden">
           <p class="step-kicker">Selected Day</p>
           <h3 id="schedule-day-title" class="step-heading">No date selected</h3>
@@ -640,16 +680,17 @@ No analysis yet.
               </select>
             </label>
 
-            <div class="schedule-page-toolbar">
-              <button id="schedule-page-prev" class="back-button" type="button">Previous</button>
-              <label class="field-group schedule-page-select">
-                <span>Page</span>
-                <select id="schedule-page-jump"></select>
-              </label>
-              <button id="schedule-page-next" class="submit-button" type="button">Next</button>
+            <div class="schedule-page-floating">
+              <div class="schedule-page-toolbar">
+                <button id="schedule-page-prev" class="back-button" type="button">Previous</button>
+                <label class="field-group schedule-page-select">
+                  <span>Page</span>
+                  <select id="schedule-page-jump"></select>
+                </label>
+                <button id="schedule-page-next" class="submit-button" type="button">Next</button>
+              </div>
+              <p id="schedule-page-status" class="helper-text"></p>
             </div>
-
-            <p id="schedule-page-status" class="helper-text"></p>
 
             <div id="schedule-ticket-results" class="entry-list schedule-ticket-results empty-state">
               Choose a future day to load tickets.

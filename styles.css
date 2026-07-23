@@ -1463,6 +1463,112 @@ input[type="file"]::file-selector-button {
   width: 100%;
 }
 
+.schedule-import-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(77, 155, 102, 0.18);
+}
+
+.schedule-import-actions {
+  justify-content: center;
+}
+
+.schedule-import-actions .submit-button,
+.schedule-import-actions .back-button {
+  min-width: 200px;
+}
+
+.schedule-calendar-head {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.schedule-calendar-nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.schedule-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.schedule-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.schedule-calendar-day {
+  display: grid;
+  gap: 8px;
+  min-height: 116px;
+  padding: 14px 10px;
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(77, 155, 102, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  text-align: left;
+}
+
+.schedule-calendar-day strong {
+  font-size: 1.3rem;
+}
+
+.schedule-calendar-day span {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.schedule-calendar-day.is-scheduled {
+  background: linear-gradient(135deg, rgba(115, 201, 139, 0.24), rgba(255, 255, 255, 0.96));
+  border-color: rgba(77, 155, 102, 0.28);
+}
+
+.schedule-calendar-day.is-selected {
+  border-color: #1f78ff;
+  box-shadow: 0 0 0 4px rgba(31, 120, 255, 0.16);
+}
+
+.schedule-calendar-day.is-outside-month {
+  opacity: 0.45;
+}
+
+.schedule-calendar-day.is-past {
+  background: rgba(237, 239, 240, 0.72);
+}
+
+.schedule-page-floating {
+  position: sticky;
+  top: 88px;
+  z-index: 8;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(244, 251, 244, 0.96);
+  border: 1px solid rgba(77, 155, 102, 0.16);
+  box-shadow: 0 14px 24px rgba(12, 28, 21, 0.08);
+}
+
 .schedule-page-toolbar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1990,6 +2096,20 @@ textarea::placeholder {
 
   .hours-toolbar {
     display: grid;
+  }
+
+  .schedule-calendar-head,
+  .schedule-calendar-nav {
+    display: grid;
+  }
+
+  .schedule-calendar-weekdays,
+  .schedule-calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-page-floating {
+    top: 72px;
   }
 
   .schedule-page-toolbar {

@@ -58,6 +58,10 @@ const recordDayScreen = document.getElementById("record-day-screen");
 const recordDaySteps = [...recordDayScreen.querySelectorAll(".wizard-step")];
 const workDateInput = document.getElementById("work-date");
 const workDateStatus = document.getElementById("work-date-status");
+const dayScheduleImportCard = document.getElementById("day-schedule-import");
+const dayScheduleImportSummary = document.getElementById("day-schedule-import-summary");
+const dayScheduleImportButton = document.getElementById("day-schedule-import-button");
+const dayScheduleSkipButton = document.getElementById("day-schedule-skip-button");
 const dayRelatedInputs = [...document.querySelectorAll('input[name="day-related"]')];
 const dayReferenceField = document.getElementById("day-reference-field");
 const dayReferenceText = document.getElementById("day-reference-text");
@@ -89,6 +93,11 @@ const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
 const scheduleStatus = document.getElementById("schedule-status");
 const scheduleDateInput = document.getElementById("schedule-date");
+const scheduleCalendarTitle = document.getElementById("schedule-calendar-title");
+const scheduleCalendarPrevButton = document.getElementById("schedule-calendar-prev");
+const scheduleCalendarNextButton = document.getElementById("schedule-calendar-next");
+const scheduleCalendarGrid = document.getElementById("schedule-calendar-grid");
+const scheduleCalendarSummary = document.getElementById("schedule-calendar-summary");
 const scheduleDayPanel = document.getElementById("schedule-day-panel");
 const scheduleDayTitle = document.getElementById("schedule-day-title");
 const scheduleDaySummary = document.getElementById("schedule-day-summary");
@@ -255,6 +264,8 @@ let selectedDayTickets = [];
 let scheduleEntries = {};
 let scheduleSelectedDate = "";
 let scheduleSwipeStartX = 0;
+let scheduleCalendarMonth = "";
+let dismissedScheduleImportDate = "";
 let currentScreenName = null;
 const defaultVisibleTicketStatuses = [
   "service pending",
@@ -363,6 +374,37 @@ function getTomorrowIsoDate() {
 
 function isFutureScheduleDate(dateValue) {
   return Boolean(dateValue) && dateValue >= getTomorrowIsoDate();
+}
+
+function formatMonthLabel(dateValue) {
+  const parsedDate = new Date(`${dateValue}T12:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+
+  return parsedDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getMonthKey(dateValue) {
+  return String(dateValue || "").slice(0, 7);
+}
+
+function getMonthStartFromKey(monthKey) {
+  if (!/^\d{4}-\d{2}$/.test(String(monthKey || ""))) {
+    return `${getTomorrowIsoDate().slice(0, 7)}-01`;
+  }
+
+  return `${monthKey}-01`;
+}
+
+function shiftMonthKey(monthKey, offset) {
+  const monthStart = new Date(`${getMonthStartFromKey(monthKey)}T12:00:00`);
+  monthStart.setMonth(monthStart.getMonth() + offset);
+  return formatInputDateValue(monthStart).slice(0, 7);
 }
 
 function readStoredScheduleEntries() {
@@ -492,6 +534,45 @@ function getSelectedScheduleDayTasks() {
   return scheduleSelectedDate ? getScheduleDayState(scheduleSelectedDate).tasks : [];
 }
 
+function getScheduleTasksForDate(dateValue) {
+  return dateValue ? getScheduleDayState(dateValue).tasks : [];
+}
+
+function getScheduledDateKeys() {
+  return Object.keys(scheduleEntries)
+    .filter((dateValue) => getScheduleTasksForDate(dateValue).length)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function getScheduleTaskSummary(tasks) {
+  const ticketCount = tasks.filter((task) => task.type === "ticket").length;
+  const customCount = tasks.filter((task) => task.type === "custom").length;
+  const parts = [];
+
+  if (ticketCount) {
+    parts.push(`${ticketCount} ticket${ticketCount === 1 ? "" : "s"}`);
+  }
+
+  if (customCount) {
+    parts.push(`${customCount} custom task${customCount === 1 ? "" : "s"}`);
+  }
+
+  return parts.join(" and ") || "No tasks";
+}
+
+function ensureScheduleCalendarMonth() {
+  const preferredDate = scheduleSelectedDate || getScheduledDateKeys()[0] || getTomorrowIsoDate();
+  scheduleCalendarMonth = getMonthKey(preferredDate);
+}
+
+function syncScheduleCalendarToDate(dateValue) {
+  if (!dateValue) {
+    return;
+  }
+
+  scheduleCalendarMonth = getMonthKey(dateValue);
+}
+
 function getScheduledTicketIdsForSelectedDay() {
   return new Set(
     getSelectedScheduleDayTasks()
@@ -605,6 +686,54 @@ function renderScheduleTasks() {
     .join("");
 }
 
+function renderScheduleCalendar() {
+  if (!scheduleCalendarGrid || !scheduleCalendarTitle || !scheduleCalendarSummary) {
+    return;
+  }
+
+  ensureScheduleCalendarMonth();
+  const monthStartValue = getMonthStartFromKey(scheduleCalendarMonth);
+  const monthStart = new Date(`${monthStartValue}T12:00:00`);
+  const firstVisible = new Date(monthStart);
+  const scheduledDates = new Set(getScheduledDateKeys());
+  firstVisible.setDate(firstVisible.getDate() - firstVisible.getDay());
+  const cells = [];
+
+  for (let index = 0; index < 42; index += 1) {
+    const cellDate = new Date(firstVisible);
+    cellDate.setDate(firstVisible.getDate() + index);
+    const dateValue = formatInputDateValue(cellDate);
+    const inMonth = getMonthKey(dateValue) === scheduleCalendarMonth;
+    const isSelected = dateValue === scheduleSelectedDate;
+    const isScheduled = scheduledDates.has(dateValue);
+    const isPast = dateValue < getTomorrowIsoDate();
+    const tasks = isScheduled ? getScheduleTasksForDate(dateValue) : [];
+
+    cells.push(`
+      <button
+        type="button"
+        class="schedule-calendar-day ${inMonth ? "" : "is-outside-month"} ${isSelected ? "is-selected" : ""} ${
+          isScheduled ? "is-scheduled" : ""
+        } ${isPast ? "is-past" : ""}"
+        data-schedule-calendar-date="${dateValue}"
+      >
+        <strong>${cellDate.getDate()}</strong>
+        <span>${isScheduled ? getScheduleTaskSummary(tasks) : isPast ? "Past" : "Open"}</span>
+      </button>
+    `);
+  }
+
+  const visibleScheduledCount = [...scheduledDates].filter(
+    (dateValue) => getMonthKey(dateValue) === scheduleCalendarMonth
+  ).length;
+
+  scheduleCalendarTitle.textContent = formatMonthLabel(monthStartValue);
+  scheduleCalendarGrid.innerHTML = cells.join("");
+  scheduleCalendarSummary.textContent = visibleScheduledCount
+    ? `${visibleScheduledCount} scheduled day${visibleScheduledCount === 1 ? "" : "s"} in this month.`
+    : "No scheduled days in this month yet.";
+}
+
 function renderScheduleTicketResults() {
   if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
     scheduleTicketResults.className = "entry-list schedule-ticket-results empty-state";
@@ -693,9 +822,11 @@ function renderScheduleTicketResults() {
 }
 
 function renderScheduleScreen() {
+  ensureScheduleCalendarMonth();
   scheduleDateInput.min = getTomorrowIsoDate();
   scheduleDateInput.value = scheduleSelectedDate;
   updateScheduleTaskTypePanels();
+  renderScheduleCalendar();
 
   if (!isFutureScheduleDate(scheduleSelectedDate)) {
     hideScheduleStatus();
@@ -759,6 +890,107 @@ async function ensureScheduleTicketsLoaded() {
       "error"
     );
   }
+}
+
+function clearDayScheduleImportPrompt() {
+  if (!dayScheduleImportCard || !dayScheduleImportSummary) {
+    return;
+  }
+
+  dayScheduleImportCard.classList.add("hidden");
+  dayScheduleImportSummary.textContent = "This day has scheduled tasks ready to import.";
+}
+
+function showDayScheduleImportPrompt(dateValue) {
+  if (!dayScheduleImportCard || !dayScheduleImportSummary) {
+    return;
+  }
+
+  const tasks = getScheduleTasksForDate(dateValue);
+
+  if (!tasks.length || dismissedScheduleImportDate === dateValue || editingDayEntryId) {
+    dayScheduleImportCard.classList.add("hidden");
+    return;
+  }
+
+  dayScheduleImportSummary.textContent = `${formatDisplayDate(dateValue)} has ${getScheduleTaskSummary(
+    tasks
+  )} ready to import.`;
+  dayScheduleImportCard.classList.remove("hidden");
+}
+
+function refreshDayScheduleImportPrompt() {
+  const selectedDate = String(workDateInput.value || "").trim();
+
+  if (!selectedDate) {
+    clearDayScheduleImportPrompt();
+    return;
+  }
+
+  showDayScheduleImportPrompt(selectedDate);
+}
+
+function buildImportedScheduleTicket(task) {
+  const matchingTicket = findTicketById(task.ticketId || task.ticketNumber || task.id);
+
+  if (matchingTicket) {
+    return matchingTicket;
+  }
+
+  return {
+    id: String(task.ticketId || task.id || task.ticketNumber || ""),
+    number: String(task.ticketNumber || task.ticketId || task.id || ""),
+    title: String(task.description || "").trim(),
+    description: String(task.description || "").trim(),
+    location: String(task.site || "").trim(),
+    status: String(task.status || "").trim(),
+    createdAt: String(task.createdAt || "").trim(),
+    dueAt: String(task.dueAt || "").trim(),
+  };
+}
+
+function importScheduleIntoDay() {
+  const selectedDate = String(workDateInput.value || "").trim();
+  const tasks = getScheduleTasksForDate(selectedDate);
+
+  if (!selectedDate || !tasks.length) {
+    clearDayScheduleImportPrompt();
+    return;
+  }
+
+  const ticketTasks = tasks.filter((task) => task.type === "ticket");
+  const customTasks = tasks.filter((task) => task.type === "custom");
+
+  if (ticketTasks.length) {
+    dayRelatedInputs.forEach((input) => {
+      input.checked = input.value === "expansive";
+    });
+
+    ticketTasks.forEach((task) => {
+      const importedTicket = buildImportedScheduleTicket(task);
+      const ticketKey = getTicketKey(importedTicket);
+
+      if (!selectedDayTickets.some((item) => getTicketKey(item) === ticketKey)) {
+        selectedDayTickets.push(importedTicket);
+      }
+    });
+
+    updateDayReferenceField();
+    syncDayTicketReferenceText();
+    renderSelectedDayTicket();
+    renderDayTicketPicker();
+  }
+
+  if (customTasks.length) {
+    const existingText = String(commentsText.value || "").trim();
+    const customText = customTasks.map((task) => task.text).filter(Boolean).join("\n");
+    commentsText.value = [existingText, customText].filter(Boolean).join(existingText ? "\n" : "");
+    updateCommentsPreview();
+  }
+
+  dismissedScheduleImportDate = selectedDate;
+  clearDayScheduleImportPrompt();
+  setSaveStatus("Schedule imported. You can still add more tickets, comments, and attachments.", "success");
 }
 
 function updateSelectedScheduleDate(dateValue) {
@@ -883,6 +1115,7 @@ async function handleScheduleDateChange() {
   }
 
   updateSelectedScheduleDate(nextDate);
+  syncScheduleCalendarToDate(nextDate);
   renderScheduleScreen();
   await ensureScheduleTicketsLoaded();
 }
@@ -1522,6 +1755,7 @@ function updateWorkDateLockState() {
   workDateInput.setCustomValidity("");
   workDateStatus.textContent = "";
   workDateStatus.classList.add("hidden");
+  refreshDayScheduleImportPrompt();
 }
 
 async function loadRecordedDayDates() {
@@ -4142,6 +4376,7 @@ function updateRecordDayStep() {
   recordDayPrevButton.classList.toggle("hidden", recordDayStepIndex === 0);
   recordDayNextButton.classList.toggle("hidden", recordDayStepIndex === recordDaySteps.length - 1);
   recordDaySaveButton.classList.toggle("hidden", recordDayStepIndex !== recordDaySteps.length - 1);
+  refreshDayScheduleImportPrompt();
 }
 
 function updateRecordPurchaseStep() {
@@ -4379,6 +4614,7 @@ function resetRecordDayForm() {
   editingDayCreatedAt = null;
   editingDayExistingAttachments = [];
   selectedDayTickets = [];
+  dismissedScheduleImportDate = "";
   dayCommentDraft = "";
   updateVoiceStatus("");
   renderEmployees();
@@ -4388,6 +4624,7 @@ function resetRecordDayForm() {
   updateCommentsPreview();
   updateDayReferenceField();
   updateWorkDateLockState();
+  clearDayScheduleImportPrompt();
   recordDayStepIndex = 0;
   updateRecordDayStep();
   recordDayStepTitle.textContent = recordDayStepMeta[recordDayStepIndex].title;
@@ -4411,6 +4648,7 @@ function loadDayEntryForEditing(entryId) {
   editingDayOriginalDate = entry.date;
   editingDayCreatedAt = entry.createdAt || null;
   editingDayExistingAttachments = Array.isArray(entry.attachments) ? [...entry.attachments] : [];
+  dismissedScheduleImportDate = entry.date || "";
 
   workDateInput.value = entry.date || "";
   const isRelated = Boolean(entry.relatedReference);
@@ -5702,6 +5940,36 @@ addEmployeeButton.addEventListener("click", addEmployee);
 toggleNewEmployeeButton.addEventListener("click", toggleNewEmployeePanel);
 attachmentInput.addEventListener("change", renderAttachmentList);
 scheduleDateInput.addEventListener("change", handleScheduleDateChange);
+scheduleCalendarPrevButton.addEventListener("click", () => {
+  ensureScheduleCalendarMonth();
+  scheduleCalendarMonth = shiftMonthKey(scheduleCalendarMonth, -1);
+  renderScheduleCalendar();
+});
+scheduleCalendarNextButton.addEventListener("click", () => {
+  ensureScheduleCalendarMonth();
+  scheduleCalendarMonth = shiftMonthKey(scheduleCalendarMonth, 1);
+  renderScheduleCalendar();
+});
+scheduleCalendarGrid.addEventListener("click", async (event) => {
+  const dayButton = event.target.closest("[data-schedule-calendar-date]");
+
+  if (!dayButton) {
+    return;
+  }
+
+  const selectedDate = String(dayButton.dataset.scheduleCalendarDate || "").trim();
+
+  if (!selectedDate || selectedDate < getTomorrowIsoDate()) {
+    setScheduleStatus("Please choose a future day after July 23, 2026.", "warning");
+    return;
+  }
+
+  scheduleDateInput.value = selectedDate;
+  updateSelectedScheduleDate(selectedDate);
+  syncScheduleCalendarToDate(selectedDate);
+  renderScheduleScreen();
+  await ensureScheduleTicketsLoaded();
+});
 scheduleTaskTypeInputs.forEach((input) =>
   input.addEventListener("change", () => {
     updateScheduleTaskTypePanels();
@@ -5797,6 +6065,11 @@ scheduleTicketResults.addEventListener("touchend", (event) => {
 });
 workDateInput.addEventListener("input", updateWorkDateLockState);
 workDateInput.addEventListener("change", updateWorkDateLockState);
+dayScheduleImportButton.addEventListener("click", importScheduleIntoDay);
+dayScheduleSkipButton.addEventListener("click", () => {
+  dismissedScheduleImportDate = String(workDateInput.value || "").trim();
+  clearDayScheduleImportPrompt();
+});
 purchaseReceiptInput.addEventListener("change", () => {
   renderPurchaseReceiptList();
   receiptAnalysisText = "";
@@ -6031,6 +6304,7 @@ if (!isFutureScheduleDate(scheduleSelectedDate)) {
   scheduleSelectedDate = "";
   writeStoredScheduleSelectedDate("");
 }
+scheduleCalendarMonth = getMonthKey(scheduleSelectedDate || getTomorrowIsoDate());
 ticketDiscoveryData = readStoredTicketDiscovery();
 renderScheduleScreen();
 setTicketViewMode("time");
