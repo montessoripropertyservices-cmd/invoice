@@ -51,6 +51,18 @@ create table if not exists public.employee_profiles (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.schedule_entries (
+  id uuid primary key default gen_random_uuid(),
+  work_date date not null,
+  tasks jsonb not null default '[]'::jsonb,
+  ticket_site text not null default '',
+  ticket_search text not null default '',
+  ticket_sort text not null default 'desc',
+  ticket_page integer not null default 1,
+  created_by uuid not null default auth.uid(),
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 alter table public.day_entries
 add column if not exists created_by uuid default auth.uid();
 
@@ -126,13 +138,35 @@ add column if not exists last_name text default '';
 alter table public.employee_profiles
 add column if not exists hourly_rate numeric(10,2) default 0;
 
+alter table public.schedule_entries
+add column if not exists tasks jsonb default '[]'::jsonb;
+
+alter table public.schedule_entries
+add column if not exists ticket_site text default '';
+
+alter table public.schedule_entries
+add column if not exists ticket_search text default '';
+
+alter table public.schedule_entries
+add column if not exists ticket_sort text default 'desc';
+
+alter table public.schedule_entries
+add column if not exists ticket_page integer default 1;
+
+alter table public.schedule_entries
+add column if not exists created_by uuid default auth.uid();
+
 create unique index if not exists day_entries_created_by_work_date_idx
 on public.day_entries (created_by, work_date);
+
+create unique index if not exists schedule_entries_created_by_work_date_idx
+on public.schedule_entries (created_by, work_date);
 
 alter table public.day_entries enable row level security;
 alter table public.day_entry_employees enable row level security;
 alter table public.purchase_entries enable row level security;
 alter table public.employee_profiles enable row level security;
+alter table public.schedule_entries enable row level security;
 
 drop policy if exists "Allow public insert day_entries" on public.day_entries;
 drop policy if exists "Allow public select day_entries" on public.day_entries;
@@ -152,6 +186,10 @@ drop policy if exists "Allow authenticated update own purchase_entries" on publi
 drop policy if exists "Allow authenticated insert employee_profiles" on public.employee_profiles;
 drop policy if exists "Allow authenticated select own employee_profiles" on public.employee_profiles;
 drop policy if exists "Allow authenticated update own employee_profiles" on public.employee_profiles;
+drop policy if exists "Allow authenticated insert schedule_entries" on public.schedule_entries;
+drop policy if exists "Allow authenticated select own schedule_entries" on public.schedule_entries;
+drop policy if exists "Allow authenticated update own schedule_entries" on public.schedule_entries;
+drop policy if exists "Allow authenticated delete own schedule_entries" on public.schedule_entries;
 
 create policy "Allow authenticated insert day_entries"
 on public.day_entries
@@ -227,6 +265,31 @@ for update
 to authenticated
 using (auth.uid() = created_by)
 with check (auth.uid() = created_by);
+
+create policy "Allow authenticated insert schedule_entries"
+on public.schedule_entries
+for insert
+to authenticated
+with check (auth.uid() = created_by);
+
+create policy "Allow authenticated select own schedule_entries"
+on public.schedule_entries
+for select
+to authenticated
+using (auth.uid() = created_by);
+
+create policy "Allow authenticated update own schedule_entries"
+on public.schedule_entries
+for update
+to authenticated
+using (auth.uid() = created_by)
+with check (auth.uid() = created_by);
+
+create policy "Allow authenticated delete own schedule_entries"
+on public.schedule_entries
+for delete
+to authenticated
+using (auth.uid() = created_by);
 
 insert into storage.buckets (id, name, public)
 values ('day-attachments', 'day-attachments', true)

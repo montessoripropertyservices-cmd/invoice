@@ -1586,11 +1586,11 @@ input[type="file"]::file-selector-button {
 
 .schedule-page-floating {
   position: sticky;
-  top: 88px;
+  top: 112px;
   z-index: 8;
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 6px;
+  padding: 8px 10px;
   border-radius: var(--radius-lg);
   background: rgba(24, 28, 25, 0.98);
   border: 1px solid rgba(243, 236, 223, 0.14);
@@ -1600,7 +1600,7 @@ input[type="file"]::file-selector-button {
 .schedule-page-toolbar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
   align-items: end;
 }
 
@@ -1616,8 +1616,8 @@ input[type="file"]::file-selector-button {
 }
 
 .schedule-page-select select {
-  min-height: 74px;
-  font-size: 1.2rem;
+  min-height: 56px;
+  font-size: 1.05rem;
   text-align: center;
   background: #101411;
   color: var(--cream);
@@ -1661,6 +1661,13 @@ input[type="file"]::file-selector-button {
 .schedule-day-actions .back-button,
 .schedule-day-actions .submit-button {
   border: 1px solid rgba(243, 236, 223, 0.18);
+}
+
+.schedule-page-floating .back-button,
+.schedule-page-floating .submit-button {
+  min-height: 56px;
+  padding: 10px 16px;
+  font-size: 1rem;
 }
 
 .schedule-page-floating .back-button {
@@ -2227,7 +2234,7 @@ textarea::placeholder {
   }
 
   .schedule-page-floating {
-    top: 72px;
+    top: 88px;
   }
 
   .schedule-page-toolbar {

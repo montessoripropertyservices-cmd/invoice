@@ -274,6 +274,7 @@ let scheduleSwipeStartX = 0;
 let scheduleCalendarMonth = "";
 let dismissedScheduleImportDate = "";
 let scheduleTicketsLoading = false;
+let scheduleEntriesLoading = false;
 let editingScheduleCustomTaskId = "";
 let scheduleTicketPageDepth = 10;
 let scheduleDayOpened = false;
@@ -445,6 +446,16 @@ function writeStoredScheduleSelectedDate(dateValue) {
   localStorage.setItem(scheduleSelectedDateStorageKey, dateValue);
 }
 
+function shouldPersistScheduleState(state) {
+  return Boolean(
+    (state.tasks || []).length ||
+      state.ticketSite ||
+      state.ticketSearch ||
+      state.ticketSort !== "desc" ||
+      Number(state.ticketPage || 1) !== 1
+  );
+}
+
 function getEmptyScheduleDayState() {
   return {
     tasks: [],
@@ -510,15 +521,19 @@ function getScheduleDayState(dateValue) {
   };
 }
 
-function saveScheduleDayState(dateValue, updates) {
+function setLocalScheduleDayState(dateValue, nextState) {
   if (!dateValue) {
     return;
   }
 
-  const nextState = {
-    ...getScheduleDayState(dateValue),
-    ...updates,
-  };
+  if (!shouldPersistScheduleState(nextState)) {
+    const nextEntries = { ...scheduleEntries };
+    delete nextEntries[dateValue];
+    scheduleEntries = nextEntries;
+    writeStoredScheduleEntries(scheduleEntries);
+    return;
+  }
+
   scheduleEntries = {
     ...scheduleEntries,
     [dateValue]: {
@@ -529,6 +544,142 @@ function saveScheduleDayState(dateValue, updates) {
     },
   };
   writeStoredScheduleEntries(scheduleEntries);
+}
+
+function buildScheduleDayState(dateValue, updates = {}) {
+  const nextState = {
+    ...getScheduleDayState(dateValue),
+    ...updates,
+  };
+
+  return {
+    ...nextState,
+    tasks: Array.isArray(nextState.tasks)
+      ? nextState.tasks.map(sanitizeScheduleTask).filter(Boolean)
+      : [],
+    ticketSite: String(nextState.ticketSite || "").trim(),
+    ticketSearch: String(nextState.ticketSearch || "").trim(),
+    ticketSort: nextState.ticketSort === "asc" ? "asc" : "desc",
+    ticketPage: Math.max(1, Number(nextState.ticketPage || 1)),
+  };
+}
+
+function getScheduleSupabaseMessage(error, fallbackMessage) {
+  const message = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+
+  if (message.includes("schedule_entries")) {
+    return "Supabase is missing the schedule table. Run the updated SQL in supabase/schema.sql, then try again.";
+  }
+
+  return fallbackMessage;
+}
+
+async function persistScheduleDayState(dateValue, updates = {}, options = {}) {
+  if (!dateValue) {
+    return false;
+  }
+
+  const nextState = buildScheduleDayState(dateValue, updates);
+  setLocalScheduleDayState(dateValue, nextState);
+
+  if (!canUseSupabaseSession()) {
+    if (!options.silent) {
+      setScheduleStatus("Schedule saved on this device. Sign in to save it online too.", "warning");
+    }
+    return false;
+  }
+
+  if (!shouldPersistScheduleState(nextState)) {
+    const { error } = await supabaseClient.from("schedule_entries").delete().eq("work_date", dateValue);
+
+    if (error && !options.silent) {
+      setScheduleStatus(
+        getScheduleSupabaseMessage(
+          error,
+          "Schedule cleared on this device, but the online copy could not be removed."
+        ),
+        "warning"
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  const payload = {
+    work_date: dateValue,
+    tasks: nextState.tasks,
+    ticket_site: nextState.ticketSite,
+    ticket_search: nextState.ticketSearch,
+    ticket_sort: nextState.ticketSort,
+    ticket_page: nextState.ticketPage,
+  };
+  const { error } = await supabaseClient.from("schedule_entries").upsert(payload, {
+    onConflict: "created_by,work_date",
+  });
+
+  if (error) {
+    if (!options.silent) {
+      setScheduleStatus(
+        getScheduleSupabaseMessage(
+          error,
+          "Schedule was saved in this browser, but the online schedule could not be updated."
+        ),
+        "warning"
+      );
+    }
+    return false;
+  }
+
+  return true;
+}
+
+async function loadScheduleEntriesFromSupabase() {
+  if (!canUseSupabaseSession() || scheduleEntriesLoading) {
+    return false;
+  }
+
+  scheduleEntriesLoading = true;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("schedule_entries")
+      .select("work_date, tasks, ticket_site, ticket_search, ticket_sort, ticket_page")
+      .order("work_date", { ascending: true });
+
+    if (error) {
+      setScheduleStatus(
+        getScheduleSupabaseMessage(
+          error,
+          "Could not load the online schedule. Showing browser-saved schedule instead."
+        ),
+        "warning"
+      );
+      return false;
+    }
+
+    const nextEntries = {};
+    (Array.isArray(data) ? data : []).forEach((entry) => {
+      if (!entry.work_date) {
+        return;
+      }
+
+      nextEntries[entry.work_date] = buildScheduleDayState(entry.work_date, {
+        tasks: Array.isArray(entry.tasks) ? entry.tasks : [],
+        ticketSite: entry.ticket_site || "",
+        ticketSearch: entry.ticket_search || "",
+        ticketSort: entry.ticket_sort || "desc",
+        ticketPage: entry.ticket_page || 1,
+      });
+    });
+
+    scheduleEntries = nextEntries;
+    writeStoredScheduleEntries(scheduleEntries);
+    renderScheduleScreen();
+    return true;
+  } finally {
+    scheduleEntriesLoading = false;
+  }
 }
 
 function getSelectedScheduleTaskType() {
@@ -775,7 +926,7 @@ function renderScheduleTicketResults() {
   const currentPage = Math.min(Math.max(1, Number(dayState.ticketPage || 1)), pageCount);
 
   if (currentPage !== dayState.ticketPage) {
-    saveScheduleDayState(scheduleSelectedDate, { ticketPage: currentPage });
+    persistScheduleDayState(scheduleSelectedDate, { ticketPage: currentPage }, { silent: true });
   }
 
   schedulePageJump.innerHTML = Array.from({ length: pageCount }, (_item, index) => {
@@ -1086,7 +1237,7 @@ function goToSchedulePage(nextPage) {
   const filteredTickets = getScheduleFilteredTickets();
   const pageCount = Math.max(1, Math.ceil(filteredTickets.length / 3));
   const clampedPage = Math.min(Math.max(1, Number(nextPage || 1)), pageCount);
-  saveScheduleDayState(scheduleSelectedDate, { ticketPage: clampedPage });
+  persistScheduleDayState(scheduleSelectedDate, { ticketPage: clampedPage }, { silent: true });
   renderScheduleTicketResults();
 }
 
@@ -1096,7 +1247,7 @@ function clearScheduleCustomTaskEdit() {
   renderScheduleScreen();
 }
 
-function addScheduleCustomTask() {
+async function addScheduleCustomTask() {
   if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
     setScheduleStatus("Choose a future day before adding a custom task.", "error");
     return;
@@ -1130,19 +1281,25 @@ function addScheduleCustomTask() {
           createdAt: new Date().toISOString(),
         },
       ];
-  saveScheduleDayState(scheduleSelectedDate, {
+  const savedOnline = await persistScheduleDayState(scheduleSelectedDate, {
     tasks: nextTasks,
   });
   editingScheduleCustomTaskId = "";
   scheduleCustomText.value = "";
   renderScheduleScreen();
   setScheduleStatus(
-    isEditingCustomTask ? "Custom task updated." : "Custom task added to the schedule.",
-    "success"
+    savedOnline
+      ? isEditingCustomTask
+        ? "Custom task updated online."
+        : "Custom task added to the online schedule."
+      : isEditingCustomTask
+        ? "Custom task updated in this browser."
+        : "Custom task added in this browser.",
+    savedOnline ? "success" : "warning"
   );
 }
 
-function addScheduleTicketTask(ticketId) {
+async function addScheduleTicketTask(ticketId) {
   if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
     setScheduleStatus("Choose a future day before adding a ticket.", "error");
     return;
@@ -1165,7 +1322,7 @@ function addScheduleTicketTask(ticketId) {
     return;
   }
 
-  saveScheduleDayState(scheduleSelectedDate, {
+  const savedOnline = await persistScheduleDayState(scheduleSelectedDate, {
     tasks: [
       ...dayState.tasks,
       {
@@ -1182,10 +1339,15 @@ function addScheduleTicketTask(ticketId) {
     ],
   });
   renderScheduleScreen();
-  setScheduleStatus(`Ticket # ${ticket.number || ticket.id || "Unknown"} added to the schedule.`, "success");
+  setScheduleStatus(
+    `Ticket # ${ticket.number || ticket.id || "Unknown"} added to the ${
+      savedOnline ? "online schedule" : "browser schedule"
+    }.`,
+    savedOnline ? "success" : "warning"
+  );
 }
 
-function removeScheduleTask(taskId) {
+async function removeScheduleTask(taskId) {
   if (!scheduleSelectedDate) {
     return;
   }
@@ -1197,11 +1359,14 @@ function removeScheduleTask(taskId) {
     scheduleCustomText.value = "";
   }
 
-  saveScheduleDayState(scheduleSelectedDate, {
+  const savedOnline = await persistScheduleDayState(scheduleSelectedDate, {
     tasks: dayState.tasks.filter((task) => task.id !== taskId),
   });
   renderScheduleScreen();
-  setScheduleStatus("Task removed from the schedule.", "success");
+  setScheduleStatus(
+    savedOnline ? "Task removed from the online schedule." : "Task removed in this browser.",
+    savedOnline ? "success" : "warning"
+  );
 }
 
 function editScheduleTask(taskId) {
@@ -1227,7 +1392,7 @@ function editScheduleTask(taskId) {
   setScheduleStatus("Editing custom task.", "warning");
 }
 
-function deleteScheduledDay() {
+async function deleteScheduledDay() {
   if (!scheduleSelectedDate) {
     return;
   }
@@ -1247,7 +1412,7 @@ function deleteScheduledDay() {
     return;
   }
 
-  saveScheduleDayState(scheduleSelectedDate, {
+  const savedOnline = await persistScheduleDayState(scheduleSelectedDate, {
     ...getEmptyScheduleDayState(),
     tasks: [],
     ticketSite: "",
@@ -1258,7 +1423,10 @@ function deleteScheduledDay() {
   editingScheduleCustomTaskId = "";
   scheduleCustomText.value = "";
   renderScheduleScreen();
-  setScheduleStatus("Scheduled day cleared.", "success");
+  setScheduleStatus(
+    savedOnline ? "Scheduled day cleared online." : "Scheduled day cleared in this browser.",
+    savedOnline ? "success" : "warning"
+  );
 }
 
 function editSelectedScheduledDay() {
@@ -1342,6 +1510,7 @@ function showScreen(screenName) {
   if (screenName === "schedule") {
     scheduleDayOpened = false;
     renderScheduleScreen();
+    loadScheduleEntriesFromSupabase();
     ensureScheduleTicketsLoaded();
   }
 
@@ -4145,6 +4314,7 @@ async function initializeAuth() {
   await loadRecordedDayDates();
   await checkPurchaseSupabaseReady();
   await loadEmployeeProfilesFromSupabase();
+  await loadScheduleEntriesFromSupabase();
 
   supabaseClient.auth.onAuthStateChange((event, nextSession) => {
     if (event === "PASSWORD_RECOVERY") {
@@ -4156,6 +4326,7 @@ async function initializeAuth() {
     loadRecordedDayDates();
     checkPurchaseSupabaseReady();
     loadEmployeeProfilesFromSupabase();
+    loadScheduleEntriesFromSupabase();
   });
 }
 
@@ -6161,37 +6332,37 @@ scheduleTaskTypeInputs.forEach((input) =>
     hideScheduleStatus();
   })
 );
-scheduleSiteFilter.addEventListener("change", () => {
+scheduleSiteFilter.addEventListener("change", async () => {
   if (!scheduleSelectedDate) {
     return;
   }
 
-  saveScheduleDayState(scheduleSelectedDate, {
+  await persistScheduleDayState(scheduleSelectedDate, {
     ticketSite: scheduleSiteFilter.value,
     ticketPage: 1,
-  });
+  }, { silent: true });
   renderScheduleTicketResults();
 });
-scheduleTicketSearchInput.addEventListener("input", () => {
+scheduleTicketSearchInput.addEventListener("input", async () => {
   if (!scheduleSelectedDate) {
     return;
   }
 
-  saveScheduleDayState(scheduleSelectedDate, {
+  await persistScheduleDayState(scheduleSelectedDate, {
     ticketSearch: scheduleTicketSearchInput.value,
     ticketPage: 1,
-  });
+  }, { silent: true });
   renderScheduleTicketResults();
 });
-scheduleDateSortSelect.addEventListener("change", () => {
+scheduleDateSortSelect.addEventListener("change", async () => {
   if (!scheduleSelectedDate) {
     return;
   }
 
-  saveScheduleDayState(scheduleSelectedDate, {
+  await persistScheduleDayState(scheduleSelectedDate, {
     ticketSort: scheduleDateSortSelect.value === "asc" ? "asc" : "desc",
     ticketPage: 1,
-  });
+  }, { silent: true });
   renderScheduleTicketResults();
 });
 schedulePagePrevButton.addEventListener("click", () => {
@@ -6212,16 +6383,16 @@ schedulePageJump.addEventListener("change", () => {
   goToSchedulePage(schedulePageJump.value);
 });
 scheduleAddCustomTaskButton.addEventListener("click", addScheduleCustomTask);
-scheduleTicketResults.addEventListener("click", (event) => {
+scheduleTicketResults.addEventListener("click", async (event) => {
   const addButton = event.target.closest("[data-schedule-ticket-add]");
 
   if (!addButton) {
     return;
   }
 
-  addScheduleTicketTask(addButton.dataset.scheduleTicketAdd);
+  await addScheduleTicketTask(addButton.dataset.scheduleTicketAdd);
 });
-scheduleTasksList.addEventListener("click", (event) => {
+scheduleTasksList.addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-schedule-task-edit]");
   const deleteButton = event.target.closest("[data-schedule-task-delete]");
 
@@ -6234,7 +6405,7 @@ scheduleTasksList.addEventListener("click", (event) => {
     return;
   }
 
-  removeScheduleTask(deleteButton.dataset.scheduleTaskDelete);
+  await removeScheduleTask(deleteButton.dataset.scheduleTaskDelete);
 });
 scheduleTicketResults.addEventListener("touchstart", (event) => {
   scheduleSwipeStartX = event.changedTouches[0]?.clientX || 0;
