@@ -641,6 +641,12 @@ No analysis yet.
           <p class="step-kicker">Selected Day</p>
           <h3 id="schedule-day-title" class="step-heading">No date selected</h3>
           <p id="schedule-day-summary" class="helper-text">Choose a future day to start planning.</p>
+          <div class="entry-inline-actions schedule-day-actions">
+            <button id="schedule-edit-day-button" class="submit-button" type="button">Edit This Day</button>
+            <button id="schedule-delete-day-button" class="back-button archive-button" type="button">
+              Delete Scheduled Day
+            </button>
+          </div>
         </section>
 
         <section id="schedule-task-builder" class="section-card section-reference hidden">
@@ -709,6 +715,9 @@ No analysis yet.
             <div class="entry-inline-actions schedule-custom-actions">
               <button id="schedule-add-custom-task" class="submit-button" type="button">
                 Add Custom Task
+              </button>
+              <button id="schedule-cancel-custom-task" class="back-button hidden" type="button">
+                Cancel Edit
               </button>
             </div>
           </div>

@@ -101,6 +101,8 @@ const scheduleCalendarSummary = document.getElementById("schedule-calendar-summa
 const scheduleDayPanel = document.getElementById("schedule-day-panel");
 const scheduleDayTitle = document.getElementById("schedule-day-title");
 const scheduleDaySummary = document.getElementById("schedule-day-summary");
+const scheduleEditDayButton = document.getElementById("schedule-edit-day-button");
+const scheduleDeleteDayButton = document.getElementById("schedule-delete-day-button");
 const scheduleTaskBuilder = document.getElementById("schedule-task-builder");
 const scheduleTaskTypeInputs = [...document.querySelectorAll('input[name="schedule-task-type"]')];
 const scheduleTicketPanel = document.getElementById("schedule-ticket-panel");
@@ -115,6 +117,7 @@ const scheduleTicketResults = document.getElementById("schedule-ticket-results")
 const scheduleCustomPanel = document.getElementById("schedule-custom-panel");
 const scheduleCustomText = document.getElementById("schedule-custom-text");
 const scheduleAddCustomTaskButton = document.getElementById("schedule-add-custom-task");
+const scheduleCancelCustomTaskButton = document.getElementById("schedule-cancel-custom-task");
 const scheduleTasksPanel = document.getElementById("schedule-tasks-panel");
 const scheduleTasksList = document.getElementById("schedule-tasks-list");
 const recordPurchaseForm = document.getElementById("record-purchase-form");
@@ -266,6 +269,8 @@ let scheduleSelectedDate = "";
 let scheduleSwipeStartX = 0;
 let scheduleCalendarMonth = "";
 let dismissedScheduleImportDate = "";
+let scheduleTicketsLoading = false;
+let editingScheduleCustomTaskId = "";
 let currentScreenName = null;
 const defaultVisibleTicketStatuses = [
   "service pending",
@@ -657,6 +662,9 @@ function renderScheduleTasks() {
               <p class="schedule-custom-task-text">${escapeTicketFilterValue(task.text)}</p>
             </div>
             <div class="entry-inline-actions">
+              <button class="submit-button" type="button" data-schedule-task-edit="${task.id}">
+                Edit
+              </button>
               <button class="back-button archive-button" type="button" data-schedule-task-delete="${task.id}">
                 Remove
               </button>
@@ -826,6 +834,8 @@ function renderScheduleScreen() {
   scheduleDateInput.min = getTomorrowIsoDate();
   scheduleDateInput.value = scheduleSelectedDate;
   updateScheduleTaskTypePanels();
+  scheduleCancelCustomTaskButton.classList.toggle("hidden", !editingScheduleCustomTaskId);
+  scheduleAddCustomTaskButton.textContent = editingScheduleCustomTaskId ? "Save Custom Task" : "Add Custom Task";
   renderScheduleCalendar();
 
   if (!isFutureScheduleDate(scheduleSelectedDate)) {
@@ -844,6 +854,7 @@ function renderScheduleScreen() {
   scheduleTaskBuilder.classList.remove("hidden");
   scheduleDayTitle.textContent = formatDisplayDate(scheduleSelectedDate);
   scheduleDaySummary.textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"} scheduled for this day.`;
+  scheduleDeleteDayButton.disabled = !tasks.length;
   scheduleTicketSearchInput.value = dayState.ticketSearch;
   scheduleDateSortSelect.value = dayState.ticketSort;
   renderScheduleSiteOptions();
@@ -876,6 +887,17 @@ async function ensureScheduleTicketsLoaded() {
     return;
   }
 
+  if (scheduleTicketsLoading) {
+    return;
+  }
+
+  if (getAvailableTickets().length) {
+    hideScheduleStatus();
+    renderScheduleScreen();
+    return;
+  }
+
+  scheduleTicketsLoading = true;
   setScheduleStatus("Loading Expansive tickets for the schedule...", "warning");
 
   try {
@@ -889,6 +911,8 @@ async function ensureScheduleTicketsLoaded() {
       error?.message || "Could not load Expansive tickets for the schedule.",
       "error"
     );
+  } finally {
+    scheduleTicketsLoading = false;
   }
 }
 
@@ -1010,6 +1034,12 @@ function goToSchedulePage(nextPage) {
   renderScheduleTicketResults();
 }
 
+function clearScheduleCustomTaskEdit() {
+  editingScheduleCustomTaskId = "";
+  scheduleCustomText.value = "";
+  renderScheduleScreen();
+}
+
 function addScheduleCustomTask() {
   if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
     setScheduleStatus("Choose a future day before adding a custom task.", "error");
@@ -1017,6 +1047,7 @@ function addScheduleCustomTask() {
   }
 
   const text = String(scheduleCustomText.value || "").trim();
+  const isEditingCustomTask = Boolean(editingScheduleCustomTaskId);
 
   if (!text) {
     setScheduleStatus("Please type the custom task before adding it.", "error");
@@ -1024,20 +1055,35 @@ function addScheduleCustomTask() {
   }
 
   const dayState = getScheduleDayState(scheduleSelectedDate);
+  const nextTasks = editingScheduleCustomTaskId
+    ? dayState.tasks.map((task) =>
+        task.id === editingScheduleCustomTaskId
+          ? {
+              ...task,
+              type: "custom",
+              text,
+            }
+          : task
+      )
+    : [
+        ...dayState.tasks,
+        {
+          id: `custom-${Date.now()}`,
+          type: "custom",
+          text,
+          createdAt: new Date().toISOString(),
+        },
+      ];
   saveScheduleDayState(scheduleSelectedDate, {
-    tasks: [
-      ...dayState.tasks,
-      {
-        id: `custom-${Date.now()}`,
-        type: "custom",
-        text,
-        createdAt: new Date().toISOString(),
-      },
-    ],
+    tasks: nextTasks,
   });
+  editingScheduleCustomTaskId = "";
   scheduleCustomText.value = "";
   renderScheduleScreen();
-  setScheduleStatus("Custom task added to the schedule.", "success");
+  setScheduleStatus(
+    isEditingCustomTask ? "Custom task updated." : "Custom task added to the schedule.",
+    "success"
+  );
 }
 
 function addScheduleTicketTask(ticketId) {
@@ -1089,11 +1135,83 @@ function removeScheduleTask(taskId) {
   }
 
   const dayState = getScheduleDayState(scheduleSelectedDate);
+
+  if (editingScheduleCustomTaskId === taskId) {
+    editingScheduleCustomTaskId = "";
+    scheduleCustomText.value = "";
+  }
+
   saveScheduleDayState(scheduleSelectedDate, {
     tasks: dayState.tasks.filter((task) => task.id !== taskId),
   });
   renderScheduleScreen();
   setScheduleStatus("Task removed from the schedule.", "success");
+}
+
+function editScheduleTask(taskId) {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  const task = getScheduleDayState(scheduleSelectedDate).tasks.find((item) => item.id === taskId);
+
+  if (!task || task.type !== "custom") {
+    setScheduleStatus("Only custom tasks can be edited directly right now.", "warning");
+    return;
+  }
+
+  editingScheduleCustomTaskId = taskId;
+  scheduleTaskTypeInputs.forEach((input) => {
+    input.checked = input.value === "custom";
+  });
+  scheduleCustomText.value = task.text;
+  updateScheduleTaskTypePanels();
+  renderScheduleScreen();
+  scheduleCustomText.focus();
+  setScheduleStatus("Editing custom task.", "warning");
+}
+
+function deleteScheduledDay() {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  const dayState = getScheduleDayState(scheduleSelectedDate);
+
+  if (!dayState.tasks.length) {
+    setScheduleStatus("There is nothing scheduled on this day yet.", "warning");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete all scheduled tasks for ${formatDisplayDate(scheduleSelectedDate)}?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  saveScheduleDayState(scheduleSelectedDate, {
+    ...getEmptyScheduleDayState(),
+    tasks: [],
+    ticketSite: "",
+    ticketSearch: "",
+    ticketSort: "desc",
+    ticketPage: 1,
+  });
+  editingScheduleCustomTaskId = "";
+  scheduleCustomText.value = "";
+  renderScheduleScreen();
+  setScheduleStatus("Scheduled day cleared.", "success");
+}
+
+function editSelectedScheduledDay() {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  scheduleTaskBuilder.scrollIntoView({ behavior: "smooth", block: "start" });
+  setScheduleStatus("Edit this day below. You can add tickets, edit custom tasks, or remove items.", "success");
 }
 
 async function handleScheduleDateChange() {
@@ -6037,7 +6155,13 @@ scheduleTicketResults.addEventListener("click", (event) => {
   addScheduleTicketTask(addButton.dataset.scheduleTicketAdd);
 });
 scheduleTasksList.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-schedule-task-edit]");
   const deleteButton = event.target.closest("[data-schedule-task-delete]");
+
+  if (editButton) {
+    editScheduleTask(editButton.dataset.scheduleTaskEdit);
+    return;
+  }
 
   if (!deleteButton) {
     return;
@@ -6063,6 +6187,9 @@ scheduleTicketResults.addEventListener("touchend", (event) => {
 
   goToSchedulePage(getScheduleDayState(scheduleSelectedDate).ticketPage - 1);
 });
+scheduleEditDayButton.addEventListener("click", editSelectedScheduledDay);
+scheduleDeleteDayButton.addEventListener("click", deleteScheduledDay);
+scheduleCancelCustomTaskButton.addEventListener("click", clearScheduleCustomTaskEdit);
 workDateInput.addEventListener("input", updateWorkDateLockState);
 workDateInput.addEventListener("change", updateWorkDateLockState);
 dayScheduleImportButton.addEventListener("click", importScheduleIntoDay);
