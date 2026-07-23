@@ -27,6 +27,7 @@ const locations = [
 
 const screens = {
   home: document.getElementById("home-screen"),
+  schedule: document.getElementById("schedule-screen"),
   "record-day": document.getElementById("record-day-screen"),
   "record-purchase": document.getElementById("record-purchase-screen"),
   "check-hours": document.getElementById("check-hours-screen"),
@@ -86,6 +87,26 @@ const savedEntryAnotherButton = document.getElementById("saved-entry-another");
 const saveStatus = document.getElementById("save-status");
 const attachmentInput = document.getElementById("day-attachments");
 const attachmentList = document.getElementById("attachment-list");
+const scheduleStatus = document.getElementById("schedule-status");
+const scheduleDateInput = document.getElementById("schedule-date");
+const scheduleDayPanel = document.getElementById("schedule-day-panel");
+const scheduleDayTitle = document.getElementById("schedule-day-title");
+const scheduleDaySummary = document.getElementById("schedule-day-summary");
+const scheduleTaskBuilder = document.getElementById("schedule-task-builder");
+const scheduleTaskTypeInputs = [...document.querySelectorAll('input[name="schedule-task-type"]')];
+const scheduleTicketPanel = document.getElementById("schedule-ticket-panel");
+const scheduleSiteFilter = document.getElementById("schedule-site-filter");
+const scheduleTicketSearchInput = document.getElementById("schedule-ticket-search");
+const schedulePagePrevButton = document.getElementById("schedule-page-prev");
+const schedulePageJump = document.getElementById("schedule-page-jump");
+const schedulePageNextButton = document.getElementById("schedule-page-next");
+const schedulePageStatus = document.getElementById("schedule-page-status");
+const scheduleTicketResults = document.getElementById("schedule-ticket-results");
+const scheduleCustomPanel = document.getElementById("schedule-custom-panel");
+const scheduleCustomText = document.getElementById("schedule-custom-text");
+const scheduleAddCustomTaskButton = document.getElementById("schedule-add-custom-task");
+const scheduleTasksPanel = document.getElementById("schedule-tasks-panel");
+const scheduleTasksList = document.getElementById("schedule-tasks-list");
 const recordPurchaseForm = document.getElementById("record-purchase-form");
 const recordPurchaseStepTitle = document.getElementById("record-purchase-step-title");
 const recordPurchaseProgressBar = document.getElementById("record-purchase-progress-bar");
@@ -230,6 +251,9 @@ let dayTicketFilterOpen = false;
 let openTicketActionId = "";
 let selectedTicketActionIds = new Set();
 let selectedDayTickets = [];
+let scheduleEntries = {};
+let scheduleSelectedDate = "";
+let scheduleSwipeStartX = 0;
 let currentScreenName = null;
 const defaultVisibleTicketStatuses = [
   "service pending",
@@ -254,6 +278,8 @@ const archivedDayIdsStorageKey = "archivedDayIds";
 const archivedReceiptIdsStorageKey = "archivedReceiptIds";
 const deletedDayIdsStorageKey = "deletedDayIds";
 const ticketDiscoveryStorageKey = "expansiveTicketDiscovery";
+const scheduleEntriesStorageKey = "scheduleEntries";
+const scheduleSelectedDateStorageKey = "scheduleSelectedDate";
 
 const recordDayStepMeta = [
   { title: "Step 1 of 7: Day" },
@@ -311,6 +337,551 @@ function setSettingsStatus(message, tone) {
   setStatusMessage(settingsStatus, message, tone);
 }
 
+function setScheduleStatus(message, tone) {
+  setStatusMessage(scheduleStatus, message, tone);
+}
+
+function hideScheduleStatus() {
+  scheduleStatus.classList.add("hidden");
+}
+
+function formatInputDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTodayIsoDate() {
+  return "2026-07-23";
+}
+
+function getTomorrowIsoDate() {
+  return "2026-07-24";
+}
+
+function isFutureScheduleDate(dateValue) {
+  return Boolean(dateValue) && dateValue >= getTomorrowIsoDate();
+}
+
+function readStoredScheduleEntries() {
+  try {
+    const rawValue = localStorage.getItem(scheduleEntriesStorageKey);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : {};
+    return parsedValue && typeof parsedValue === "object" ? parsedValue : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function writeStoredScheduleEntries(entries) {
+  localStorage.setItem(scheduleEntriesStorageKey, JSON.stringify(entries));
+}
+
+function readStoredScheduleSelectedDate() {
+  return String(localStorage.getItem(scheduleSelectedDateStorageKey) || "").trim();
+}
+
+function writeStoredScheduleSelectedDate(dateValue) {
+  if (!dateValue) {
+    localStorage.removeItem(scheduleSelectedDateStorageKey);
+    return;
+  }
+
+  localStorage.setItem(scheduleSelectedDateStorageKey, dateValue);
+}
+
+function getEmptyScheduleDayState() {
+  return {
+    tasks: [],
+    ticketSite: "",
+    ticketSearch: "",
+    ticketPage: 1,
+  };
+}
+
+function sanitizeScheduleTask(task) {
+  if (!task || typeof task !== "object") {
+    return null;
+  }
+
+  if (task.type === "custom") {
+    const text = String(task.text || "").trim();
+
+    if (!text) {
+      return null;
+    }
+
+    return {
+      id: String(task.id || `custom-${Date.now()}`),
+      type: "custom",
+      text,
+      createdAt: String(task.createdAt || new Date().toISOString()),
+    };
+  }
+
+  const ticketNumber = String(task.ticketNumber || task.number || "").trim();
+  const description = String(task.description || task.title || "").trim();
+
+  if (!ticketNumber && !description) {
+    return null;
+  }
+
+  return {
+    id: String(task.id || task.ticketId || `ticket-${Date.now()}`),
+    type: "ticket",
+    ticketId: String(task.ticketId || task.id || ticketNumber),
+    ticketNumber,
+    description,
+    site: String(task.site || "").trim(),
+    status: String(task.status || "").trim(),
+    createdAt: String(task.createdAt || new Date().toISOString()),
+    dueAt: String(task.dueAt || "").trim(),
+  };
+}
+
+function getScheduleDayState(dateValue) {
+  const storedValue = scheduleEntries[dateValue] || {};
+  return {
+    ...getEmptyScheduleDayState(),
+    ...storedValue,
+    tasks: Array.isArray(storedValue.tasks)
+      ? storedValue.tasks.map(sanitizeScheduleTask).filter(Boolean)
+      : [],
+    ticketSite: String(storedValue.ticketSite || "").trim(),
+    ticketSearch: String(storedValue.ticketSearch || "").trim(),
+    ticketPage: Math.max(1, Number(storedValue.ticketPage || 1)),
+  };
+}
+
+function saveScheduleDayState(dateValue, updates) {
+  if (!dateValue) {
+    return;
+  }
+
+  const nextState = {
+    ...getScheduleDayState(dateValue),
+    ...updates,
+  };
+  scheduleEntries = {
+    ...scheduleEntries,
+    [dateValue]: {
+      ...nextState,
+      tasks: Array.isArray(nextState.tasks)
+        ? nextState.tasks.map(sanitizeScheduleTask).filter(Boolean)
+        : [],
+    },
+  };
+  writeStoredScheduleEntries(scheduleEntries);
+}
+
+function getSelectedScheduleTaskType() {
+  return scheduleTaskTypeInputs.find((input) => input.checked)?.value || "ticket";
+}
+
+function updateScheduleTaskTypePanels() {
+  const isTicket = getSelectedScheduleTaskType() === "ticket";
+  scheduleTicketPanel.classList.toggle("hidden", !isTicket);
+  scheduleCustomPanel.classList.toggle("hidden", isTicket);
+}
+
+function getSelectedScheduleDayTasks() {
+  return scheduleSelectedDate ? getScheduleDayState(scheduleSelectedDate).tasks : [];
+}
+
+function getScheduledTicketIdsForSelectedDay() {
+  return new Set(
+    getSelectedScheduleDayTasks()
+      .filter((task) => task.type === "ticket")
+      .map((task) => String(task.ticketId || task.id || ""))
+  );
+}
+
+function getScheduleTicketSearchTerms() {
+  return String(scheduleTicketSearchInput.value || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+}
+
+function getScheduleFilteredTickets() {
+  const selectedSite = String(scheduleSiteFilter.value || "").trim();
+  const searchTerms = getScheduleTicketSearchTerms();
+
+  return getAvailableTickets()
+    .filter((ticket) => {
+      if (!selectedSite) {
+        return true;
+      }
+
+      return getTicketSiteCandidates(ticket).includes(selectedSite);
+    })
+    .filter((ticket) => ticketMatchesSearch(ticket, searchTerms))
+    .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function renderScheduleSiteOptions() {
+  const selectedSite = scheduleSelectedDate ? getScheduleDayState(scheduleSelectedDate).ticketSite : "";
+  const siteNames = [...new Set(getAvailableTickets().flatMap(getTicketSiteCandidates))].sort((left, right) =>
+    left.localeCompare(right)
+  );
+
+  scheduleSiteFilter.innerHTML = [
+    '<option value="">All Sites</option>',
+    ...siteNames.map(
+      (siteName) =>
+        `<option value="${escapeTicketFilterValue(siteName)}" ${
+          selectedSite === siteName ? "selected" : ""
+        }>${escapeTicketFilterValue(siteName)}</option>`
+    ),
+  ].join("");
+}
+
+function renderScheduleTasks() {
+  if (!scheduleSelectedDate) {
+    scheduleTasksPanel.classList.add("hidden");
+    scheduleTasksList.className = "entry-list empty-state";
+    scheduleTasksList.textContent = "No tasks scheduled yet.";
+    return;
+  }
+
+  scheduleTasksPanel.classList.remove("hidden");
+  const tasks = getSelectedScheduleDayTasks();
+
+  if (!tasks.length) {
+    scheduleTasksList.className = "entry-list empty-state";
+    scheduleTasksList.textContent = "No tasks scheduled yet.";
+    return;
+  }
+
+  scheduleTasksList.className = "entry-list";
+  scheduleTasksList.innerHTML = tasks
+    .map((task) => {
+      if (task.type === "custom") {
+        return `
+          <article class="entry-card schedule-task-card">
+            <div class="entry-meta">
+              <p class="entry-pill">Custom Task</p>
+              <p class="schedule-custom-task-text">${escapeTicketFilterValue(task.text)}</p>
+            </div>
+            <div class="entry-inline-actions">
+              <button class="back-button archive-button" type="button" data-schedule-task-delete="${task.id}">
+                Remove
+              </button>
+            </div>
+          </article>
+        `;
+      }
+
+      return `
+        <article class="entry-card ticket-picker-card schedule-ticket-card">
+          <div class="entry-meta">
+            ${task.site ? `<p class="ticket-site-pill">Site: ${escapeTicketFilterValue(task.site)}</p>` : ""}
+            <p class="ticket-number-pill">Ticket # ${escapeTicketFilterValue(task.ticketNumber || task.ticketId || "Unknown")}</p>
+            <p class="ticket-description">${escapeTicketFilterValue(task.description || "No description")}</p>
+            ${task.status ? `<p class="entry-pill">Status: ${escapeTicketFilterValue(task.status)}</p>` : ""}
+            ${task.createdAt ? `<p>Created: ${escapeTicketFilterValue(formatDisplayDate(task.createdAt.slice(0, 10)))}</p>` : ""}
+            ${task.dueAt ? `<p>Due: ${escapeTicketFilterValue(formatDisplayDate(task.dueAt.slice(0, 10)))}</p>` : ""}
+          </div>
+          <div class="entry-inline-actions">
+            <button class="back-button archive-button" type="button" data-schedule-task-delete="${task.id}">
+              Remove
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderScheduleTicketResults() {
+  if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
+    scheduleTicketResults.className = "entry-list schedule-ticket-results empty-state";
+    scheduleTicketResults.textContent = "Choose a future day to load tickets.";
+    schedulePageStatus.textContent = "";
+    schedulePageJump.innerHTML = "";
+    schedulePagePrevButton.disabled = true;
+    schedulePageNextButton.disabled = true;
+    return;
+  }
+
+  if (!getAvailableTickets().length) {
+    scheduleTicketResults.className = "entry-list schedule-ticket-results empty-state";
+    scheduleTicketResults.textContent = "Loading Expansive tickets for this future day.";
+    schedulePageStatus.textContent = "No tickets loaded yet.";
+    schedulePageJump.innerHTML = "";
+    schedulePagePrevButton.disabled = true;
+    schedulePageNextButton.disabled = true;
+    return;
+  }
+
+  const filteredTickets = getScheduleFilteredTickets();
+  const dayState = getScheduleDayState(scheduleSelectedDate);
+  const pageCount = Math.max(1, Math.ceil(filteredTickets.length / 3));
+  const currentPage = Math.min(Math.max(1, Number(dayState.ticketPage || 1)), pageCount);
+
+  if (currentPage !== dayState.ticketPage) {
+    saveScheduleDayState(scheduleSelectedDate, { ticketPage: currentPage });
+  }
+
+  schedulePageJump.innerHTML = Array.from({ length: pageCount }, (_item, index) => {
+    const pageNumber = index + 1;
+    return `<option value="${pageNumber}" ${pageNumber === currentPage ? "selected" : ""}>Page ${pageNumber}</option>`;
+  }).join("");
+
+  schedulePagePrevButton.disabled = currentPage <= 1;
+  schedulePageNextButton.disabled = currentPage >= pageCount;
+  schedulePageJump.disabled = filteredTickets.length <= 3;
+
+  if (!filteredTickets.length) {
+    scheduleTicketResults.className = "entry-list schedule-ticket-results empty-state";
+    scheduleTicketResults.textContent = "No tickets match that site and search.";
+    schedulePageStatus.textContent = "0 tickets found.";
+    return;
+  }
+
+  const pageStart = (currentPage - 1) * 3;
+  const visibleTickets = filteredTickets.slice(pageStart, pageStart + 3);
+  const scheduledTicketIds = getScheduledTicketIdsForSelectedDay();
+
+  schedulePageStatus.textContent = `Page ${currentPage} of ${pageCount} • Showing ${
+    pageStart + 1
+  }-${pageStart + visibleTickets.length} of ${filteredTickets.length}`;
+
+  scheduleTicketResults.className = "entry-list schedule-ticket-results";
+  scheduleTicketResults.innerHTML = visibleTickets
+    .map((ticket) => {
+      const ticketKey = getTicketKey(ticket);
+      const isAdded = scheduledTicketIds.has(ticketKey);
+      const locationLabel = getTicketDisplayLocation(ticket);
+
+      return `
+        <article class="entry-card ticket-picker-card schedule-ticket-card">
+          <div class="entry-meta">
+            ${locationLabel ? `<p class="ticket-site-pill">Site: ${escapeTicketFilterValue(locationLabel)}</p>` : ""}
+            <p class="ticket-number-pill">Ticket # ${escapeTicketFilterValue(ticket.number || ticket.id || "Unknown")}</p>
+            <p class="ticket-description">${escapeTicketFilterValue(getTicketDescription(ticket))}</p>
+            ${ticket.status ? `<p class="entry-pill">Status: ${escapeTicketFilterValue(ticket.status)}</p>` : ""}
+            ${ticket.createdAt ? `<p>Created: ${escapeTicketFilterValue(formatDisplayDate(ticket.createdAt.slice(0, 10)))}</p>` : ""}
+            ${ticket.dueAt ? `<p>Due: ${escapeTicketFilterValue(formatDisplayDate(ticket.dueAt.slice(0, 10)))}</p>` : ""}
+          </div>
+          <div class="entry-inline-actions">
+            <button
+              class="${isAdded ? "back-button ticket-selected-button" : "submit-button"}"
+              type="button"
+              data-schedule-ticket-add="${escapeTicketFilterValue(ticketKey)}"
+              ${isAdded ? "disabled" : ""}
+            >
+              ${isAdded ? "Added" : "Add Ticket"}
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderScheduleScreen() {
+  scheduleDateInput.min = getTomorrowIsoDate();
+  scheduleDateInput.value = scheduleSelectedDate;
+  updateScheduleTaskTypePanels();
+
+  if (!isFutureScheduleDate(scheduleSelectedDate)) {
+    hideScheduleStatus();
+    scheduleDayPanel.classList.add("hidden");
+    scheduleTaskBuilder.classList.add("hidden");
+    scheduleTasksPanel.classList.add("hidden");
+    renderScheduleTasks();
+    renderScheduleTicketResults();
+    return;
+  }
+
+  const dayState = getScheduleDayState(scheduleSelectedDate);
+  const tasks = dayState.tasks;
+  scheduleDayPanel.classList.remove("hidden");
+  scheduleTaskBuilder.classList.remove("hidden");
+  scheduleDayTitle.textContent = formatDisplayDate(scheduleSelectedDate);
+  scheduleDaySummary.textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"} scheduled for this day.`;
+  scheduleTicketSearchInput.value = dayState.ticketSearch;
+  renderScheduleSiteOptions();
+  renderScheduleTasks();
+  renderScheduleTicketResults();
+}
+
+async function fetchTicketDiscoveryData() {
+  const result = await fetch("/api/sync-tickets", {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+  const data = await result.json();
+
+  if (!result.ok || !data.ok) {
+    const error = new Error(data.message || "Ticket sync failed.");
+    error.detail = data.detail || "No ticket data loaded.";
+    throw error;
+  }
+
+  ticketDiscoveryData = data;
+  writeStoredTicketDiscovery(data);
+  return data;
+}
+
+async function ensureScheduleTicketsLoaded() {
+  if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
+    return;
+  }
+
+  if (getAvailableTickets().length) {
+    renderScheduleScreen();
+    setScheduleStatus("Showing cached Expansive tickets for scheduling.", "success");
+    return;
+  }
+
+  setScheduleStatus("Loading Expansive tickets for the schedule...", "warning");
+
+  try {
+    const data = await fetchTicketDiscoveryData();
+    renderScheduleScreen();
+    setScheduleStatus(data.message || "Expansive tickets loaded for scheduling.", "success");
+  } catch (error) {
+    console.error(error);
+    renderScheduleScreen();
+    setScheduleStatus(
+      error?.message || "Could not load Expansive tickets for the schedule.",
+      "error"
+    );
+  }
+}
+
+function updateSelectedScheduleDate(dateValue) {
+  scheduleSelectedDate = dateValue;
+  writeStoredScheduleSelectedDate(scheduleSelectedDate);
+}
+
+function goToSchedulePage(nextPage) {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  const filteredTickets = getScheduleFilteredTickets();
+  const pageCount = Math.max(1, Math.ceil(filteredTickets.length / 3));
+  const clampedPage = Math.min(Math.max(1, Number(nextPage || 1)), pageCount);
+  saveScheduleDayState(scheduleSelectedDate, { ticketPage: clampedPage });
+  renderScheduleTicketResults();
+}
+
+function addScheduleCustomTask() {
+  if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
+    setScheduleStatus("Choose a future day before adding a custom task.", "error");
+    return;
+  }
+
+  const text = String(scheduleCustomText.value || "").trim();
+
+  if (!text) {
+    setScheduleStatus("Please type the custom task before adding it.", "error");
+    return;
+  }
+
+  const dayState = getScheduleDayState(scheduleSelectedDate);
+  saveScheduleDayState(scheduleSelectedDate, {
+    tasks: [
+      ...dayState.tasks,
+      {
+        id: `custom-${Date.now()}`,
+        type: "custom",
+        text,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  });
+  scheduleCustomText.value = "";
+  renderScheduleScreen();
+  setScheduleStatus("Custom task added to the schedule.", "success");
+}
+
+function addScheduleTicketTask(ticketId) {
+  if (!scheduleSelectedDate || !isFutureScheduleDate(scheduleSelectedDate)) {
+    setScheduleStatus("Choose a future day before adding a ticket.", "error");
+    return;
+  }
+
+  const ticket = getAvailableTickets().find(
+    (item) => String(item.id) === String(ticketId) || String(item.number) === String(ticketId)
+  );
+
+  if (!ticket) {
+    setScheduleStatus("That ticket could not be found. Try loading tickets again.", "error");
+    return;
+  }
+
+  const dayState = getScheduleDayState(scheduleSelectedDate);
+  const ticketKey = getTicketKey(ticket);
+
+  if (dayState.tasks.some((task) => String(task.ticketId || "") === ticketKey)) {
+    setScheduleStatus("That ticket is already scheduled for this day.", "warning");
+    return;
+  }
+
+  saveScheduleDayState(scheduleSelectedDate, {
+    tasks: [
+      ...dayState.tasks,
+      {
+        id: `ticket-${ticketKey}`,
+        type: "ticket",
+        ticketId: ticketKey,
+        ticketNumber: String(ticket.number || ticket.id || ""),
+        description: getTicketDescription(ticket),
+        site: getTicketDisplayLocation(ticket),
+        status: String(ticket.status || ""),
+        createdAt: String(ticket.createdAt || ""),
+        dueAt: String(ticket.dueAt || ""),
+      },
+    ],
+  });
+  renderScheduleScreen();
+  setScheduleStatus(`Ticket # ${ticket.number || ticket.id || "Unknown"} added to the schedule.`, "success");
+}
+
+function removeScheduleTask(taskId) {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  const dayState = getScheduleDayState(scheduleSelectedDate);
+  saveScheduleDayState(scheduleSelectedDate, {
+    tasks: dayState.tasks.filter((task) => task.id !== taskId),
+  });
+  renderScheduleScreen();
+  setScheduleStatus("Task removed from the schedule.", "success");
+}
+
+async function handleScheduleDateChange() {
+  const nextDate = String(scheduleDateInput.value || "").trim();
+
+  if (!nextDate) {
+    updateSelectedScheduleDate("");
+    renderScheduleScreen();
+    hideScheduleStatus();
+    return;
+  }
+
+  if (!isFutureScheduleDate(nextDate)) {
+    scheduleDateInput.value = "";
+    updateSelectedScheduleDate("");
+    renderScheduleScreen();
+    setScheduleStatus("Please choose a future day after July 23, 2026.", "error");
+    return;
+  }
+
+  updateSelectedScheduleDate(nextDate);
+  renderScheduleScreen();
+  await ensureScheduleTicketsLoaded();
+}
+
 function setArchivedItemsFilter(filterValue = "day") {
   archivedItemsFilter = filterValue === "receipt" ? "receipt" : "day";
 
@@ -357,6 +928,11 @@ function showScreen(screenName) {
 
   if (screenName === "tickets") {
     renderTicketsPlaceholder();
+  }
+
+  if (screenName === "schedule") {
+    renderScheduleScreen();
+    ensureScheduleTicketsLoaded();
   }
 
   if (screenName === "archived-items") {
@@ -1979,27 +2555,19 @@ async function loadTicketsForDayPicker() {
   setDayTicketStatus("Loading Expansive tickets...", "warning");
 
   try {
-    const result = await fetch("/api/sync-tickets", {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-    const data = await result.json();
+    const data = await fetchTicketDiscoveryData();
 
-    if (!result.ok || !data.ok || !(data.tickets || []).length) {
+    if (!(data.tickets || []).length) {
       setDayTicketStatus(data.message || "No tickets could be loaded.", "error");
       renderDayTicketPicker();
       return;
     }
 
-    ticketDiscoveryData = data;
-    writeStoredTicketDiscovery(data);
     renderDayTicketPicker();
     setDayTicketStatus(`${data.tickets.length} tickets loaded.`, "success");
   } catch (error) {
     console.error(error);
-    setDayTicketStatus("Could not reach the ticket sync service.", "error");
+    setDayTicketStatus(error?.message || "Could not reach the ticket sync service.", "error");
   } finally {
     loadDayTicketsButton.disabled = false;
   }
@@ -2213,27 +2781,14 @@ async function syncTickets() {
   setTicketsStatus("Checking Expansive FM connection...", "warning");
 
   try {
-    const result = await fetch("/api/sync-tickets", {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-    const data = await result.json();
-
-    if (!result.ok || !data.ok) {
-      setTicketsStatus(data.message || "Ticket sync failed.", "error");
-      ticketsList.className = "entry-list empty-state";
-      ticketsList.textContent = data.detail || "No ticket data loaded.";
-      return;
-    }
-
+    const data = await fetchTicketDiscoveryData();
     renderTicketsDiscovery(data);
-    writeStoredTicketDiscovery(data);
     setTicketsStatus(data.message || "Expansive FM tickets checked.", "success");
   } catch (error) {
     console.error(error);
-    setTicketsStatus("Could not reach the ticket sync service.", "error");
+    setTicketsStatus(error?.message || "Could not reach the ticket sync service.", "error");
+    ticketsList.className = "entry-list empty-state";
+    ticketsList.textContent = error?.detail || "No ticket data loaded.";
   } finally {
     syncTicketsButton.disabled = false;
   }
@@ -5141,6 +5696,89 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 addEmployeeButton.addEventListener("click", addEmployee);
 toggleNewEmployeeButton.addEventListener("click", toggleNewEmployeePanel);
 attachmentInput.addEventListener("change", renderAttachmentList);
+scheduleDateInput.addEventListener("change", handleScheduleDateChange);
+scheduleTaskTypeInputs.forEach((input) =>
+  input.addEventListener("change", () => {
+    updateScheduleTaskTypePanels();
+    hideScheduleStatus();
+  })
+);
+scheduleSiteFilter.addEventListener("change", () => {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  saveScheduleDayState(scheduleSelectedDate, {
+    ticketSite: scheduleSiteFilter.value,
+    ticketPage: 1,
+  });
+  renderScheduleTicketResults();
+});
+scheduleTicketSearchInput.addEventListener("input", () => {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  saveScheduleDayState(scheduleSelectedDate, {
+    ticketSearch: scheduleTicketSearchInput.value,
+    ticketPage: 1,
+  });
+  renderScheduleTicketResults();
+});
+schedulePagePrevButton.addEventListener("click", () => {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  goToSchedulePage(getScheduleDayState(scheduleSelectedDate).ticketPage - 1);
+});
+schedulePageNextButton.addEventListener("click", () => {
+  if (!scheduleSelectedDate) {
+    return;
+  }
+
+  goToSchedulePage(getScheduleDayState(scheduleSelectedDate).ticketPage + 1);
+});
+schedulePageJump.addEventListener("change", () => {
+  goToSchedulePage(schedulePageJump.value);
+});
+scheduleAddCustomTaskButton.addEventListener("click", addScheduleCustomTask);
+scheduleTicketResults.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-schedule-ticket-add]");
+
+  if (!addButton) {
+    return;
+  }
+
+  addScheduleTicketTask(addButton.dataset.scheduleTicketAdd);
+});
+scheduleTasksList.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-schedule-task-delete]");
+
+  if (!deleteButton) {
+    return;
+  }
+
+  removeScheduleTask(deleteButton.dataset.scheduleTaskDelete);
+});
+scheduleTicketResults.addEventListener("touchstart", (event) => {
+  scheduleSwipeStartX = event.changedTouches[0]?.clientX || 0;
+});
+scheduleTicketResults.addEventListener("touchend", (event) => {
+  const endX = event.changedTouches[0]?.clientX || 0;
+  const deltaX = endX - scheduleSwipeStartX;
+
+  if (Math.abs(deltaX) < 40 || !scheduleSelectedDate) {
+    return;
+  }
+
+  if (deltaX < 0) {
+    goToSchedulePage(getScheduleDayState(scheduleSelectedDate).ticketPage + 1);
+    return;
+  }
+
+  goToSchedulePage(getScheduleDayState(scheduleSelectedDate).ticketPage - 1);
+});
 workDateInput.addEventListener("input", updateWorkDateLockState);
 workDateInput.addEventListener("change", updateWorkDateLockState);
 purchaseReceiptInput.addEventListener("change", () => {
@@ -5371,7 +6009,14 @@ updateCommentsPreview();
 updateMagicLinkButton();
 updateDayReferenceField();
 updatePurchaseReferenceField();
+scheduleEntries = readStoredScheduleEntries();
+scheduleSelectedDate = readStoredScheduleSelectedDate();
+if (!isFutureScheduleDate(scheduleSelectedDate)) {
+  scheduleSelectedDate = "";
+  writeStoredScheduleSelectedDate("");
+}
 ticketDiscoveryData = readStoredTicketDiscovery();
+renderScheduleScreen();
 setTicketViewMode("time");
 setupSpeechRecognition();
 updateRecordDayStep();

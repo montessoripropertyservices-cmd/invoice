@@ -1463,6 +1463,49 @@ input[type="file"]::file-selector-button {
   width: 100%;
 }
 
+.schedule-page-toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.schedule-page-select {
+  margin: 0;
+  text-align: center;
+}
+
+.schedule-page-select span {
+  text-align: center;
+}
+
+.schedule-page-select select {
+  min-height: 74px;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.schedule-ticket-results {
+  min-height: 240px;
+}
+
+.schedule-ticket-card {
+  min-height: 100%;
+}
+
+.schedule-task-card {
+  text-align: left;
+}
+
+.schedule-custom-task-text {
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  font-weight: 800;
+}
+
+.schedule-custom-actions {
+  justify-content: center;
+}
+
 .ticket-picker-list {
   width: 100%;
   max-height: min(58vh, 680px);
@@ -1947,6 +1990,10 @@ textarea::placeholder {
 
   .hours-toolbar {
     display: grid;
+  }
+
+  .schedule-page-toolbar {
+    grid-template-columns: 1fr;
   }
 
   .ticket-organize-grid {

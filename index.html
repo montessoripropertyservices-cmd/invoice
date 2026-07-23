@@ -131,6 +131,9 @@
           <button class="action-button primary" type="button" data-screen="record-day">
             Record a Day
           </button>
+          <button class="action-button" type="button" data-screen="schedule">
+            Schedule
+          </button>
           <button class="action-button" type="button" data-screen="record-purchase">
             Record a Purchase
           </button>
@@ -569,6 +572,104 @@ No analysis yet.
 
         <section class="saved-panel selected-days-panel">
           <div id="selected-days-output" class="selected-days-output">No selected days yet.</div>
+        </section>
+      </section>
+
+      <section class="form-card hidden" id="schedule-screen">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Schedule</p>
+            <h2>Plan Future Work</h2>
+          </div>
+          <div class="section-actions">
+            <button class="back-button" type="button" data-screen="home">Back</button>
+          </div>
+        </div>
+
+        <p id="schedule-status" class="save-status hidden" aria-live="polite"></p>
+
+        <section class="section-card section-date">
+          <p class="step-kicker">Choose a day</p>
+          <h3 class="step-heading">Select a future date</h3>
+          <label class="field-group field-group-large">
+            <span>Future day</span>
+            <input id="schedule-date" type="date" />
+          </label>
+        </section>
+
+        <section id="schedule-day-panel" class="section-card section-location hidden">
+          <p class="step-kicker">Selected Day</p>
+          <h3 id="schedule-day-title" class="step-heading">No date selected</h3>
+          <p id="schedule-day-summary" class="helper-text">Choose a future day to start planning.</p>
+        </section>
+
+        <section id="schedule-task-builder" class="section-card section-reference hidden">
+          <p class="step-kicker">Add a task for the day</p>
+          <div class="choice-grid">
+            <label class="choice-card">
+              <input type="radio" name="schedule-task-type" value="ticket" checked />
+              <span>Expansive Ticket</span>
+            </label>
+            <label class="choice-card">
+              <input type="radio" name="schedule-task-type" value="custom" />
+              <span>Custom Text</span>
+            </label>
+          </div>
+
+          <div id="schedule-ticket-panel" class="ticket-picker">
+            <label class="field-group field-group-large">
+              <span>Site</span>
+              <select id="schedule-site-filter"></select>
+            </label>
+
+            <label class="field-group field-group-large">
+              <span>Search tickets</span>
+              <input
+                id="schedule-ticket-search"
+                type="search"
+                placeholder="Type ticket number, site, or keyword"
+                autocomplete="off"
+              />
+            </label>
+
+            <div class="schedule-page-toolbar">
+              <button id="schedule-page-prev" class="back-button" type="button">Previous</button>
+              <label class="field-group schedule-page-select">
+                <span>Page</span>
+                <select id="schedule-page-jump"></select>
+              </label>
+              <button id="schedule-page-next" class="submit-button" type="button">Next</button>
+            </div>
+
+            <p id="schedule-page-status" class="helper-text"></p>
+
+            <div id="schedule-ticket-results" class="entry-list schedule-ticket-results empty-state">
+              Choose a future day to load tickets.
+            </div>
+          </div>
+
+          <div id="schedule-custom-panel" class="hidden">
+            <label class="field-group field-group-large">
+              <span>Custom task</span>
+              <textarea
+                id="schedule-custom-text"
+                rows="4"
+                placeholder="Type the task you want scheduled for that day"
+              ></textarea>
+            </label>
+            <div class="entry-inline-actions schedule-custom-actions">
+              <button id="schedule-add-custom-task" class="submit-button" type="button">
+                Add Custom Task
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="schedule-tasks-panel" class="section-card section-comments hidden">
+          <p class="step-kicker">Tasks for the day</p>
+          <div id="schedule-tasks-list" class="entry-list empty-state">
+            No tasks scheduled yet.
+          </div>
         </section>
       </section>
 
