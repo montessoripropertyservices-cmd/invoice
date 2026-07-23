@@ -2,15 +2,18 @@
   --bg: #151916;
   --panel: rgba(54, 59, 52, 0.96);
   --panel-strong: #363b34;
-  --ink: #eadfce;
-  --muted: #c4c9bd;
+  --ink: #f3ecdf;
+  --muted: #d2d6ca;
   --accent: #728170;
-  --accent-deep: #eadfce;
-  --cream: #eadfce;
+  --accent-deep: #f3ecdf;
+  --cream: #f3ecdf;
   --forest: #151916;
   --moss: #363b34;
   --sage: #728170;
   --line: rgba(234, 223, 206, 0.2);
+  --surface-ink: #111611;
+  --surface-muted: #4d564d;
+  --surface-soft: #dcd3c3;
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
   --radius-xl: 28px;
   --radius-lg: 18px;
@@ -734,7 +737,9 @@ input[type="file"]::file-selector-button {
 }
 
 .submit-button:disabled {
-  opacity: 0.45;
+  opacity: 0.72;
+  background: linear-gradient(135deg, #4b5448, #3b4338);
+  color: rgba(243, 236, 223, 0.78);
   cursor: not-allowed;
   transform: none;
 }
@@ -1566,9 +1571,10 @@ input[type="file"]::file-selector-button {
   gap: 10px;
   padding: 14px;
   border-radius: var(--radius-lg);
-  background: rgba(244, 251, 244, 0.96);
-  border: 1px solid rgba(77, 155, 102, 0.16);
-  box-shadow: 0 14px 24px rgba(12, 28, 21, 0.08);
+  background:
+    linear-gradient(180deg, rgba(28, 33, 29, 0.98), rgba(16, 20, 17, 0.98));
+  border: 1px solid rgba(243, 236, 223, 0.16);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28);
 }
 
 .schedule-page-toolbar {
@@ -1585,12 +1591,19 @@ input[type="file"]::file-selector-button {
 
 .schedule-page-select span {
   text-align: center;
+  color: var(--cream);
+  font-weight: 800;
 }
 
 .schedule-page-select select {
   min-height: 74px;
   font-size: 1.2rem;
   text-align: center;
+}
+
+.schedule-page-status {
+  color: var(--cream);
+  font-weight: 700;
 }
 
 .schedule-ticket-results {
@@ -1617,6 +1630,13 @@ input[type="file"]::file-selector-button {
 .schedule-day-actions {
   justify-content: center;
   margin-top: 10px;
+}
+
+.schedule-page-floating .back-button,
+.schedule-page-floating .submit-button,
+.schedule-day-actions .back-button,
+.schedule-day-actions .submit-button {
+  border: 1px solid rgba(243, 236, 223, 0.18);
 }
 
 .ticket-picker-list {
@@ -1691,7 +1711,7 @@ input[type="file"]::file-selector-button {
   display: inline-block;
   padding: 6px 10px;
   border-radius: 999px;
-  background: #edf8f0;
+  background: rgba(243, 236, 223, 0.16);
   font-weight: 700;
   font-size: 1.05rem;
 }
@@ -1922,9 +1942,9 @@ textarea::placeholder {
 .ticket-open-link,
 .ticket-site-pill,
 .session-pill {
-  background: rgba(234, 223, 206, 0.13);
+  background: rgba(243, 236, 223, 0.18);
   color: var(--cream);
-  border-color: rgba(234, 223, 206, 0.22);
+  border-color: rgba(243, 236, 223, 0.28);
 }
 
 .wizard-progress,
@@ -1985,9 +2005,9 @@ textarea::placeholder {
 
 .ticket-number-pill,
 .ticket-selected-button {
-  background: rgba(234, 223, 206, 0.18);
+  background: rgba(243, 236, 223, 0.22);
   color: var(--cream);
-  border-color: rgba(234, 223, 206, 0.34);
+  border-color: rgba(243, 236, 223, 0.38);
 }
 
 .ticket-status-pill {
@@ -2032,6 +2052,54 @@ textarea::placeholder {
 
 .developer-label,
 .developer-link {
+  color: var(--cream);
+}
+
+.section-card .helper-text,
+.entry-card p,
+.entry-card span,
+.entry-card strong,
+.hours-dashboard-card p,
+.hours-location-head p,
+.hours-dashboard-heading p,
+.hours-location-pie-center span,
+.hours-dashboard-mini-card span,
+.empty-state,
+.attachment-item,
+.receipt-analysis-output,
+.field-set,
+.choice-card,
+.checkbox-item,
+.settings-card {
+  color: var(--ink);
+}
+
+.section-card,
+.field-set,
+.settings-card,
+.entry-card,
+.hours-dashboard-card,
+.hours-dashboard-mini-card,
+.hours-location-card,
+.hours-location-pie-card,
+.ticket-filter-panel,
+.selected-ticket-summary,
+.empty-state,
+.attachment-item,
+.choice-card,
+.checkbox-item,
+.receipt-analysis-output {
+  color: var(--ink);
+}
+
+.section-card .step-kicker,
+.section-card .step-heading,
+.section-card .field-group span,
+.section-card legend,
+.entry-card h3,
+.entry-pill,
+.ticket-number-pill,
+.ticket-site-pill {
   color: var(--cream);
 }
 
