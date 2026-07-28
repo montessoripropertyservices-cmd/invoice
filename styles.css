@@ -197,6 +197,24 @@ body::before {
   box-shadow: 0 22px 34px rgba(113, 196, 136, 0.26);
 }
 
+.purchase-capture-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  text-decoration: none;
+}
+
+.purchase-capture-helper {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+.purchase-capture-actions {
+  margin-top: 20px;
+}
+
 .action-button:hover,
 .submit-button:hover,
 .back-button:hover,
@@ -1257,6 +1275,39 @@ input[type="file"]::file-selector-button {
   justify-content: flex-end;
   margin-top: 4px;
   min-width: 0;
+}
+
+.receipt-review-card {
+  gap: 18px;
+}
+
+.receipt-preview-image {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(77, 155, 102, 0.14);
+}
+
+.receipt-review-analysis {
+  margin-top: 6px;
+}
+
+.receipt-review-fields {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.receipt-note-field textarea {
+  min-height: 128px;
+}
+
+.receipt-review-note-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .ticket-link-list {
@@ -2337,6 +2388,10 @@ textarea::placeholder {
 
   .entry-inline-actions {
     justify-content: stretch;
+  }
+
+  .receipt-review-note-actions {
+    grid-template-columns: 1fr;
   }
 
   .entry-inline-actions .back-button {

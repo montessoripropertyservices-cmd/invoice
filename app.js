@@ -148,6 +148,7 @@ const purchaseSavedTitle = document.getElementById("purchase-saved-title");
 const purchaseSavedOutput = document.getElementById("purchase-saved-output");
 const purchaseSavedHomeButton = document.getElementById("purchase-saved-home");
 const purchaseSavedAnotherButton = document.getElementById("purchase-saved-another");
+const selectAllReceiptsButton = document.getElementById("select-all-receipts-button");
 const showDaysButton = document.getElementById("show-days-button");
 const archiveDaysButton = document.getElementById("archive-days-button");
 const selectAllDaysButton = document.getElementById("select-all-days-button");
@@ -157,7 +158,6 @@ const checkHoursList = document.getElementById("check-hours-list");
 const selectedDaysOutput = document.getElementById("selected-days-output");
 const archiveSelectedDaysButton = document.getElementById("archive-selected-days-button");
 const copySelectedDaysButton = document.getElementById("copy-selected-days-button");
-const emailReceiptsButton = document.getElementById("email-receipts-button");
 const archiveReceiptsButton = document.getElementById("archive-receipts-button");
 const checkReceiptsStatus = document.getElementById("check-receipts-status");
 const checkReceiptsDashboard = document.getElementById("check-receipts-dashboard");
@@ -315,13 +315,7 @@ const recordDayStepMeta = [
   { title: "Step 7 of 7: Attachments" },
 ];
 
-const recordPurchaseStepMeta = [
-  { title: "Step 1 of 5: Purchase Date" },
-  { title: "Step 2 of 5: Invoice or Ticket" },
-  { title: "Step 3 of 5: Location" },
-  { title: "Step 4 of 5: Receipt Photos" },
-  { title: "Step 5 of 5: Confirm Total" },
-];
+const recordPurchaseStepMeta = [{ title: "Take or Upload a Picture" }];
 
 function setStatusMessage(element, message, tone) {
   element.textContent = message;
@@ -1492,6 +1486,9 @@ function showScreen(screenName) {
   }
 
   if (screenName === "record-purchase") {
+    if (!editingPurchaseEntryId) {
+      resetRecordPurchaseForm();
+    }
     updateRecordPurchaseStep();
     checkPurchaseSupabaseReady();
   }
@@ -1522,6 +1519,12 @@ function showScreen(screenName) {
   if (screenName === "settings") {
     renderSettingsEmployees();
     loadEmployeeProfilesFromSupabase();
+  }
+}
+
+function maybeStartFreshRecordPurchase() {
+  if (!editingPurchaseEntryId) {
+    resetRecordPurchaseForm();
   }
 }
 
@@ -1897,10 +1900,44 @@ function buildLocalPurchaseEntry(payload, saveResult) {
     receipts: payload.receipts,
     total: Number(payload.total || 0),
     analysisText: payload.analysisText || "",
+    notes: payload.notes || "",
     quickbooksInvoiceNumber: payload.quickbooksInvoiceNumber || "",
     createdAt: payload.createdAt || saveResult.createdAt || new Date().toISOString(),
     archivedAt: payload.archivedAt || null,
   };
+}
+
+function parsePurchaseReceiptText(rawValue) {
+  const text = String(rawValue || "").trim();
+
+  if (!text) {
+    return { analysisText: "", notes: "" };
+  }
+
+  if (text.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text);
+      return {
+        analysisText: String(parsed.analysisText || ""),
+        notes: String(parsed.notes || ""),
+      };
+    } catch (_error) {
+      // Fall back to legacy plain-text behavior.
+    }
+  }
+
+  return { analysisText: text, notes: "" };
+}
+
+function serializePurchaseReceiptText(payload) {
+  const analysisText = String(payload.analysisText || "").trim();
+  const notes = String(payload.notes || "").trim();
+
+  if (!analysisText && !notes) {
+    return "";
+  }
+
+  return JSON.stringify({ analysisText, notes });
 }
 
 function formatLocationDisplay(locationValue) {
@@ -1909,6 +1946,15 @@ function formatLocationDisplay(locationValue) {
     .map((part) => part.trim())
     .filter(Boolean)
     .join(", ");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function dedupeEntryEmployees(items) {
@@ -1999,6 +2045,7 @@ function formatPurchaseSummary(entry) {
     `Reference: ${entry.relatedReference || "None"}`,
     `QuickBooks Invoice #: ${entry.quickbooksInvoiceNumber || "None"}`,
     `Total: ${formatCurrency(entry.total)}`,
+    `Note: ${entry.notes || "None"}`,
     `Receipt images: ${attachmentCount}`,
     `Receipt links: ${receiptLinks || "None"}`,
   ].join("\n");
@@ -2680,43 +2727,129 @@ function renderCheckReceiptsEntries() {
   if (!visibleEntries.length) {
     checkReceiptsList.className = "entry-list empty-state";
     checkReceiptsList.textContent = "No recorded receipts yet.";
+    if (selectAllReceiptsButton) {
+      selectAllReceiptsButton.textContent = "Select All";
+      selectAllReceiptsButton.disabled = true;
+    }
     return;
   }
 
   checkReceiptsList.className = "entry-list";
   checkReceiptsList.innerHTML = visibleEntries
     .map((entry) => {
+      const safeId = escapeHtml(entry.id);
+      const receiptImage = (entry.receipts || []).find((item) => item.url)?.url || "";
       const receipts = (entry.receipts || [])
-        .map((item) => {
-          if (item.url) {
-            return `<a href="${item.url}" target="_blank" rel="noreferrer">${item.name}</a>`;
-          }
-
-          return item.name;
-        })
+        .map((item) =>
+          item.url
+            ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.name)}</a>`
+            : escapeHtml(item.name)
+        )
         .join("<br />");
-
+      const analysisText = escapeHtml(entry.analysisText || "No analysis found yet.");
+      const safeDisplayDate = escapeHtml(formatDisplayDate(entry.date));
+      const safeLocation = escapeHtml(formatLocationDisplay(entry.location) || "No location yet");
+      const safeReference = escapeHtml(entry.relatedReference || "");
+      const safeInvoice = escapeHtml(entry.quickbooksInvoiceNumber || "");
+      const safeDateValue = escapeHtml(entry.date || "");
+      const safeNotes = escapeHtml(entry.notes || "");
+      const safeTotalValue = escapeHtml(Number(entry.total || 0).toFixed(2));
       return `
-        <label class="entry-card">
+        <section class="entry-card receipt-review-card">
           <div class="entry-select-row">
-            <input type="checkbox" data-receipt-id="${entry.id}" />
+            <input type="checkbox" data-receipt-id="${safeId}" />
             <div class="entry-meta">
-              <h3>${formatDisplayDate(entry.date)}</h3>
-              <p>${entry.location || "No location"}</p>
+              <h3>${safeDisplayDate}</h3>
+              <p>${safeLocation}</p>
               <p class="entry-pill">Total Receipt: ${formatCurrency(entry.total)}</p>
-              ${entry.relatedReference ? `<p>Reference: ${entry.relatedReference}</p>` : ""}
-              ${entry.quickbooksInvoiceNumber ? `<p>QuickBooks Invoice #: ${entry.quickbooksInvoiceNumber}</p>` : ""}
-              <div class="entry-attachments"><strong>Receipts</strong><span>${receipts || "None"}</span></div>
+              ${entry.relatedReference ? `<p>Ticket #: ${safeReference}</p>` : ""}
+              ${entry.quickbooksInvoiceNumber ? `<p>QuickBooks Invoice #: ${safeInvoice}</p>` : ""}
+              ${
+                receiptImage
+                  ? `<img class="receipt-preview-image" src="${escapeHtml(receiptImage)}" alt="Receipt uploaded on ${safeDisplayDate}" />`
+                  : ""
+              }
+              <div class="analysis-block receipt-review-analysis">
+                <p class="analysis-label">Receipt analysis</p>
+                <pre class="receipt-analysis-output">${analysisText}</pre>
+              </div>
+              <div class="receipt-review-fields">
+                <label class="field-group">
+                  <span>Date</span>
+                  <input type="date" data-review-receipt-date="${safeId}" value="${safeDateValue}" />
+                </label>
+                <label class="field-group">
+                  <span>Location</span>
+                  <select data-review-receipt-location="${safeId}">
+                    ${buildLocationOptions(entry.location || "")}
+                  </select>
+                </label>
+                <label class="field-group">
+                  <span>Total</span>
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="0.01"
+                    data-review-receipt-total="${safeId}"
+                    value="${safeTotalValue}"
+                  />
+                </label>
+                <label class="field-group receipt-note-field">
+                  <span>Notes</span>
+                  <textarea data-review-receipt-notes="${safeId}" rows="4" placeholder="Type or dictate notes">${safeNotes}</textarea>
+                </label>
+              </div>
+              <div class="receipt-review-note-actions">
+                <button class="submit-button" type="button" data-dictate-receipt-note="${safeId}">Dictate Note</button>
+                <button class="back-button archive-button" type="button" data-clear-receipt-note="${safeId}">Clear Note</button>
+              </div>
+              <div class="entry-attachments"><strong>Receipt Links</strong><span>${receipts || "None"}</span></div>
             </div>
           </div>
           <div class="entry-inline-actions">
-            <button class="back-button" type="button" data-edit-receipt-id="${entry.id}">Edit Receipt</button>
-            <button class="back-button archive-button" type="button" data-delete-receipt-id="${entry.id}">Delete Receipt</button>
+            <button class="submit-button" type="button" data-save-receipt-id="${safeId}">Save Receipt</button>
+            <button class="back-button archive-button" type="button" data-delete-receipt-id="${safeId}">Delete Receipt</button>
           </div>
-        </label>
+        </section>
       `;
     })
     .join("");
+
+  updateSelectAllReceiptsButton();
+}
+
+function updateSelectAllReceiptsButton() {
+  if (!selectAllReceiptsButton) {
+    return;
+  }
+
+  const checkboxes = [...checkReceiptsList.querySelectorAll('input[type="checkbox"][data-receipt-id]')];
+
+  if (!checkboxes.length) {
+    selectAllReceiptsButton.textContent = "Select All";
+    selectAllReceiptsButton.disabled = true;
+    return;
+  }
+
+  const allChecked = checkboxes.every((checkbox) => checkbox.checked);
+  selectAllReceiptsButton.textContent = allChecked ? "Clear All" : "Select All";
+  selectAllReceiptsButton.disabled = false;
+}
+
+function toggleSelectAllReceipts() {
+  const checkboxes = [...checkReceiptsList.querySelectorAll('input[type="checkbox"][data-receipt-id]')];
+
+  if (!checkboxes.length) {
+    return;
+  }
+
+  const shouldSelectAll = checkboxes.some((checkbox) => !checkbox.checked);
+  checkboxes.forEach((checkbox) => {
+    checkbox.checked = shouldSelectAll;
+  });
+
+  updateSelectAllReceiptsButton();
 }
 
 function renderTicketsPlaceholder() {
@@ -3806,6 +3939,9 @@ async function loadCheckReceiptsEntries() {
       nextEntries = data
         .map((entry) => {
           const localEntry = localEntries.find((item) => item.id === entry.id);
+          const parsedReceiptText = parsePurchaseReceiptText(
+            entry.receipt_text || localEntry?.analysisText || ""
+          );
           return {
             id: entry.id,
             date: entry.purchase_date,
@@ -3818,7 +3954,8 @@ async function loadCheckReceiptsEntries() {
                 ? entry.receipt_files
                 : localEntry?.receipts) || [],
             total: Number(entry.receipt_total || localEntry?.total || 0),
-            analysisText: entry.receipt_text || localEntry?.analysisText || "",
+            analysisText: parsedReceiptText.analysisText || localEntry?.analysisText || "",
+            notes: parsedReceiptText.notes || localEntry?.notes || "",
             archivedAt: entry.archived_at || localEntry?.archivedAt || null,
             createdAt: entry.created_at || localEntry?.createdAt,
           };
@@ -3856,6 +3993,7 @@ function buildReceiptsEmailBody(entries) {
         `Location: ${formatLocationDisplay(entry.location) || "None"}`,
         `Reference: ${entry.relatedReference || "None"}`,
         `Total Receipt: ${formatCurrency(entry.total)}`,
+        `Note: ${entry.notes || "None"}`,
         "Receipts:",
         receipts || "- None",
       ].join("\n");
@@ -4609,6 +4747,19 @@ function renderLocations() {
   });
 }
 
+function buildLocationOptions(selectedValue = "") {
+  const normalizedSelectedValue = String(selectedValue || "").trim();
+  const options = ['<option value="">Choose a location</option>'];
+
+  locations.forEach((location) => {
+    const selected = location === normalizedSelectedValue ? " selected" : "";
+    const safeLocation = escapeHtml(location);
+    options.push(`<option value="${safeLocation}"${selected}>${safeLocation}</option>`);
+  });
+
+  return options.join("");
+}
+
 function getSelectedDayLocations() {
   return [...locationList.querySelectorAll('input[name="day-location"]:checked')].map(
     (checkbox) => checkbox.value
@@ -5188,25 +5339,33 @@ function extractLikelyReceiptTotal(rawText) {
 async function analyzeReceipt() {
   const receipts = [...purchaseReceiptInput.files];
 
-  if (!receipts.length) {
+  return analyzeReceiptFiles(receipts);
+}
+
+async function analyzeReceiptFiles(receipts) {
+  const nextReceipts = [...(receipts || [])];
+
+  if (!nextReceipts.length) {
     setPurchaseSaveStatus("Please add a receipt image before analyzing.", "error");
-    return;
+    return { analysisText: "", suggestedTotal: null };
   }
 
   if (!window.Tesseract) {
     updateReceiptAnalysisStatus(
       "Receipt analysis is not available right now. Please type the total manually."
     );
-    return;
+    return { analysisText: "", suggestedTotal: null };
   }
 
-  analyzeReceiptButton.disabled = true;
+  if (analyzeReceiptButton) {
+    analyzeReceiptButton.disabled = true;
+  }
   updateReceiptAnalysisStatus("Reading the receipt now...");
 
   try {
     const extractedChunks = [];
 
-    for (const file of receipts.slice(0, 3)) {
+    for (const file of nextReceipts.slice(0, 3)) {
       const {
         data: { text },
       } = await window.Tesseract.recognize(file, "eng");
@@ -5217,26 +5376,36 @@ async function analyzeReceipt() {
     }
 
     receiptAnalysisText = extractedChunks.join("\n\n");
-    receiptAnalysisOutput.className = "receipt-analysis-output";
-    receiptAnalysisOutput.textContent = receiptAnalysisText || "No clear text found on the receipt.";
+    if (receiptAnalysisOutput) {
+      receiptAnalysisOutput.className = "receipt-analysis-output";
+      receiptAnalysisOutput.textContent =
+        receiptAnalysisText || "No clear text found on the receipt.";
+    }
 
     const suggestedTotal = extractLikelyReceiptTotal(receiptAnalysisText);
 
     if (suggestedTotal !== null && Number.isFinite(suggestedTotal)) {
-      receiptTotalInput.value = suggestedTotal.toFixed(2);
+      if (receiptTotalInput) {
+        receiptTotalInput.value = suggestedTotal.toFixed(2);
+      }
       updateReceiptAnalysisStatus("Receipt scanned. Please review the total and edit it if needed.");
     } else {
       updateReceiptAnalysisStatus(
         "Receipt scanned, but I could not find a clear total. Please type it manually."
       );
     }
+
+    return { analysisText: receiptAnalysisText, suggestedTotal };
   } catch (error) {
     console.error(error);
     updateReceiptAnalysisStatus(
       "Receipt analysis could not finish. Please type the total manually."
     );
+    return { analysisText: "", suggestedTotal: null };
   } finally {
-    analyzeReceiptButton.disabled = false;
+    if (analyzeReceiptButton) {
+      analyzeReceiptButton.disabled = false;
+    }
   }
 }
 
@@ -5248,11 +5417,24 @@ function resetRecordPurchaseForm() {
   editingPurchaseEntryId = null;
   editingPurchaseCreatedAt = null;
   editingPurchaseExistingReceipts = [];
-  purchaseSavedPanel.classList.add("hidden");
+  if (purchaseSavedPanel) {
+    purchaseSavedPanel.classList.add("hidden");
+  }
   purchaseSaveStatus.classList.add("hidden");
-  recordPurchaseSaveButton.classList.remove("hidden");
-  receiptAnalysisOutput.className = "receipt-analysis-output empty-state";
-  receiptAnalysisOutput.textContent = "No analysis yet.";
+  if (recordPurchaseSaveButton) {
+    recordPurchaseSaveButton.classList.remove("hidden");
+  }
+  if (receiptAnalysisOutput) {
+    receiptAnalysisOutput.className = "receipt-analysis-output empty-state";
+    receiptAnalysisOutput.textContent = "No analysis yet.";
+  }
+  if (receiptTotalInput) {
+    receiptTotalInput.value = "";
+  }
+  const purchaseDateInput = document.getElementById("purchase-date");
+  if (purchaseDateInput) {
+    purchaseDateInput.value = getTodayIsoDate();
+  }
   updateReceiptAnalysisStatus("");
   renderPurchaseReceiptList();
   updatePurchaseReferenceField();
@@ -5299,6 +5481,167 @@ function startAnotherPurchase() {
   resetRecordPurchaseForm();
   showScreen("record-purchase");
   focusCurrentRecordPurchaseStep();
+}
+
+function getReviewReceiptField(entryId, fieldName) {
+  return checkReceiptsList.querySelector(`[data-review-receipt-${fieldName}="${entryId}"]`);
+}
+
+async function saveReviewedPurchase(entryId) {
+  const entry = purchaseEntriesCache.find((item) => item.id === entryId);
+
+  if (!entry) {
+    setCheckReceiptsStatus("That purchase could not be found to save.", "error");
+    return;
+  }
+
+  const dateInput = getReviewReceiptField(entryId, "date");
+  const locationInput = getReviewReceiptField(entryId, "location");
+  const totalInput = getReviewReceiptField(entryId, "total");
+  const notesInput = getReviewReceiptField(entryId, "notes");
+
+  if (!dateInput?.value) {
+    setCheckReceiptsStatus("Please choose the purchase date before saving.", "error");
+    return;
+  }
+
+  if (!locationInput?.value) {
+    setCheckReceiptsStatus("Please choose the location before saving.", "error");
+    return;
+  }
+
+  if (!totalInput?.value) {
+    setCheckReceiptsStatus("Please confirm the total before saving.", "error");
+    return;
+  }
+
+  const notes = String(notesInput?.value || "").trim();
+
+  if (!notes) {
+    const confirmed = window.confirm("No note?");
+
+    if (!confirmed) {
+      setCheckReceiptsStatus("Add a note if you want it included before saving.", "warning");
+      return;
+    }
+  }
+
+  const payload = {
+    id: entry.id,
+    date: dateInput.value,
+    location: locationInput.value,
+    relatedReference: entry.relatedReference || "",
+    receipts: entry.receipts || [],
+    total: Number(totalInput.value || 0),
+    analysisText: entry.analysisText || "",
+    notes,
+    quickbooksInvoiceNumber: entry.quickbooksInvoiceNumber || "",
+    createdAt: entry.createdAt || null,
+    archivedAt: entry.archivedAt || null,
+  };
+
+  try {
+    const previousReceipts = editingPurchaseExistingReceipts;
+    editingPurchaseExistingReceipts = Array.isArray(entry.receipts) ? [...entry.receipts] : [];
+    const saveResult = await savePurchaseToSupabase(payload);
+    editingPurchaseExistingReceipts = previousReceipts;
+    const savedPurchase = buildLocalPurchaseEntry(
+      { ...payload, receipts: saveResult.receipts || payload.receipts },
+      saveResult
+    );
+    replaceEditedPurchaseEntry(entry.id, savedPurchase);
+    await loadCheckReceiptsEntries();
+    setCheckReceiptsStatus("Purchase details saved.", "success");
+  } catch (error) {
+    console.error(error);
+    replaceEditedPurchaseEntry(entry.id, buildLocalPurchaseEntry(payload, { id: entry.id }));
+    await loadCheckReceiptsEntries();
+    setCheckReceiptsStatus(getPurchaseSaveErrorMessage(error), "error");
+  }
+}
+
+function focusReceiptNotesField(entryId) {
+  const notesField = getReviewReceiptField(entryId, "notes");
+
+  if (!notesField) {
+    return;
+  }
+
+  notesField.scrollIntoView({ behavior: "smooth", block: "center" });
+  const end = notesField.value.length;
+  notesField.focus({ preventScroll: true });
+
+  try {
+    notesField.setSelectionRange(end, end);
+  } catch (_error) {
+    // Some mobile browsers reject selection until focus settles.
+  }
+}
+
+function startReceiptNoteDictation(entryId) {
+  const notesField = getReviewReceiptField(entryId, "notes");
+
+  if (!notesField) {
+    return;
+  }
+
+  const isIosDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent || "");
+
+  if (isIosDevice) {
+    focusReceiptNotesField(entryId);
+    setCheckReceiptsStatus(
+      "The notes box is ready. Use the iPhone keyboard microphone to dictate.",
+      "warning"
+    );
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+  if (!SpeechRecognition) {
+    focusReceiptNotesField(entryId);
+    setCheckReceiptsStatus("Speech input is not available here. You can type in the notes box.", "warning");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  const existingText = String(notesField.value || "").trim();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onresult = (event) => {
+    const transcript = [...event.results]
+      .map((result) => result[0].transcript)
+      .join(" ")
+      .trim();
+
+    notesField.value = [existingText, transcript].filter(Boolean).join(existingText ? "\n" : "");
+    setCheckReceiptsStatus("Dictation added to the note.", "success");
+  };
+
+  recognition.onerror = () => {
+    setCheckReceiptsStatus("Speech could not be captured. You can type the note instead.", "warning");
+  };
+
+  focusReceiptNotesField(entryId);
+  recognition.start();
+}
+
+function clearReceiptNote(entryId) {
+  const notesField = getReviewReceiptField(entryId, "notes");
+
+  if (!notesField?.value.trim()) {
+    return;
+  }
+
+  const confirmed = window.confirm("Clear this note?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  notesField.value = "";
 }
 
 function updateVoiceStatus(message) {
@@ -5810,6 +6153,8 @@ async function savePurchaseToSupabase(payload) {
     };
   }
 
+  const serializedReceiptText = serializePurchaseReceiptText(payload);
+
   if (payload.id && isUuid(payload.id)) {
     const updateVariants = [
       {
@@ -5819,7 +6164,7 @@ async function savePurchaseToSupabase(payload) {
         quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
         receipt_total: payload.total,
         receipt_files: payload.receipts,
-        receipt_text: payload.analysisText,
+        receipt_text: serializedReceiptText,
       },
       {
         purchase_date: payload.date,
@@ -5827,7 +6172,7 @@ async function savePurchaseToSupabase(payload) {
         related_reference: payload.relatedReference,
         quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
         receipt_total: payload.total,
-        receipt_text: payload.analysisText,
+        receipt_text: serializedReceiptText,
       },
       {
         purchase_date: payload.date,
@@ -5915,7 +6260,7 @@ async function savePurchaseToSupabase(payload) {
       quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
       receipt_total: payload.total,
       receipt_files: payload.receipts,
-      receipt_text: payload.analysisText,
+      receipt_text: serializedReceiptText,
     },
     {
       purchase_date: payload.date,
@@ -5923,7 +6268,7 @@ async function savePurchaseToSupabase(payload) {
       related_reference: payload.relatedReference,
       quickbooks_invoice_number: payload.quickbooksInvoiceNumber,
       receipt_total: payload.total,
-      receipt_text: payload.analysisText,
+      receipt_text: serializedReceiptText,
     },
     {
       purchase_date: payload.date,
@@ -6203,25 +6548,34 @@ async function savePurchaseEntry(event) {
     return;
   }
 
-  if (!validateCurrentRecordPurchaseStep()) {
+  const selectedReceipts = [...purchaseReceiptInput.files];
+
+  if (!selectedReceipts.length) {
+    setPurchaseSaveStatus("Please add a receipt picture before saving.", "error");
     return;
   }
 
+  const analysisResult = await analyzeReceiptFiles(selectedReceipts);
+  const purchaseDateInput = document.getElementById("purchase-date");
+  const purchaseDate = purchaseDateInput?.value || getTodayIsoDate();
+  const inferredTotal =
+    analysisResult.suggestedTotal !== null && Number.isFinite(analysisResult.suggestedTotal)
+      ? Number(analysisResult.suggestedTotal)
+      : Number(receiptTotalInput?.value || 0);
+
   const payload = {
     id: editingPurchaseEntryId,
-    date: document.getElementById("purchase-date").value,
-    location: purchaseLocationSelect.value,
-    relatedReference:
-      purchaseRelatedInputs.find((input) => input.checked)?.value === "yes"
-        ? purchaseReferenceText.value.trim()
-        : "",
-    receipts: [...purchaseReceiptInput.files].map((file) => ({
+    date: purchaseDate,
+    location: "",
+    relatedReference: "",
+    receipts: selectedReceipts.map((file) => ({
       name: file.name,
       size: file.size,
       type: file.type,
     })),
-    total: Number(receiptTotalInput.value),
-    analysisText: receiptAnalysisText,
+    total: inferredTotal,
+    analysisText: analysisResult.analysisText || receiptAnalysisText,
+    notes: "",
     quickbooksInvoiceNumber: "",
     createdAt: editingPurchaseCreatedAt,
     archivedAt: null,
@@ -6236,31 +6590,28 @@ async function savePurchaseEntry(event) {
     );
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
     replaceEditedPurchaseEntry(previousEntryId, savedPurchase);
-    recordPurchaseForm.classList.add("hidden");
-    recordPurchaseStepTitle.textContent = "Purchase Recorded";
-    purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
-    purchaseSavedOutput.textContent = formatPurchaseSummary(savedPurchase);
-    purchaseSavedPanel.classList.remove("hidden");
-    recordPurchaseSaveButton.classList.add("hidden");
+    resetRecordPurchaseForm();
     setPurchaseSaveStatus(
       saveResult.message,
       saveResult.mode === "supabase" ? "success" : "warning"
     );
-    loadCheckReceiptsEntries();
+    await loadCheckReceiptsEntries();
+    setCheckReceiptsStatus("Receipt uploaded. Review the purchase details below.", "success");
+    showScreen("check-receipts");
   } catch (error) {
     console.error(error);
     const previousEntryId = editingPurchaseEntryId;
     const savedPurchase = buildLocalPurchaseEntry(payload, { id: null });
     localStorage.setItem("latestPurchaseEntry", JSON.stringify(savedPurchase, null, 2));
     replaceEditedPurchaseEntry(previousEntryId, savedPurchase);
-    recordPurchaseForm.classList.add("hidden");
-    recordPurchaseStepTitle.textContent = "Purchase Recorded";
-    purchaseSavedTitle.textContent = formatSavedPurchaseTitle(payload.date);
-    purchaseSavedOutput.textContent = formatPurchaseSummary(savedPurchase);
-    purchaseSavedPanel.classList.remove("hidden");
-    recordPurchaseSaveButton.classList.add("hidden");
+    resetRecordPurchaseForm();
     setPurchaseSaveStatus(getPurchaseSaveErrorMessage(error), "error");
-    loadCheckReceiptsEntries();
+    await loadCheckReceiptsEntries();
+    setCheckReceiptsStatus(
+      "Receipt was kept on this device. Review it below and check Supabase before processing.",
+      "warning"
+    );
+    showScreen("check-receipts");
   }
 }
 
@@ -6270,6 +6621,10 @@ document.querySelectorAll("[data-screen]").forEach((button) => {
 
     if (screenName === "record-day") {
       maybeStartFreshRecordDay();
+    }
+
+    if (screenName === "record-purchase") {
+      maybeStartFreshRecordPurchase();
     }
 
     if (screenName === "archived-items") {
@@ -6463,15 +6818,9 @@ recordDaySaveButton.addEventListener("click", () => {
 
   saveDayEntry();
 });
-recordPurchasePrevButton.addEventListener("click", goToPreviousRecordPurchaseStep);
-recordPurchaseNextButton.addEventListener("click", goToNextRecordPurchaseStep);
-recordPurchaseSaveButton.addEventListener("click", () => {
-  if (!validateCurrentRecordPurchaseStep()) {
-    return;
-  }
-
-  savePurchaseEntry();
-});
+recordPurchasePrevButton?.addEventListener("click", goToPreviousRecordPurchaseStep);
+recordPurchaseNextButton?.addEventListener("click", goToNextRecordPurchaseStep);
+recordPurchaseSaveButton?.addEventListener("click", savePurchaseEntry);
 dayRelatedInputs.forEach((input) => input.addEventListener("change", updateDayReferenceField));
 purchaseRelatedInputs.forEach((input) =>
   input.addEventListener("change", updatePurchaseReferenceField)
@@ -6479,14 +6828,14 @@ purchaseRelatedInputs.forEach((input) =>
 clearCommentsButton.addEventListener("click", clearComments);
 voiceCommentButton.addEventListener("click", startVoiceCapture);
 voiceStopButton.addEventListener("click", stopVoiceCapture);
-analyzeReceiptButton.addEventListener("click", analyzeReceipt);
+analyzeReceiptButton?.addEventListener("click", analyzeReceipt);
 showDaysButton.addEventListener("click", showSelectedDays);
 archiveSelectedDaysButton.addEventListener("click", archiveSelectedDaysFromSelectedScreen);
 copySelectedDaysButton.addEventListener("click", copySelectedDaysReport);
 archiveDaysButton.addEventListener("click", archiveSelectedDays);
 selectAllDaysButton.addEventListener("click", toggleSelectAllDays);
-emailReceiptsButton.addEventListener("click", emailSelectedReceipts);
 archiveReceiptsButton.addEventListener("click", archiveSelectedReceipts);
+selectAllReceiptsButton?.addEventListener("click", toggleSelectAllReceipts);
 syncTicketsButton.addEventListener("click", syncTickets);
 ticketsFilterButton.addEventListener("click", toggleTicketFilterPanel);
 ticketsByTimeButton.addEventListener("click", () => setTicketViewMode("time"));
@@ -6591,8 +6940,10 @@ ticketSearchInput.addEventListener("input", () => {
 });
 retrieveArchivedButton.addEventListener("click", retrieveSelectedArchivedItems);
 checkReceiptsList.addEventListener("click", (event) => {
-  const editButton = event.target.closest("[data-edit-receipt-id]");
+  const saveButton = event.target.closest("[data-save-receipt-id]");
   const deleteButton = event.target.closest("[data-delete-receipt-id]");
+  const dictateButton = event.target.closest("[data-dictate-receipt-note]");
+  const clearButton = event.target.closest("[data-clear-receipt-note]");
 
   if (deleteButton) {
     event.preventDefault();
@@ -6600,12 +6951,27 @@ checkReceiptsList.addEventListener("click", (event) => {
     return;
   }
 
-  if (!editButton) {
+  if (saveButton) {
+    event.preventDefault();
+    saveReviewedPurchase(saveButton.dataset.saveReceiptId);
     return;
   }
 
-  event.preventDefault();
-  loadPurchaseEntryForEditing(editButton.dataset.editReceiptId);
+  if (dictateButton) {
+    event.preventDefault();
+    startReceiptNoteDictation(dictateButton.dataset.dictateReceiptNote);
+    return;
+  }
+
+  if (clearButton) {
+    event.preventDefault();
+    clearReceiptNote(clearButton.dataset.clearReceiptNote);
+  }
+});
+checkReceiptsList.addEventListener("change", (event) => {
+  if (event.target.matches('input[type="checkbox"][data-receipt-id]')) {
+    updateSelectAllReceiptsButton();
+  }
 });
 checkHoursList.addEventListener("change", (event) => {
   if (event.target.matches('input[type="checkbox"][data-entry-id]')) {
@@ -6643,11 +7009,11 @@ savedEntryHomeButton.addEventListener("click", () => {
   showScreen("home");
 });
 savedEntryAnotherButton.addEventListener("click", startAnotherDay);
-purchaseSavedHomeButton.addEventListener("click", () => {
+purchaseSavedHomeButton?.addEventListener("click", () => {
   resetRecordPurchaseForm();
   showScreen("home");
 });
-purchaseSavedAnotherButton.addEventListener("click", startAnotherPurchase);
+purchaseSavedAnotherButton?.addEventListener("click", startAnotherPurchase);
 newEmployeeFirstNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();

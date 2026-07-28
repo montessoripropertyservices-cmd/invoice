@@ -141,7 +141,7 @@
             Check Hours
           </button>
           <button class="action-button" type="button" data-screen="check-receipts">
-            Check Receipts
+            Review Purchases
           </button>
           <button class="action-button" type="button" data-screen="tickets">
             Expansive Tickets
@@ -400,7 +400,7 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Record a Purchase</p>
-            <h2 id="record-purchase-step-title">Step 1 of 5</h2>
+            <h2 id="record-purchase-step-title">Take or Upload a Picture</h2>
           </div>
           <div class="section-actions">
             <button class="back-button" type="button" data-screen="home">Back</button>
@@ -408,123 +408,91 @@
         </div>
 
         <form id="record-purchase-form" novalidate>
-          <div class="wizard-progress" aria-hidden="true">
-            <div id="record-purchase-progress-bar" class="wizard-progress-bar"></div>
-          </div>
-
           <section class="wizard-step section-card section-date" data-purchase-step="0">
-            <p class="step-kicker">Step 1</p>
-            <h3 class="step-heading">When was the purchase made?</h3>
-            <label class="field-group field-group-large">
-              <span>Purchase date</span>
-              <input id="purchase-date" name="purchaseDate" type="date" required />
+            <p class="step-kicker">Receipt Capture</p>
+            <h3 class="step-heading">Take or upload a picture</h3>
+            <label class="purchase-capture-button action-button primary" for="purchase-receipts">
+              Take or Upload a Picture
             </label>
-          </section>
-
-          <section class="wizard-step section-card section-reference hidden" data-purchase-step="1">
-            <p class="step-kicker">Step 2</p>
-            <h3 class="step-heading">Is this related to an invoice or a ticket?</h3>
-            <div class="choice-grid">
-              <label class="choice-card">
-                <input type="radio" name="purchase-related" value="no" checked />
-                <span>No</span>
-              </label>
-              <label class="choice-card">
-                <input type="radio" name="purchase-related" value="yes" />
-                <span>Yes</span>
-              </label>
-            </div>
-
-            <label id="purchase-reference-field" class="field-group hidden">
-              <span>Invoice or ticket reference</span>
-              <input
-                id="purchase-reference-text"
-                type="text"
-                placeholder="Type the invoice or ticket number"
-              />
-            </label>
-          </section>
-
-          <section class="wizard-step section-card section-location hidden" data-purchase-step="2">
-            <p class="step-kicker">Step 3</p>
-            <h3 class="step-heading">Where was this purchase for?</h3>
-            <label class="field-group field-group-large">
-              <span>Location</span>
-              <select id="purchase-location-select" required></select>
-            </label>
-          </section>
-
-          <section class="wizard-step section-card section-attachments hidden" data-purchase-step="3">
-            <p class="step-kicker">Step 4</p>
-            <h3 class="step-heading">Attach pictures of the receipt</h3>
-            <label class="field-group field-group-large">
-              <span>Receipt photos</span>
+            <label class="field-group field-group-large hidden">
+              <span>Receipt photo</span>
               <input
                 id="purchase-receipts"
                 name="purchaseReceipts"
                 type="file"
                 accept="image/*"
-                multiple
+                capture="environment"
                 required
               />
             </label>
+            <p class="helper-text purchase-capture-helper">
+              Use the camera or photo library, then press save.
+            </p>
             <div id="purchase-receipt-list" class="attachment-list empty-state">
               No receipt images selected yet.
             </div>
-          </section>
-
-          <section class="wizard-step section-card section-hours hidden" data-purchase-step="4">
-            <p class="step-kicker">Step 5</p>
-            <h3 class="step-heading">Review the total from the receipt</h3>
-            <button id="analyze-receipt-button" class="submit-button analysis-button" type="button">
-              Analyze Receipt
-            </button>
-            <p id="receipt-analysis-status" class="helper-text"></p>
-
-            <label class="field-group field-group-large">
-              <span>Total amount</span>
-              <input
-                id="receipt-total"
-                name="receiptTotal"
-                type="number"
-                inputmode="decimal"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                required
-              />
-            </label>
-
-            <div class="analysis-block">
-              <p class="analysis-label">Receipt text found</p>
-              <pre id="receipt-analysis-output" class="receipt-analysis-output empty-state">
+            <div class="hidden">
+              <div class="wizard-progress" aria-hidden="true">
+                <div id="record-purchase-progress-bar" class="wizard-progress-bar"></div>
+              </div>
+              <label class="field-group">
+                <span>Purchase date</span>
+                <input id="purchase-date" name="purchaseDate" type="date" />
+              </label>
+              <div class="choice-grid">
+                <label class="choice-card">
+                  <input type="radio" name="purchase-related" value="no" checked />
+                  <span>No</span>
+                </label>
+                <label class="choice-card">
+                  <input type="radio" name="purchase-related" value="yes" />
+                  <span>Yes</span>
+                </label>
+              </div>
+              <label id="purchase-reference-field" class="field-group hidden">
+                <span>Invoice or ticket reference</span>
+                <input id="purchase-reference-text" type="text" />
+              </label>
+              <label class="field-group">
+                <span>Location</span>
+                <select id="purchase-location-select"></select>
+              </label>
+              <button id="analyze-receipt-button" class="submit-button analysis-button" type="button">
+                Analyze Receipt
+              </button>
+              <p id="receipt-analysis-status" class="helper-text"></p>
+              <label class="field-group">
+                <span>Total amount</span>
+                <input
+                  id="receipt-total"
+                  name="receiptTotal"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              </label>
+              <div class="analysis-block">
+                <p class="analysis-label">Receipt text found</p>
+                <pre id="receipt-analysis-output" class="receipt-analysis-output empty-state">
 No analysis yet.
-              </pre>
+                </pre>
+              </div>
             </div>
           </section>
 
-          <div class="wizard-nav">
-            <button id="record-purchase-prev" class="back-button" type="button">Back</button>
-            <button id="record-purchase-next" class="submit-button" type="button">Next</button>
-            <button id="record-purchase-save" class="submit-button hidden" type="button">
-              Save Purchase
+          <div class="wizard-nav purchase-capture-actions">
+            <button id="record-purchase-prev" class="back-button hidden" type="button">Back</button>
+            <button id="record-purchase-next" class="submit-button hidden" type="button">Next</button>
+            <button id="record-purchase-save" class="submit-button" type="button">
+              Save
             </button>
           </div>
         </form>
 
         <p id="purchase-save-status" class="save-status hidden" aria-live="polite"></p>
-
-        <section class="saved-panel hidden" id="purchase-saved-panel">
-          <p class="eyebrow">Saved successfully</p>
-          <h3 id="purchase-saved-title" class="saved-entry-title">Purchase Recorded</h3>
-          <pre id="purchase-saved-output"></pre>
-          <div class="saved-entry-actions">
-            <button id="purchase-saved-home" class="back-button" type="button">Return Home</button>
-            <button id="purchase-saved-another" class="submit-button" type="button">
-              Record Another Purchase
-            </button>
-          </div>
-        </section>
+        <section class="saved-panel hidden" id="purchase-saved-panel"></section>
       </section>
 
       <section class="form-card hidden" id="check-hours-screen">
@@ -761,8 +729,8 @@ No analysis yet.
       <section class="form-card hidden" id="check-receipts-screen">
         <div class="section-head">
           <div>
-            <p class="eyebrow">Check Receipts</p>
-            <h2>Recorded Receipts</h2>
+            <p class="eyebrow">Review Purchases</p>
+            <h2>Uploaded Purchases</h2>
           </div>
           <div class="section-actions">
             <button class="back-button" type="button" data-screen="home">Back</button>
@@ -770,8 +738,8 @@ No analysis yet.
         </div>
 
         <div class="hours-toolbar">
-          <button id="email-receipts-button" class="submit-button" type="button">
-            Email Details
+          <button id="select-all-receipts-button" class="back-button" type="button">
+            Select All
           </button>
           <button id="archive-receipts-button" class="back-button archive-button" type="button">
             Record Invoiced
