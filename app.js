@@ -4673,6 +4673,7 @@ async function signOut() {
 }
 
 function renderEmployees() {
+  const selectedEmployeeIds = new Set(getSelectedEmployees());
   employeeList.innerHTML = "";
 
   employees.forEach((employee) => {
@@ -4683,6 +4684,7 @@ function renderEmployees() {
     checkbox.type = "checkbox";
     checkbox.name = "employee";
     checkbox.value = employee.id;
+    checkbox.checked = selectedEmployeeIds.has(employee.id);
     checkbox.addEventListener("change", renderHoursFields);
 
     const text = document.createElement("span");
@@ -5778,7 +5780,22 @@ function getSelectedEmployees() {
   );
 }
 
+function getCurrentHoursDraft() {
+  const draft = {};
+
+  employees.forEach((employee) => {
+    const input = document.getElementById(`hours-${employee.id}`);
+
+    if (input && input.value) {
+      draft[employee.id] = input.value;
+    }
+  });
+
+  return draft;
+}
+
 function renderHoursFields() {
+  const existingHoursDraft = getCurrentHoursDraft();
   const selectedEmployees = getSelectedEmployees();
 
   if (!selectedEmployees.length) {
@@ -5807,7 +5824,7 @@ function renderHoursFields() {
     input.step = "0.25";
     input.required = true;
     input.placeholder = "Enter hours";
-    input.value = "8";
+    input.value = existingHoursDraft[employee] || "8";
 
     row.append(label, input);
     hoursFields.appendChild(row);
